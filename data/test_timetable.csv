@@ -1,0 +1,4 @@
+course_code,course_name,semester,section,faculty,room,day,start_time,end_time,class_type
+DB201,Database Systems,3,A,Faculty C,CS-201,Tuesday,10:00,11:30,lecture
+ITC101,Introduction to Computing,1,A,Faculty A,CS-101,Monday,14:00,15:30,lecture
+AI301,Artificial Intelligence,5,A,Faculty D,CS-301,Wednesday,16:00,14:00,lecture

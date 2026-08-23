@@ -1,0 +1,1653 @@
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    UploadFile,
+)
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from backend.clash_detector import detect_clashes
+from backend.course_parser import normalize_room
+from backend.database import Base, SessionLocal, engine
+from backend.importer import import_timetable_file
+from backend.models import (
+    TimetableChange,
+    TimetableEntry,
+)
+from backend.room_resolver import (
+    get_known_rooms,
+    room_is_available,
+    room_is_compatible,
+    suggest_room_fixes_for_clash,
+)
+from backend.schemas import (
+    RoomChangeRequest,
+    TimetableEntryCreate,
+    TimetableEntryResponse,
+)
+from backend.student_conflict_analyzer import (
+    analyze_student_conflicts,
+    summarize_student_conflicts,
+)
+from backend.student_conflict_groups import (
+    build_student_conflict_groups,
+    summarize_student_conflict_groups,
+)
+from backend.student_conflict_resolver import (
+    resolve_all_student_conflict_groups,
+)
+from backend.student_resolution_applier import (
+    StudentScheduleChange,
+    apply_student_resolution,
+    redo_student_resolution,
+    undo_student_resolution,
+)
+
+
+# ---------------------------------------------------------------------------
+# DATABASE TABLES
+# ---------------------------------------------------------------------------
+
+Base.metadata.create_all(bind=engine)
+
+
+# ---------------------------------------------------------------------------
+# APP
+# ---------------------------------------------------------------------------
+
+app = FastAPI(
+    title="UniTime AI API",
+    version="0.1.0",
+)
+
+
+# ---------------------------------------------------------------------------
+# DATABASE HELPERS
+# ---------------------------------------------------------------------------
+
+
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_all_entries(
+    db: Session,
+) -> list[TimetableEntry]:
+    statement = (
+        select(TimetableEntry)
+        .order_by(TimetableEntry.id)
+    )
+
+    return list(
+        db.scalars(statement).all()
+    )
+
+
+def get_room_clashes(
+    entries: list[TimetableEntry],
+) -> list[dict]:
+    return [
+        clash
+        for clash in detect_clashes(entries)
+        if clash.get("type") == "room"
+    ]
+
+
+def create_change_record(
+    db: Session,
+    *,
+    entry_id: int,
+    change_type: str,
+    old_room: str | None,
+    new_room: str | None,
+    reason: str | None = None,
+    score: float | None = None,
+) -> TimetableChange:
+    change = TimetableChange(
+        entry_id=entry_id,
+        change_type=change_type,
+        old_room=old_room,
+        new_room=new_room,
+        reason=reason,
+        score=score,
+    )
+
+    db.add(change)
+
+    return change
+
+
+# ---------------------------------------------------------------------------
+# BASIC API
+# ---------------------------------------------------------------------------
+
+
+@app.get("/")
+def root():
+    return {
+        "app": "UniTime AI",
+        "status": "running",
+        "version": "0.1.0",
+    }
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "database": "connected",
+    }
+
+
+# ---------------------------------------------------------------------------
+# TIMETABLE CRUD
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/timetable",
+    response_model=TimetableEntryResponse,
+    status_code=201,
+)
+def create_timetable_entry(
+    entry: TimetableEntryCreate,
+    db: Session = Depends(get_db),
+):
+    duplicate_statement = (
+        select(TimetableEntry)
+        .where(
+            TimetableEntry.entry_kind == entry.entry_kind,
+            TimetableEntry.course_code == entry.course_code,
+            TimetableEntry.course_name == entry.course_name,
+            TimetableEntry.semester == entry.semester,
+            TimetableEntry.section == entry.section,
+            TimetableEntry.faculty == entry.faculty,
+            TimetableEntry.room == entry.room,
+            TimetableEntry.day == entry.day,
+            TimetableEntry.start_time == entry.start_time,
+            TimetableEntry.end_time == entry.end_time,
+            TimetableEntry.class_type == entry.class_type,
+            TimetableEntry.raw_text == entry.raw_text,
+            TimetableEntry.source == entry.source,
+        )
+    )
+
+    duplicate = db.scalar(
+        duplicate_statement
+    )
+
+    if duplicate is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This timetable entry already exists.",
+        )
+
+    db_entry = TimetableEntry(
+        **entry.model_dump()
+    )
+
+    db.add(db_entry)
+    db.commit()
+    db.refresh(db_entry)
+
+    return db_entry
+
+
+@app.get(
+    "/timetable",
+    response_model=list[TimetableEntryResponse],
+)
+def get_timetable(
+    db: Session = Depends(get_db),
+):
+    statement = (
+        select(TimetableEntry)
+        .order_by(
+            TimetableEntry.day,
+            TimetableEntry.start_time,
+            TimetableEntry.id,
+        )
+    )
+
+    return list(
+        db.scalars(statement).all()
+    )
+
+
+@app.get(
+    "/timetable/{entry_id}",
+    response_model=TimetableEntryResponse,
+)
+def get_timetable_entry(
+    entry_id: int,
+    db: Session = Depends(get_db),
+):
+    entry = db.get(
+        TimetableEntry,
+        entry_id,
+    )
+
+    if entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Timetable entry not found.",
+        )
+
+    return entry
+
+
+@app.delete(
+    "/timetable/{entry_id}",
+    status_code=204,
+)
+def delete_timetable_entry(
+    entry_id: int,
+    db: Session = Depends(get_db),
+):
+    entry = db.get(
+        TimetableEntry,
+        entry_id,
+    )
+
+    if entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Timetable entry not found.",
+        )
+
+    db.delete(entry)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# TIMETABLE IMPORT
+# ---------------------------------------------------------------------------
+
+
+@app.post("/timetable/import")
+async def import_timetable(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    return await import_timetable_file(
+        file=file,
+        db=db,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GENERAL CLASH DETECTION
+# ---------------------------------------------------------------------------
+
+
+@app.get("/clashes")
+def get_clashes(
+    db: Session = Depends(get_db),
+):
+    entries = get_all_entries(
+        db
+    )
+
+    clashes = detect_clashes(
+        entries
+    )
+
+    return {
+        "total": len(clashes),
+        "clashes": clashes,
+    }
+
+
+# ---------------------------------------------------------------------------
+# ROOM CLASH SUGGESTIONS
+# ---------------------------------------------------------------------------
+
+
+@app.get("/clashes/room-suggestions")
+def get_room_clash_suggestions(
+    db: Session = Depends(get_db),
+):
+    entries = get_all_entries(
+        db
+    )
+
+    room_clashes = get_room_clashes(
+        entries
+    )
+
+    resolutions = [
+        suggest_room_fixes_for_clash(
+            clash=clash,
+            entries=entries,
+        )
+        for clash in room_clashes
+    ]
+
+    return {
+        "room_clashes": len(
+            room_clashes
+        ),
+        "resolutions": resolutions,
+    }
+
+
+# ---------------------------------------------------------------------------
+# STUDENT / COHORT RISK ANALYSIS
+# ---------------------------------------------------------------------------
+
+
+@app.get("/clashes/student-risk")
+def get_student_conflict_risks(
+    db: Session = Depends(get_db),
+):
+    entries = get_all_entries(
+        db
+    )
+
+    conflicts = analyze_student_conflicts(
+        entries
+    )
+
+    summary = summarize_student_conflicts(
+        conflicts
+    )
+
+    return {
+        "summary": summary,
+        "risks": conflicts,
+    }
+
+
+# ---------------------------------------------------------------------------
+# STUDENT CONFLICT GROUPS
+# ---------------------------------------------------------------------------
+
+
+@app.get("/clashes/student-groups")
+def get_student_conflict_groups(
+    db: Session = Depends(get_db),
+):
+    entries = get_all_entries(
+        db
+    )
+
+    risks = analyze_student_conflicts(
+        entries
+    )
+
+    groups = build_student_conflict_groups(
+        risks
+    )
+
+    summary = summarize_student_conflict_groups(
+        groups
+    )
+
+    return {
+        "summary": summary,
+        "groups": groups,
+    }
+
+
+# ---------------------------------------------------------------------------
+# STUDENT CONFLICT RESOLUTION SUGGESTIONS
+# ---------------------------------------------------------------------------
+
+
+@app.get("/clashes/student-resolutions")
+def get_student_conflict_resolutions(
+    db: Session = Depends(get_db),
+):
+    entries = get_all_entries(
+        db
+    )
+
+    risks = analyze_student_conflicts(
+        entries
+    )
+
+    groups = build_student_conflict_groups(
+        risks
+    )
+
+    resolutions = (
+        resolve_all_student_conflict_groups(
+            groups,
+            entries,
+        )
+    )
+
+    groups_with_suggestion = sum(
+        1
+        for resolution in resolutions
+        if resolution["best_fix"] is not None
+    )
+
+    groups_without_suggestion = (
+        len(resolutions)
+        - groups_with_suggestion
+    )
+
+    fully_feasible_best_fixes = sum(
+        1
+        for resolution in resolutions
+        if (
+            resolution["best_fix"] is not None
+            and resolution["best_fix"]["room_status"]
+            in {
+                "available",
+                "online",
+            }
+        )
+    )
+
+    best_fixes_requiring_room = sum(
+        1
+        for resolution in resolutions
+        if (
+            resolution["best_fix"] is not None
+            and resolution["best_fix"]["room_status"]
+            == "requires_assignment"
+        )
+    )
+
+    return {
+        "summary": {
+            "total_groups": len(
+                groups
+            ),
+            "groups_with_suggestion": (
+                groups_with_suggestion
+            ),
+            "groups_without_suggestion": (
+                groups_without_suggestion
+            ),
+            "fully_feasible_best_fixes": (
+                fully_feasible_best_fixes
+            ),
+            "best_fixes_requiring_room": (
+                best_fixes_requiring_room
+            ),
+            "important_note": (
+                "Student/cohort conflicts are inferred from "
+                "timetable structure without individual "
+                "enrollment data. These resolutions are "
+                "planning suggestions only."
+            ),
+        },
+        "resolutions": resolutions,
+    }
+
+
+# ---------------------------------------------------------------------------
+# APPLY STUDENT CONFLICT BEST FIX
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/clashes/student-groups/{group_id}/apply-best-fix"
+)
+def apply_student_conflict_best_fix(
+    group_id: int,
+    db: Session = Depends(get_db),
+):
+    try:
+        return apply_student_resolution(
+            db,
+            group_id=group_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# STUDENT SCHEDULE CHANGE HISTORY
+# ---------------------------------------------------------------------------
+
+
+@app.get("/student-schedule-changes")
+def get_student_schedule_changes(
+    db: Session = Depends(get_db),
+):
+    statement = (
+        select(StudentScheduleChange)
+        .order_by(
+            StudentScheduleChange.id.desc()
+        )
+    )
+
+    changes = list(
+        db.scalars(statement).all()
+    )
+
+    return {
+        "total": len(changes),
+        "changes": [
+            {
+                "id": change.id,
+                "entry_id": change.entry_id,
+                "group_id": change.group_id,
+                "change_type": (
+                    change.change_type
+                ),
+                "old_day": change.old_day,
+                "old_start_time": (
+                    change.old_start_time
+                ),
+                "old_end_time": (
+                    change.old_end_time
+                ),
+                "new_day": change.new_day,
+                "new_start_time": (
+                    change.new_start_time
+                ),
+                "new_end_time": (
+                    change.new_end_time
+                ),
+                "score": change.score,
+                "risk_cost_before": (
+                    change.risk_cost_before
+                ),
+                "risk_cost_after": (
+                    change.risk_cost_after
+                ),
+                "total_risks_before": (
+                    change.total_risks_before
+                ),
+                "total_risks_after": (
+                    change.total_risks_after
+                ),
+                "undone": change.undone,
+                "created_at": (
+                    change.created_at.isoformat()
+                    if change.created_at
+                    else None
+                ),
+            }
+            for change in changes
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# UNDO STUDENT SCHEDULE CHANGE
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/student-schedule-changes/{change_id}/undo"
+)
+def undo_student_schedule_change(
+    change_id: int,
+    db: Session = Depends(get_db),
+):
+    try:
+        return undo_student_resolution(
+            db,
+            change_id=change_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# REDO STUDENT SCHEDULE CHANGE
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/student-schedule-changes/{change_id}/redo"
+)
+def redo_student_schedule_change(
+    change_id: int,
+    db: Session = Depends(get_db),
+):
+    try:
+        return redo_student_resolution(
+            db,
+            change_id=change_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# MANUAL SAFE ROOM CHANGE
+# ---------------------------------------------------------------------------
+
+
+@app.patch(
+    "/timetable/{entry_id}/room",
+    response_model=TimetableEntryResponse,
+)
+def change_timetable_room(
+    entry_id: int,
+    request: RoomChangeRequest,
+    db: Session = Depends(get_db),
+):
+    entry = db.get(
+        TimetableEntry,
+        entry_id,
+    )
+
+    if entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Timetable entry not found.",
+        )
+
+    requested_room = normalize_room(
+        request.room
+    )
+
+    entries = get_all_entries(
+        db
+    )
+
+    known_rooms = get_known_rooms(
+        entries
+    )
+
+    normalized_known_rooms = {
+        normalize_room(room)
+        for room in known_rooms
+    }
+
+    if requested_room not in normalized_known_rooms:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": (
+                    "Requested room does not exist "
+                    "in the known timetable room list."
+                ),
+                "requested_room": requested_room,
+                "known_rooms": known_rooms,
+            },
+        )
+
+    current_room = (
+        normalize_room(entry.room)
+        if entry.room
+        else None
+    )
+
+    if requested_room == current_room:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Requested room is already assigned "
+                "to this timetable entry."
+            ),
+        )
+
+    if not room_is_compatible(
+        requested_room,
+        entry.class_type,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": (
+                    "Requested room is not compatible "
+                    "with this class type."
+                ),
+                "class_type": entry.class_type,
+                "requested_room": requested_room,
+            },
+        )
+
+    if not room_is_available(
+        room=requested_room,
+        day=entry.day,
+        start_time=entry.start_time,
+        end_time=entry.end_time,
+        entries=entries,
+        ignore_entry_id=entry.id,
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Requested room is already occupied "
+                    "during this timetable entry."
+                ),
+                "requested_room": requested_room,
+                "day": entry.day,
+                "start_time": entry.start_time,
+                "end_time": entry.end_time,
+            },
+        )
+
+    old_room = entry.room
+
+    entry.room = requested_room
+
+    db.flush()
+
+    refreshed_entries = get_all_entries(
+        db
+    )
+
+    new_room_clashes = [
+        clash
+        for clash in get_room_clashes(
+            refreshed_entries
+        )
+        if (
+            clash["entry_1"]["id"] == entry.id
+            or clash["entry_2"]["id"] == entry.id
+        )
+    ]
+
+    if new_room_clashes:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Room change was rejected because "
+                    "it would create another room clash."
+                ),
+                "clashes": new_room_clashes,
+            },
+        )
+
+    create_change_record(
+        db,
+        entry_id=entry.id,
+        change_type="manual_room_change",
+        old_room=old_room,
+        new_room=requested_room,
+        reason="Manual room change",
+        score=None,
+    )
+
+    try:
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(entry)
+
+    return entry
+
+
+# ---------------------------------------------------------------------------
+# APPLY BEST ROOM FIX
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/clashes/room/{entry_1_id}/{entry_2_id}/apply-best-fix"
+)
+def apply_best_room_fix(
+    entry_1_id: int,
+    entry_2_id: int,
+    db: Session = Depends(get_db),
+):
+    entries = get_all_entries(
+        db
+    )
+
+    room_clashes_before = get_room_clashes(
+        entries
+    )
+
+    before_count = len(
+        room_clashes_before
+    )
+
+    requested_pair = {
+        entry_1_id,
+        entry_2_id,
+    }
+
+    target_clash = None
+
+    for clash in room_clashes_before:
+        clash_pair = {
+            clash["entry_1"]["id"],
+            clash["entry_2"]["id"],
+        }
+
+        if clash_pair == requested_pair:
+            target_clash = clash
+            break
+
+    if target_clash is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": (
+                    "The specified timetable entries "
+                    "do not currently form a room clash."
+                ),
+                "entry_1_id": entry_1_id,
+                "entry_2_id": entry_2_id,
+            },
+        )
+
+    resolution = suggest_room_fixes_for_clash(
+        clash=target_clash,
+        entries=entries,
+    )
+
+    best_fix = resolution.get(
+        "best_fix"
+    )
+
+    if best_fix is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "No safe room alternative is "
+                    "currently available for this clash."
+                ),
+                "clash": target_clash,
+            },
+        )
+
+    target_entry = db.get(
+        TimetableEntry,
+        best_fix["entry_id"],
+    )
+
+    if target_entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Best-fix timetable entry "
+                "no longer exists."
+            ),
+        )
+
+    old_room = target_entry.room
+
+    new_room = normalize_room(
+        best_fix["to_room"]
+    )
+
+    if not room_is_compatible(
+        new_room,
+        target_entry.class_type,
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Best-fix room is no longer "
+                    "compatible with the timetable entry."
+                ),
+                "room": new_room,
+                "class_type": target_entry.class_type,
+            },
+        )
+
+    current_entries = get_all_entries(
+        db
+    )
+
+    if not room_is_available(
+        room=new_room,
+        day=target_entry.day,
+        start_time=target_entry.start_time,
+        end_time=target_entry.end_time,
+        entries=current_entries,
+        ignore_entry_id=target_entry.id,
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "The recommended room became "
+                    "occupied before the fix "
+                    "could be applied."
+                ),
+                "room": new_room,
+                "entry_id": target_entry.id,
+            },
+        )
+
+    target_entry.room = new_room
+
+    db.flush()
+
+    updated_entries = get_all_entries(
+        db
+    )
+
+    room_clashes_after = get_room_clashes(
+        updated_entries
+    )
+
+    after_count = len(
+        room_clashes_after
+    )
+
+    target_new_clashes = [
+        clash
+        for clash in room_clashes_after
+        if (
+            clash["entry_1"]["id"] == target_entry.id
+            or clash["entry_2"]["id"] == target_entry.id
+        )
+    ]
+
+    if target_new_clashes:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Best fix was rejected because "
+                    "it created another room clash."
+                ),
+                "clashes": target_new_clashes,
+            },
+        )
+
+    if after_count >= before_count:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Best fix was rejected because "
+                    "it did not reduce the room-clash count."
+                ),
+                "before": before_count,
+                "after": after_count,
+            },
+        )
+
+    change = create_change_record(
+        db,
+        entry_id=target_entry.id,
+        change_type="auto_room_fix",
+        old_room=old_room,
+        new_room=new_room,
+        reason=target_clash.get(
+            "reason"
+        ),
+        score=float(
+            best_fix["score"]
+        ),
+    )
+
+    try:
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(target_entry)
+    db.refresh(change)
+
+    return {
+        "success": True,
+        "message": (
+            "Best room fix applied successfully."
+        ),
+        "change_id": change.id,
+        "applied_fix": {
+            "entry_id": target_entry.id,
+            "course_code": (
+                target_entry.course_code
+            ),
+            "course_name": (
+                target_entry.course_name
+            ),
+            "day": target_entry.day,
+            "start_time": (
+                target_entry.start_time
+            ),
+            "end_time": (
+                target_entry.end_time
+            ),
+            "from_room": old_room,
+            "to_room": target_entry.room,
+            "score": best_fix["score"],
+            "reasons": best_fix["reasons"],
+        },
+        "room_clashes_before": before_count,
+        "room_clashes_after": after_count,
+        "remaining_room_clashes": (
+            room_clashes_after
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# ROOM CHANGE HISTORY
+# ---------------------------------------------------------------------------
+
+
+@app.get("/changes")
+def get_changes(
+    db: Session = Depends(get_db),
+):
+    statement = (
+        select(TimetableChange)
+        .order_by(
+            TimetableChange.id.desc()
+        )
+    )
+
+    changes = list(
+        db.scalars(statement).all()
+    )
+
+    return {
+        "total": len(changes),
+        "changes": [
+            {
+                "id": change.id,
+                "entry_id": change.entry_id,
+                "change_type": change.change_type,
+                "old_room": change.old_room,
+                "new_room": change.new_room,
+                "reason": change.reason,
+                "score": change.score,
+                "created_at": (
+                    change.created_at.isoformat()
+                    if change.created_at
+                    else None
+                ),
+                "undone": change.undone,
+            }
+            for change in changes
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# UNDO ROOM CHANGE
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/changes/{change_id}/undo"
+)
+def undo_change(
+    change_id: int,
+    db: Session = Depends(get_db),
+):
+    change = db.get(
+        TimetableChange,
+        change_id,
+    )
+
+    if change is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Change record not found.",
+        )
+
+    if change.undone:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This change has already been undone."
+            ),
+        )
+
+    entry = db.get(
+        TimetableEntry,
+        change.entry_id,
+    )
+
+    if entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "The timetable entry associated "
+                "with this change no longer exists."
+            ),
+        )
+
+    current_normalized_room = (
+        normalize_room(entry.room)
+        if entry.room
+        else None
+    )
+
+    expected_normalized_room = (
+        normalize_room(change.new_room)
+        if change.new_room
+        else None
+    )
+
+    if current_normalized_room != expected_normalized_room:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Undo rejected because the "
+                    "timetable entry has changed "
+                    "since this history record "
+                    "was created."
+                ),
+                "current_room": entry.room,
+                "expected_room": change.new_room,
+            },
+        )
+
+    room_clashes_before = get_room_clashes(
+        get_all_entries(db)
+    )
+
+    before_count = len(
+        room_clashes_before
+    )
+
+    current_room = entry.room
+
+    entry.room = change.old_room
+
+    db.flush()
+
+    entries_after_undo = get_all_entries(
+        db
+    )
+
+    room_clashes_after = get_room_clashes(
+        entries_after_undo
+    )
+
+    after_count = len(
+        room_clashes_after
+    )
+
+    reintroduced_clashes = [
+        clash
+        for clash in room_clashes_after
+        if (
+            clash["entry_1"]["id"] == entry.id
+            or clash["entry_2"]["id"] == entry.id
+        )
+    ]
+
+    change.undone = True
+
+    try:
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(entry)
+    db.refresh(change)
+
+    return {
+        "success": True,
+        "message": (
+            "Change undone successfully."
+        ),
+        "change_id": change.id,
+        "entry_id": entry.id,
+        "from_room": current_room,
+        "restored_room": entry.room,
+        "undone": change.undone,
+        "room_clashes_before": before_count,
+        "room_clashes_after": after_count,
+        "reintroduced_room_clashes": len(
+            reintroduced_clashes
+        ),
+        "warnings": (
+            [
+                (
+                    "Undo restored the previous "
+                    "timetable state but "
+                    "reintroduced room clash(es)."
+                )
+            ]
+            if reintroduced_clashes
+            else []
+        ),
+        "reintroduced_clashes": (
+            reintroduced_clashes
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# REDO ROOM CHANGE
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/changes/{change_id}/redo"
+)
+def redo_change(
+    change_id: int,
+    db: Session = Depends(get_db),
+):
+    change = db.get(
+        TimetableChange,
+        change_id,
+    )
+
+    if change is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Change record not found.",
+        )
+
+    if not change.undone:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This change is currently active "
+                "and does not need to be redone."
+            ),
+        )
+
+    entry = db.get(
+        TimetableEntry,
+        change.entry_id,
+    )
+
+    if entry is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "The timetable entry associated "
+                "with this change no longer exists."
+            ),
+        )
+
+    current_normalized_room = (
+        normalize_room(entry.room)
+        if entry.room
+        else None
+    )
+
+    expected_old_room = (
+        normalize_room(change.old_room)
+        if change.old_room
+        else None
+    )
+
+    if current_normalized_room != expected_old_room:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Redo rejected because the "
+                    "timetable entry has changed "
+                    "since it was undone."
+                ),
+                "current_room": entry.room,
+                "expected_room": change.old_room,
+            },
+        )
+
+    if change.new_room is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Redo rejected because this "
+                "room change has no target room."
+            ),
+        )
+
+    target_room = normalize_room(
+        change.new_room
+    )
+
+    entries_before = get_all_entries(
+        db
+    )
+
+    before_count = len(
+        get_room_clashes(
+            entries_before
+        )
+    )
+
+    if not room_is_compatible(
+        target_room,
+        entry.class_type,
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Redo rejected because the "
+                    "target room is no longer "
+                    "compatible with the class."
+                ),
+                "room": target_room,
+                "class_type": entry.class_type,
+            },
+        )
+
+    if not room_is_available(
+        room=target_room,
+        day=entry.day,
+        start_time=entry.start_time,
+        end_time=entry.end_time,
+        entries=entries_before,
+        ignore_entry_id=entry.id,
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Redo rejected because the "
+                    "target room is currently occupied."
+                ),
+                "room": target_room,
+                "day": entry.day,
+                "start_time": entry.start_time,
+                "end_time": entry.end_time,
+            },
+        )
+
+    old_current_room = entry.room
+
+    entry.room = target_room
+
+    db.flush()
+
+    entries_after = get_all_entries(
+        db
+    )
+
+    room_clashes_after = get_room_clashes(
+        entries_after
+    )
+
+    after_count = len(
+        room_clashes_after
+    )
+
+    new_entry_clashes = [
+        clash
+        for clash in room_clashes_after
+        if (
+            clash["entry_1"]["id"] == entry.id
+            or clash["entry_2"]["id"] == entry.id
+        )
+    ]
+
+    if new_entry_clashes:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": (
+                    "Redo rejected because "
+                    "reapplying the change would "
+                    "create a room clash."
+                ),
+                "clashes": new_entry_clashes,
+            },
+        )
+
+    change.undone = False
+
+    try:
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(entry)
+    db.refresh(change)
+
+    return {
+        "success": True,
+        "message": (
+            "Change reapplied successfully."
+        ),
+        "change_id": change.id,
+        "entry_id": entry.id,
+        "from_room": old_current_room,
+        "reapplied_room": entry.room,
+        "undone": change.undone,
+        "room_clashes_before": before_count,
+        "room_clashes_after": after_count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# UNIFIED AUDIT TRAIL
+# ---------------------------------------------------------------------------
+
+
+@app.get("/audit-trail")
+def get_audit_trail(
+    db: Session = Depends(get_db),
+):
+    room_statement = (
+        select(TimetableChange)
+        .order_by(TimetableChange.id)
+    )
+
+    student_statement = (
+        select(StudentScheduleChange)
+        .order_by(StudentScheduleChange.id)
+    )
+
+    room_changes = list(
+        db.scalars(room_statement).all()
+    )
+
+    student_changes = list(
+        db.scalars(student_statement).all()
+    )
+
+    audit_items: list[dict] = []
+
+    for change in room_changes:
+        entry = db.get(
+            TimetableEntry,
+            change.entry_id,
+        )
+
+        audit_items.append(
+            {
+                "audit_type": "room_change",
+                "history_id": change.id,
+                "entry_id": change.entry_id,
+                "course_code": (
+                    entry.course_code
+                    if entry
+                    else None
+                ),
+                "course_name": (
+                    entry.course_name
+                    if entry
+                    else None
+                ),
+                "change_type": (
+                    change.change_type
+                ),
+                "before": {
+                    "room": (
+                        change.old_room
+                    ),
+                },
+                "after": {
+                    "room": (
+                        change.new_room
+                    ),
+                },
+                "reason": (
+                    change.reason
+                ),
+                "score": (
+                    change.score
+                ),
+                "undone": (
+                    change.undone
+                ),
+                "created_at": (
+                    change.created_at.isoformat()
+                    if change.created_at
+                    else None
+                ),
+            }
+        )
+
+    for change in student_changes:
+        entry = db.get(
+            TimetableEntry,
+            change.entry_id,
+        )
+
+        audit_items.append(
+            {
+                "audit_type": (
+                    "student_schedule_change"
+                ),
+                "history_id": (
+                    change.id
+                ),
+                "entry_id": (
+                    change.entry_id
+                ),
+                "course_code": (
+                    entry.course_code
+                    if entry
+                    else None
+                ),
+                "course_name": (
+                    entry.course_name
+                    if entry
+                    else None
+                ),
+                "group_id": (
+                    change.group_id
+                ),
+                "change_type": (
+                    change.change_type
+                ),
+                "before": {
+                    "day": (
+                        change.old_day
+                    ),
+                    "start_time": (
+                        change.old_start_time
+                    ),
+                    "end_time": (
+                        change.old_end_time
+                    ),
+                },
+                "after": {
+                    "day": (
+                        change.new_day
+                    ),
+                    "start_time": (
+                        change.new_start_time
+                    ),
+                    "end_time": (
+                        change.new_end_time
+                    ),
+                },
+                "risk_cost_before": (
+                    change.risk_cost_before
+                ),
+                "risk_cost_after": (
+                    change.risk_cost_after
+                ),
+                "score": (
+                    change.score
+                ),
+                "undone": (
+                    change.undone
+                ),
+                "created_at": (
+                    change.created_at.isoformat()
+                    if change.created_at
+                    else None
+                ),
+            }
+        )
+
+    audit_items.sort(
+        key=lambda item: (
+            item["created_at"] is None,
+            item["created_at"] or "",
+        ),
+        reverse=True,
+    )
+
+    active_count = sum(
+        1
+        for item in audit_items
+        if not item["undone"]
+    )
+
+    undone_count = (
+        len(audit_items)
+        - active_count
+    )
+
+    room_count = sum(
+        1
+        for item in audit_items
+        if item["audit_type"]
+        == "room_change"
+    )
+
+    student_count = sum(
+        1
+        for item in audit_items
+        if item["audit_type"]
+        == "student_schedule_change"
+    )
+
+    return {
+        "summary": {
+            "total_changes": len(
+                audit_items
+            ),
+            "active_changes": (
+                active_count
+            ),
+            "undone_changes": (
+                undone_count
+            ),
+            "room_changes": (
+                room_count
+            ),
+            "student_schedule_changes": (
+                student_count
+            ),
+        },
+        "audit_trail": (
+            audit_items
+        ),
+    }
