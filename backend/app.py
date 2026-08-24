@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from backend.config import CORS_ORIGINS
 from backend.logging_config import configure_logging, get_logger
+from backend.api_middleware import register_api_middleware
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
 from backend.database import Base, SessionLocal, engine
@@ -89,6 +90,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+register_api_middleware(app)
 
 
 # ---------------------------------------------------------------------------
