@@ -226,6 +226,38 @@ class StudentEnrollment(Base):
         default=_auth_utc_now,
     )
 
+
+class FacultyClassAssignment(Base):
+    __tablename__ = "faculty_class_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "faculty_user_id",
+            "course_code",
+            "section",
+            "semester",
+            name="uq_faculty_class_assignment_identity",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    faculty_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    course_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    section: Mapped[str] = mapped_column(String(50), nullable=False)
+    semester: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+    )
+
 class StudentClashReport(Base):
     __tablename__ = "student_clash_reports"
     __table_args__ = (

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from backend.enrollment_schemas import EnrollmentCreate
 from backend.models import StudentEnrollment
+from backend.schedule_matching import section_matches, semester_matches
 
 
 def list_student_enrollments(db: Session, user_id: int) -> list[StudentEnrollment]:
@@ -65,13 +66,6 @@ def delete_student_enrollment(
     db.delete(enrollment)
     db.commit()
 
-def _section_matches(enrolled_section: str, timetable_section: str | None) -> bool:
-    if timetable_section is None or not timetable_section.strip():
-        return True
-    sections = {part.strip().upper() for part in timetable_section.split(",") if part.strip()}
-    return enrolled_section.strip().upper() in sections
-
-
 def get_student_timetable(db: Session, user_id: int):
     enrollments = list_student_enrollments(db, user_id)
     if not enrollments:
@@ -94,9 +88,9 @@ def get_student_timetable(db: Session, user_id: int):
         for enrollment in enrollments:
             if enrollment.course_code.strip().upper() != entry_code:
                 continue
-            if not _section_matches(enrollment.section, entry.section):
+            if not section_matches(enrollment.section, entry.section):
                 continue
-            if entry.semester and enrollment.semester.strip().lower() != entry.semester.strip().lower():
+            if not semester_matches(enrollment.semester, entry.semester):
                 continue
 
             if entry.id not in seen_ids:

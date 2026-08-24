@@ -24,6 +24,8 @@ from backend.auth_routes import router as auth_router
 from backend.clash_report_routes import review_router as clash_report_review_router
 from backend.clash_report_routes import student_router as student_clash_report_router
 from backend.enrollment_routes import router as enrollment_router
+from backend.faculty_routes import faculty_router
+from backend.faculty_routes import management_router as faculty_management_router
 from backend.student_routes import router as student_router
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
@@ -121,6 +123,8 @@ app.include_router(enrollment_router)
 app.include_router(student_router)
 app.include_router(student_clash_report_router)
 app.include_router(clash_report_review_router)
+app.include_router(faculty_router)
+app.include_router(faculty_management_router)
 
 
 # ---------------------------------------------------------------------------
