@@ -11,6 +11,12 @@ from sqlalchemy.orm import Session
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
 from backend.database import Base, SessionLocal, engine
+from backend.global_optimizer import (
+    optimize_timetable_globally,
+)
+from backend.global_optimizer_applier import apply_global_best_move
+from backend.multi_step_optimizer import build_multi_step_optimization_plan
+from backend.multi_step_plan_applier import apply_multi_step_optimization_plan
 from backend.importer import import_timetable_file
 from backend.models import (
     TimetableChange,
@@ -59,7 +65,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="UniTime AI API",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 
@@ -134,7 +140,8 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.1.0",
+        "version": "0.2.0",
+        "phase": 2,
     }
 
 
@@ -484,6 +491,118 @@ def get_student_conflict_resolutions(
         },
         "resolutions": resolutions,
     }
+
+
+# ---------------------------------------------------------------------------
+# PHASE 2 - GLOBAL TIMETABLE OPTIMIZER
+# ---------------------------------------------------------------------------
+
+
+@app.get("/optimizer/global")
+def get_global_timetable_optimization(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    """
+    Rank globally beneficial timetable moves.
+
+    READ-ONLY:
+    This endpoint never modifies the database.
+
+    The optimizer evaluates candidate student/cohort conflict
+    resolutions against the entire timetable and rejects moves
+    that worsen general clashes or global student/cohort risk.
+    """
+
+    if limit < 1:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "limit must be greater than or equal to 1."
+            ),
+        )
+
+    if limit > 100:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "limit must be less than or equal to 100."
+            ),
+        )
+
+    entries = get_all_entries(
+        db
+    )
+
+    result = optimize_timetable_globally(
+        entries,
+        limit=limit,
+    )
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# PHASE 2 - MULTI-STEP OPTIMIZATION PLAN
+# ---------------------------------------------------------------------------
+
+
+@app.get("/optimizer/plan")
+def get_multi_step_optimization_plan(
+    max_steps: int = 5,
+    db: Session = Depends(get_db),
+):
+    try:
+        entries = get_all_entries(db)
+        return build_multi_step_optimization_plan(
+            entries,
+            max_steps=max_steps,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# PHASE 2 - APPLY MULTI-STEP OPTIMIZATION
+# ---------------------------------------------------------------------------
+
+
+@app.post("/optimizer/plan/apply")
+def apply_multi_step_optimizer_plan(
+    max_steps: int = 5,
+    db: Session = Depends(get_db),
+):
+    try:
+        return apply_multi_step_optimization_plan(
+            db,
+            max_steps=max_steps,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# APPLY GLOBAL OPTIMIZER BEST MOVE
+# ---------------------------------------------------------------------------
+
+
+@app.post("/optimizer/global/apply-best")
+def apply_global_optimizer_best_move(
+    db: Session = Depends(get_db),
+):
+    try:
+        return apply_global_best_move(db)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -1598,7 +1717,7 @@ def get_audit_trail(
 
     audit_items.sort(
         key=lambda item: (
-            item["created_at"] is None,
+            item["created_at"] is not None,
             item["created_at"] or "",
         ),
         reverse=True,
