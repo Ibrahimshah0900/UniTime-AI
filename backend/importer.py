@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.models import TimetableEntry
+from backend.logging_config import get_logger
+from backend.upload_security import read_timetable_upload
 from backend.schemas import TimetableEntryCreate
 
 
@@ -110,6 +112,8 @@ COLUMN_ALIASES = {
 }
 
 
+logger = get_logger(__name__)
+
 def normalize_column_name(value: str) -> str:
     normalized = value.strip().lower()
 
@@ -149,26 +153,17 @@ def read_timetable_file(
     content: bytes,
 ) -> pd.DataFrame:
     suffix = Path(filename).suffix.lower()
-
     try:
-        if suffix == ".csv":
+        if suffix == '.csv':
             return pd.read_csv(BytesIO(content))
-
-        if suffix == ".xlsx":
-            return pd.read_excel(
-                BytesIO(content),
-                engine="openpyxl",
-            )
-
+        if suffix == '.xlsx':
+            return pd.read_excel(BytesIO(content), engine='openpyxl')
     except Exception as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Could not read timetable file: {exc}",
-        ) from exc
-
+        logger.exception('Failed to parse timetable upload | filename=%s', filename)
+        raise HTTPException(status_code=400, detail='Could not read timetable file.') from exc
     raise HTTPException(
-        status_code=400,
-        detail="Only CSV and XLSX files are supported.",
+        status_code=415,
+        detail='Unsupported timetable file type. Only CSV and XLSX files are supported.',
     )
 
 
@@ -238,16 +233,10 @@ async def import_timetable_file(
     file: UploadFile,
     db: Session,
 ) -> dict:
-    if not file.filename:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded file must have a filename.",
-        )
-
-    content = await file.read()
+    filename, content = await read_timetable_upload(file)
 
     dataframe = read_timetable_file(
-        filename=file.filename,
+        filename=filename,
         content=content,
     )
 
@@ -267,6 +256,9 @@ async def import_timetable_file(
                 "column_mapping": column_mapping,
             },
         )
+
+    if dataframe.empty:
+        raise HTTPException(status_code=400, detail='Timetable file contains no data rows.')
 
     rows_read = len(dataframe)
     imported = 0
@@ -324,10 +316,18 @@ async def import_timetable_file(
         db.add(db_entry)
         imported += 1
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.exception('Failed to commit timetable import.')
+        raise HTTPException(
+            status_code=500,
+            detail='Could not save imported timetable entries.',
+        ) from exc
 
     return {
-        "filename": file.filename,
+        "filename": filename,
         "rows_read": rows_read,
         "imported": imported,
         "duplicates": duplicates,

@@ -61,3 +61,16 @@ ALLOWED_HOSTS = _parse_origins(
     )
 )
 
+def _positive_int_env(name: str, default: int) -> int:
+    raw_value = os.getenv(name, str(default))
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(f'{name} must be an integer.') from exc
+    if value < 1:
+        raise RuntimeError(f'{name} must be at least 1.')
+    return value
+
+MAX_TIMETABLE_UPLOAD_MB = _positive_int_env('MAX_TIMETABLE_UPLOAD_MB', 10)
+MAX_TIMETABLE_UPLOAD_BYTES = MAX_TIMETABLE_UPLOAD_MB * 1024 * 1024
+
