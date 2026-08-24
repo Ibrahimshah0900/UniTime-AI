@@ -5,9 +5,11 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.config import CORS_ORIGINS
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
 from backend.database import Base, SessionLocal, engine
@@ -74,6 +76,14 @@ from backend.student_resolution_applier import (
 app = FastAPI(
     title="UniTime AI API",
     version="0.2.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
