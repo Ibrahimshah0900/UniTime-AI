@@ -4,8 +4,15 @@ from typing import Literal
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     field_validator,
     model_validator,
+)
+
+from backend.schedule_matching import (
+    normalize_course_code,
+    normalize_section,
+    normalize_semester,
 )
 
 
@@ -44,14 +51,16 @@ AllowedEntryKind = Literal[
 
 
 class TimetableEntryCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     entry_kind: AllowedEntryKind = "course"
 
-    course_code: str | None = None
-    course_name: str | None = None
-    semester: str | None = None
-    section: str | None = None
-    faculty: str | None = None
-    room: str | None = None
+    course_code: str | None = Field(default=None, max_length=50)
+    course_name: str | None = Field(default=None, max_length=150)
+    semester: str | None = Field(default=None, max_length=50)
+    section: str | None = Field(default=None, max_length=50)
+    faculty: str | None = Field(default=None, max_length=150)
+    room: str | None = Field(default=None, max_length=150)
 
     day: AllowedDay
 
@@ -60,15 +69,12 @@ class TimetableEntryCreate(BaseModel):
 
     class_type: AllowedClassType = "lecture"
 
-    raw_text: str | None = None
+    raw_text: str | None = Field(default=None, max_length=500)
 
     source: AllowedSource = "manual"
 
     @field_validator(
-        "course_code",
         "course_name",
-        "semester",
-        "section",
         "faculty",
         "room",
         "raw_text",
@@ -87,6 +93,30 @@ class TimetableEntryCreate(BaseModel):
             return None
 
         return value
+
+    @field_validator("course_code")
+    @classmethod
+    def normalize_optional_course_code(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = normalize_course_code(value)
+        return normalized or None
+
+    @field_validator("section")
+    @classmethod
+    def normalize_optional_section(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = normalize_section(value)
+        return normalized or None
+
+    @field_validator("semester")
+    @classmethod
+    def normalize_optional_semester(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = normalize_semester(value)
+        return normalized or None
 
     @field_validator(
         "start_time",
@@ -154,4 +184,14 @@ class TimetableEntryResponse(
     )
 
 class RoomChangeRequest(BaseModel):
-    room: str
+    model_config = ConfigDict(extra="forbid")
+
+    room: str = Field(min_length=1, max_length=150)
+
+    @field_validator("room")
+    @classmethod
+    def clean_room(cls, value: str) -> str:
+        normalized = " ".join(value.split())
+        if not normalized:
+            raise ValueError("room is required")
+        return normalized

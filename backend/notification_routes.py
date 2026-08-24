@@ -24,6 +24,7 @@ from backend.notification_service import (
     process_due_notifications,
     update_notification_preferences,
 )
+from backend.operation_schemas import NotificationReadAllResponse
 
 
 router = APIRouter(tags=["Notifications"])
@@ -88,7 +89,10 @@ def read_my_notification(
     )
 
 
-@router.post("/notifications/read-all")
+@router.post(
+    "/notifications/read-all",
+    response_model=NotificationReadAllResponse,
+)
 def read_all_my_notifications(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),

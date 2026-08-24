@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from backend.api_errors import register_api_error_handlers
 from backend.api_middleware import register_api_middleware
+from backend.account_routes import account_router
 from backend.auth_dependencies import require_roles
 from backend.auth_routes import router as auth_router
 from backend.auth_types import UserRole
@@ -28,6 +29,7 @@ def create_test_context():
     register_api_middleware(app)
     register_api_error_handlers(app)
     app.include_router(auth_router)
+    app.include_router(account_router)
 
     def override_get_db():
         db = test_session()
@@ -170,3 +172,28 @@ def test_role_authorization_uses_live_database_role():
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
+
+
+def test_password_change_revokes_existing_access_tokens():
+    client, _ = create_test_context()
+    assert register_student(client).status_code == 201
+    old_token = login_student(client).json()["access_token"]
+    old_headers = {"Authorization": f"Bearer {old_token}"}
+
+    changed = client.post(
+        "/account/change-password",
+        headers=old_headers,
+        json={
+            "current_password": "Password123",
+            "new_password": "NewPassword123",
+        },
+    )
+
+    assert changed.status_code == 204
+    assert client.get("/auth/me", headers=old_headers).status_code == 401
+    new_login = login_student(client, password="NewPassword123")
+    assert new_login.status_code == 200
+    new_headers = {
+        "Authorization": f"Bearer {new_login.json()['access_token']}"
+    }
+    assert client.get("/auth/me", headers=new_headers).status_code == 200

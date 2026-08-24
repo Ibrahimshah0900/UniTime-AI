@@ -23,8 +23,8 @@ def create_student(db):
     return user
 
 
-def add_entry(db, section, semester=None):
-    entry = TimetableEntry(course_code="AI232", course_name="Artificial Intelligence", section=section, semester=semester, day="Monday", start_time="10:00", end_time="11:00")
+def add_entry(db, section, semester=None, day="Monday"):
+    entry = TimetableEntry(course_code="AI232", course_name="Artificial Intelligence", section=section, semester=semester, day=day, start_time="10:00", end_time="11:00")
     db.add(entry)
     db.commit()
     db.refresh(entry)
@@ -55,3 +55,24 @@ def test_semester_is_enforced_when_present():
         add_entry(db, "A", "Spring 2026")
         timetable = get_student_timetable(db, student.id)
         assert [entry.id for entry in timetable] == [matching.id]
+
+
+def test_personal_timetable_uses_weekday_order():
+    Session = create_session()
+    with Session() as db:
+        student = create_student(db)
+        create_student_enrollment(
+            db,
+            user_id=student.id,
+            request=EnrollmentCreate(
+                course_code="AI232",
+                section="A",
+                semester="Fall 2026",
+            ),
+        )
+        monday = add_entry(db, "A", "Fall 2026", day="Monday")
+        friday = add_entry(db, "A", "Fall 2026", day="Friday")
+
+        timetable = get_student_timetable(db, student.id)
+
+        assert [entry.id for entry in timetable] == [monday.id, friday.id]

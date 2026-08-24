@@ -1,6 +1,6 @@
 # UniTime-AI backend API contract
 
-Contract version: `0.6.0`
+Contract version: `0.6.1`
 
 The exact OpenAPI snapshot is committed as `docs/openapi.json`. JSON requests reject unknown fields where request models use `extra="forbid"`. Authenticated requests send `Authorization: Bearer <access_token>`.
 
@@ -54,12 +54,12 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 ## Key request contracts
 
-- Enrollment create: `course_code`, `section`, `semester` (non-empty strings).
+- Enrollment create: `course_code`, `section`, `semester` (non-empty strings). Course and section identities are stored uppercase; semester casing is normalized consistently. Case-only variants are duplicates.
 - Clash-report create: 2–10 unique positive `timetable_entry_ids`, optional `notes`, optional `evidence_reference`. Every entry must belong to the student's personal timetable and at least one selected pair must overlap.
 - Clash review: `status` plus terminal `resolution_note`; duplicate status also requires `duplicate_of_report_id`. Allowed transitions are `submitted -> under_review|rejected|duplicate` and `under_review -> resolved|rejected|duplicate`.
 - Faculty assignment create: `faculty_user_id`, `course_code`, `section`, `semester`.
 - Notification preferences: nullable reminder minutes (`5|10|15|30`), daily-summary flag/time, schedule-change flag, clash-report-update flag.
-- Timetable create uses the `TimetableEntryCreate` schema in OpenAPI. Import accepts multipart CSV/XLSX with configured size/type validation.
+- Timetable create uses the strict `TimetableEntryCreate` schema in OpenAPI. Unknown fields are rejected and all text limits match their database columns. Import accepts multipart CSV/XLSX with configured size/type validation.
 
 ## Stable response conventions
 
@@ -71,4 +71,4 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 ## Token handling
 
-Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. The backend does not issue refresh tokens in contract version 0.6.0; clients return to login after expiry.
+Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.6.1; clients return to login after expiry.

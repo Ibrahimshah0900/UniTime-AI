@@ -38,7 +38,11 @@ def get_current_user(
         raise authentication_error()
 
     user = get_user_by_id(db, payload.user_id)
-    if user is None or not user.is_active:
+    if (
+        user is None
+        or not user.is_active
+        or user.token_version != payload.token_version
+    ):
         raise authentication_error()
 
     return user

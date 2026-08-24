@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.faculty_schemas import FacultyAssignmentCreate
 from backend.models import FacultyClassAssignment, TimetableEntry, User
-from backend.schedule_matching import section_matches, semester_matches
+from backend.schedule_matching import (
+    section_matches,
+    semester_matches,
+    timetable_sort_key,
+)
 
 
 def _serialize_assignment(
@@ -63,6 +67,20 @@ def create_faculty_assignment(
             detail="faculty_user_id must reference an active faculty account.",
         )
 
+    existing = db.scalar(
+        select(FacultyClassAssignment.id).where(
+            FacultyClassAssignment.faculty_user_id == faculty.id,
+            func.upper(FacultyClassAssignment.course_code) == request.course_code,
+            func.upper(FacultyClassAssignment.section) == request.section,
+            func.upper(FacultyClassAssignment.semester) == request.semester.upper(),
+        )
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This faculty class assignment already exists.",
+        )
+
     assignment = FacultyClassAssignment(
         faculty_user_id=faculty.id,
         course_code=request.course_code,
@@ -110,7 +128,10 @@ def get_faculty_timetable(db: Session, faculty_user_id: int) -> list[TimetableEn
     }
     entries = list(
         db.scalars(
-            select(TimetableEntry).where(TimetableEntry.course_code.is_not(None))
+            select(TimetableEntry).where(
+                TimetableEntry.course_code.is_not(None),
+                func.upper(TimetableEntry.course_code).in_(course_codes),
+            )
         ).all()
     )
     matches = []
@@ -130,7 +151,4 @@ def get_faculty_timetable(db: Session, faculty_user_id: int) -> list[TimetableEn
                 matches.append(entry)
                 seen_ids.add(entry.id)
             break
-    return sorted(
-        matches,
-        key=lambda entry: (entry.day, entry.start_time, entry.course_code or ""),
-    )
+    return sorted(matches, key=timetable_sort_key)

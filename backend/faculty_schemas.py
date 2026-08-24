@@ -4,6 +4,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from backend.schedule_matching import (
+    normalize_course_code,
+    normalize_section,
+    normalize_semester,
+)
+
 
 class FacultyAssignmentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -13,10 +19,26 @@ class FacultyAssignmentCreate(BaseModel):
     section: str = Field(min_length=1, max_length=50)
     semester: str = Field(min_length=1, max_length=50)
 
-    @field_validator("course_code", "section", "semester")
+    @field_validator("course_code")
     @classmethod
-    def normalize_text(cls, value: str) -> str:
-        normalized = " ".join(value.split())
+    def normalize_course(cls, value: str) -> str:
+        normalized = normalize_course_code(value)
+        if not normalized:
+            raise ValueError("Value is required.")
+        return normalized
+
+    @field_validator("section")
+    @classmethod
+    def normalize_assignment_section(cls, value: str) -> str:
+        normalized = normalize_section(value)
+        if not normalized:
+            raise ValueError("Value is required.")
+        return normalized
+
+    @field_validator("semester")
+    @classmethod
+    def normalize_assignment_semester(cls, value: str) -> str:
+        normalized = normalize_semester(value)
         if not normalized:
             raise ValueError("Value is required.")
         return normalized

@@ -19,6 +19,7 @@ class InvalidAccessTokenError(ValueError):
 @dataclass(frozen=True, slots=True)
 class AccessTokenPayload:
     user_id: int
+    token_version: int
 
 
 def hash_password(password: str) -> str:
@@ -32,10 +33,16 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, *, token_version: int = 0) -> str:
     now = datetime.now(UTC)
     expires_at = now + timedelta(minutes=AUTH_ACCESS_TOKEN_MINUTES)
-    payload = {"sub": str(user_id), "type": "access", "iat": now, "exp": expires_at}
+    payload = {
+        "sub": str(user_id),
+        "type": "access",
+        "ver": token_version,
+        "iat": now,
+        "exp": expires_at,
+    }
     return jwt.encode(payload, AUTH_SECRET_KEY, algorithm=AUTH_ALGORITHM)
 
 
@@ -45,7 +52,7 @@ def decode_access_token(token: str) -> AccessTokenPayload:
             token,
             AUTH_SECRET_KEY,
             algorithms=[AUTH_ALGORITHM],
-            options={"require": ["sub", "type", "iat", "exp"]},
+            options={"require": ["sub", "type", "ver", "iat", "exp"]},
         )
     except jwt.PyJWTError as exc:
         raise InvalidAccessTokenError("Access token is invalid.") from exc
@@ -55,13 +62,14 @@ def decode_access_token(token: str) -> AccessTokenPayload:
 
     try:
         user_id = int(payload["sub"])
+        token_version = int(payload["ver"])
     except (KeyError, TypeError, ValueError) as exc:
         raise InvalidAccessTokenError("Access token is invalid.") from exc
 
-    if user_id < 1:
+    if user_id < 1 or token_version < 0:
         raise InvalidAccessTokenError("Access token is invalid.")
 
-    return AccessTokenPayload(user_id=user_id)
+    return AccessTokenPayload(user_id=user_id, token_version=token_version)
 
 
 def access_token_lifetime_seconds() -> int:

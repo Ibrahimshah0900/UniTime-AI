@@ -54,6 +54,34 @@ def test_duplicate_enrollment_is_rejected():
         assert exc_info.value.status_code == 409
 
 
+def test_duplicate_enrollment_identity_is_case_insensitive():
+    Session = create_test_session()
+    with Session() as db:
+        student = create_student(db, "student-case@example.edu")
+        create_student_enrollment(
+            db,
+            user_id=student.id,
+            request=EnrollmentCreate(
+                course_code="ai-301",
+                section="a",
+                semester="FALL 2026",
+            ),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_student_enrollment(
+                db,
+                user_id=student.id,
+                request=EnrollmentCreate(
+                    course_code="AI-301",
+                    section="A",
+                    semester="fall 2026",
+                ),
+            )
+
+        assert exc_info.value.status_code == 409
+
+
 def test_student_can_delete_own_enrollment():
     Session = create_test_session()
     with Session() as db:

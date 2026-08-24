@@ -32,7 +32,10 @@ def login(request: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse
         )
 
     return TokenResponse(
-        access_token=create_access_token(user.id),
+        access_token=create_access_token(
+            user.id,
+            token_version=user.token_version,
+        ),
         expires_in_seconds=access_token_lifetime_seconds(),
         user=UserResponse.model_validate(user),
     )

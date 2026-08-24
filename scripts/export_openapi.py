@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 
-from backend.app import app
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from backend.app import app  # noqa: E402
 
 
-OUTPUT_PATH = Path(__file__).resolve().parents[1] / "docs" / "openapi.json"
+OUTPUT_PATH = PROJECT_ROOT / "docs" / "openapi.json"
 
 
 def main() -> None:

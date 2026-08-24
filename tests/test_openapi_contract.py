@@ -15,5 +15,28 @@ def test_committed_openapi_contract_matches_application():
 
 
 def test_api_contract_version_is_stable_for_frontend_handoff():
-    assert app.version == "0.6.0"
+    assert app.version == "0.6.1"
     assert len(app.openapi()["paths"]) == 53
+
+
+def test_successful_json_operations_publish_response_schemas():
+    schema = app.openapi()
+    untyped_operations: list[tuple[str, str]] = []
+
+    for path, path_item in schema["paths"].items():
+        for method, operation in path_item.items():
+            if method not in {"get", "post", "put", "patch", "delete"}:
+                continue
+            responses = operation.get("responses", {})
+            success = responses.get("200") or responses.get("201")
+            if success is None:
+                continue
+            response_schema = (
+                success.get("content", {})
+                .get("application/json", {})
+                .get("schema")
+            )
+            if response_schema == {}:
+                untyped_operations.append((method.upper(), path))
+
+    assert untyped_operations == []

@@ -35,6 +35,7 @@ from backend.faculty_routes import management_router as faculty_management_route
 from backend.student_routes import router as student_router
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
+from backend.concurrency import acquire_timetable_write_lock
 from backend.database import Base, engine, get_db
 from backend.global_optimizer import (
     optimize_timetable_globally,
@@ -56,6 +57,21 @@ from backend.models import (
     TimetableChange,
     TimetableEntry,
 )
+from backend.operation_schemas import (
+    AuditTrailResponse,
+    ChangeCollectionResponse,
+    ClashCollectionResponse,
+    FlexibleOperationResponse,
+    HealthResponse,
+    OptimizerExecutionCollectionResponse,
+    ReadinessResponse,
+    RootResponse,
+    RoomSuggestionCollectionResponse,
+    StudentGroupCollectionResponse,
+    StudentResolutionCollectionResponse,
+    StudentRiskCollectionResponse,
+    TimetableImportResponse,
+)
 from backend.room_resolver import (
     get_known_rooms,
     room_is_available,
@@ -67,6 +83,7 @@ from backend.schemas import (
     TimetableEntryCreate,
     TimetableEntryResponse,
 )
+from backend.schedule_matching import timetable_sort_key
 from backend.student_conflict_analyzer import (
     analyze_student_conflicts,
     summarize_student_conflicts,
@@ -106,7 +123,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.6.0",
+    version="0.6.1",
 )
 
 app.add_middleware(
@@ -208,17 +225,17 @@ def create_change_record(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/")
+@app.get("/", response_model=RootResponse)
 def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.6.0",
+        "version": "0.6.1",
         "phase": "backend_stabilization",
     }
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 def health_check():
     return {
         "status": "healthy",
@@ -241,6 +258,7 @@ def create_timetable_entry(
     entry: TimetableEntryCreate,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     duplicate_statement = (
         select(TimetableEntry)
         .where(
@@ -289,18 +307,8 @@ def create_timetable_entry(
 def get_timetable(
     db: Session = Depends(get_db),
 ):
-    statement = (
-        select(TimetableEntry)
-        .order_by(
-            TimetableEntry.day,
-            TimetableEntry.start_time,
-            TimetableEntry.id,
-        )
-    )
-
-    return list(
-        db.scalars(statement).all()
-    )
+    entries = list(db.scalars(select(TimetableEntry)).all())
+    return sorted(entries, key=timetable_sort_key)
 
 
 @app.get(
@@ -335,6 +343,7 @@ def delete_timetable_entry(
     entry_id: int,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     entry = db.get(
         TimetableEntry,
         entry_id,
@@ -363,11 +372,16 @@ def delete_timetable_entry(
 # ---------------------------------------------------------------------------
 
 
-@app.post("/timetable/import", dependencies=[Depends(require_coordinator_or_admin)])
+@app.post(
+    "/timetable/import",
+    response_model=TimetableImportResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 async def import_timetable(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     return await import_timetable_file(
         file=file,
         db=db,
@@ -379,7 +393,11 @@ async def import_timetable(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/clashes", dependencies=[Depends(require_coordinator_or_admin)])
+@app.get(
+    "/clashes",
+    response_model=ClashCollectionResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_clashes(
     db: Session = Depends(get_db),
 ):
@@ -404,6 +422,7 @@ def get_clashes(
 
 @app.get(
     "/clashes/room-suggestions",
+    response_model=RoomSuggestionCollectionResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_room_clash_suggestions(
@@ -440,6 +459,7 @@ def get_room_clash_suggestions(
 
 @app.get(
     "/clashes/student-risk",
+    response_model=StudentRiskCollectionResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_student_conflict_risks(
@@ -470,6 +490,7 @@ def get_student_conflict_risks(
 
 @app.get(
     "/clashes/student-groups",
+    response_model=StudentGroupCollectionResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_student_conflict_groups(
@@ -504,6 +525,7 @@ def get_student_conflict_groups(
 
 @app.get(
     "/clashes/student-resolutions",
+    response_model=StudentResolutionCollectionResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_student_conflict_resolutions(
@@ -597,6 +619,7 @@ def get_student_conflict_resolutions(
 
 @app.get(
     "/optimizer/global",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_global_timetable_optimization(
@@ -649,6 +672,7 @@ def get_global_timetable_optimization(
 
 @app.get(
     "/optimizer/plan",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_multi_step_optimization_plan(
@@ -673,11 +697,16 @@ def get_multi_step_optimization_plan(
 # ---------------------------------------------------------------------------
 
 
-@app.post("/optimizer/plan/apply", dependencies=[Depends(require_coordinator_or_admin)])
+@app.post(
+    "/optimizer/plan/apply",
+    response_model=FlexibleOperationResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def apply_multi_step_optimizer_plan(
     max_steps: int = 5,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     try:
         return apply_multi_step_plan_with_history(
             db,
@@ -695,10 +724,15 @@ def apply_multi_step_optimizer_plan(
 # ---------------------------------------------------------------------------
 
 
-@app.post("/optimizer/global/apply-best", dependencies=[Depends(require_coordinator_or_admin)])
+@app.post(
+    "/optimizer/global/apply-best",
+    response_model=FlexibleOperationResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def apply_global_optimizer_best_move(
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     try:
         return apply_global_best_move(db)
     except ValueError as exc:
@@ -715,12 +749,14 @@ def apply_global_optimizer_best_move(
 
 @app.post(
     "/clashes/student-groups/{group_id}/apply-best-fix",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def apply_student_conflict_best_fix(
     group_id: int,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     try:
         return apply_student_resolution(
             db,
@@ -741,6 +777,7 @@ def apply_student_conflict_best_fix(
 
 @app.get(
     "/student-schedule-changes",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_student_schedule_changes(
@@ -813,12 +850,14 @@ def get_student_schedule_changes(
 
 @app.post(
     "/student-schedule-changes/{change_id}/undo",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def undo_student_schedule_change(
     change_id: int,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     try:
         return undo_student_resolution(
             db,
@@ -839,12 +878,14 @@ def undo_student_schedule_change(
 
 @app.post(
     "/student-schedule-changes/{change_id}/redo",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def redo_student_schedule_change(
     change_id: int,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     try:
         return redo_student_resolution(
             db,
@@ -873,6 +914,7 @@ def change_timetable_room(
     request: RoomChangeRequest,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     entry = db.get(
         TimetableEntry,
         entry_id,
@@ -1031,6 +1073,7 @@ def change_timetable_room(
 
 @app.post(
     "/clashes/room/{entry_1_id}/{entry_2_id}/apply-best-fix",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def apply_best_room_fix(
@@ -1038,6 +1081,7 @@ def apply_best_room_fix(
     entry_2_id: int,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     entries = get_all_entries(
         db
     )
@@ -1279,7 +1323,11 @@ def apply_best_room_fix(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/changes", dependencies=[Depends(require_coordinator_or_admin)])
+@app.get(
+    "/changes",
+    response_model=ChangeCollectionResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_changes(
     db: Session = Depends(get_db),
 ):
@@ -1324,12 +1372,14 @@ def get_changes(
 
 @app.post(
     "/changes/{change_id}/undo",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def undo_change(
     change_id: int,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     change = db.get(
         TimetableChange,
         change_id,
@@ -1486,12 +1536,14 @@ def undo_change(
 
 @app.post(
     "/changes/{change_id}/redo",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def redo_change(
     change_id: int,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     change = db.get(
         TimetableChange,
         change_id,
@@ -1698,7 +1750,11 @@ def redo_change(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/audit-trail", dependencies=[Depends(require_coordinator_or_admin)])
+@app.get(
+    "/audit-trail",
+    response_model=AuditTrailResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_audit_trail(
     db: Session = Depends(get_db),
 ):
@@ -1904,11 +1960,16 @@ def get_audit_trail(
         ),
     }
 
-@app.post("/optimizer/executions/{execution_id}/undo", dependencies=[Depends(require_coordinator_or_admin)])
+@app.post(
+    "/optimizer/executions/{execution_id}/undo",
+    response_model=FlexibleOperationResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def undo_optimizer_execution_endpoint(
     execution_id: str,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     try:
         return undo_optimizer_execution(
             db,
@@ -1921,11 +1982,16 @@ def undo_optimizer_execution_endpoint(
         ) from exc
 
 
-@app.post("/optimizer/executions/{execution_id}/redo", dependencies=[Depends(require_coordinator_or_admin)])
+@app.post(
+    "/optimizer/executions/{execution_id}/redo",
+    response_model=FlexibleOperationResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def redo_optimizer_execution_endpoint(
     execution_id: str,
     db: Session = Depends(get_db),
 ):
+    acquire_timetable_write_lock(db)
     try:
         return redo_optimizer_execution(
             db,
@@ -1939,6 +2005,7 @@ def redo_optimizer_execution_endpoint(
 
 @app.get(
     "/optimizer/executions",
+    response_model=OptimizerExecutionCollectionResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def list_optimizer_executions_endpoint(
@@ -1951,6 +2018,7 @@ def list_optimizer_executions_endpoint(
 
 @app.get(
     "/optimizer/executions/{execution_id}",
+    response_model=FlexibleOperationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_optimizer_execution_endpoint(
@@ -1968,7 +2036,7 @@ def get_optimizer_execution_endpoint(
             detail=str(exc),
         ) from exc
 
-@app.get("/ready")
+@app.get("/ready", response_model=ReadinessResponse)
 def readiness_endpoint():
     try:
         return check_readiness(require_migration_head=True)

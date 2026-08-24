@@ -111,6 +111,37 @@ def test_duplicate_faculty_assignment_is_rejected():
         assert exc_info.value.status_code == 409
 
 
+def test_duplicate_faculty_assignment_identity_is_case_insensitive():
+    Session = create_test_session()
+    with Session() as db:
+        coordinator = create_user(db, "coordinator-case@example.edu", "coordinator")
+        faculty = create_user(db, "faculty-case@example.edu", "faculty")
+        create_faculty_assignment(
+            db,
+            created_by_user_id=coordinator.id,
+            request=FacultyAssignmentCreate(
+                faculty_user_id=faculty.id,
+                course_code="ai-301",
+                section="a",
+                semester="FALL 2026",
+            ),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_faculty_assignment(
+                db,
+                created_by_user_id=coordinator.id,
+                request=FacultyAssignmentCreate(
+                    faculty_user_id=faculty.id,
+                    course_code="AI-301",
+                    section="A",
+                    semester="fall 2026",
+                ),
+            )
+
+        assert exc_info.value.status_code == 409
+
+
 def test_faculty_timetable_uses_stable_course_section_and_semester_matching():
     Session = create_test_session()
     with Session() as db:

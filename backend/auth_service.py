@@ -11,6 +11,9 @@ from backend.auth_types import UserRole
 from backend.models import User
 
 
+_DUMMY_PASSWORD_HASH = hash_password("unitime-ai-login-timing-sentinel")
+
+
 def get_user_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == normalize_email(email)))
 
@@ -47,7 +50,12 @@ def create_student_account(db: Session, request: RegisterRequest) -> User:
 
 def authenticate_user(db: Session, *, email: str, password: str) -> User | None:
     user = get_user_by_email(db, email)
-    if user is None or not user.is_active or not verify_password(password, user.password_hash):
+    if user is None:
+        verify_password(password, _DUMMY_PASSWORD_HASH)
+        return None
+
+    password_matches = verify_password(password, user.password_hash)
+    if not user.is_active or not password_matches:
         return None
     return user
 

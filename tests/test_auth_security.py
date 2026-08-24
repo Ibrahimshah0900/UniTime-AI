@@ -28,9 +28,10 @@ def test_wrong_password_is_rejected():
 
 
 def test_access_token_round_trip():
-    token = create_access_token(42)
+    token = create_access_token(42, token_version=3)
     payload = decode_access_token(token)
     assert payload.user_id == 42
+    assert payload.token_version == 3
 
 
 def test_invalid_access_token_is_rejected():

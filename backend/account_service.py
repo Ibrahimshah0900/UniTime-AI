@@ -32,6 +32,7 @@ def change_password(db: Session, *, user: User, request: PasswordChange) -> None
     if not verify_password(request.current_password, managed_user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect.")
     managed_user.password_hash = hash_password(request.new_password)
+    managed_user.token_version += 1
     db.commit()
 
 
@@ -95,7 +96,11 @@ def update_admin_managed_user(
     target_user_id: int,
     request: AdminUserUpdate,
 ) -> User:
-    target = db.get(User, target_user_id)
+    target = db.scalar(
+        select(User)
+        .where(User.id == target_user_id)
+        .with_for_update()
+    )
     if target is None:
         raise HTTPException(status_code=404, detail="User not found.")
     if target.id == actor.id and (
@@ -110,14 +115,16 @@ def update_admin_managed_user(
         request.is_active is False
         or (request.role is not None and request.role.value != "admin")
     ):
-        other_active_admins = db.scalar(
-            select(func.count(User.id)).where(
+        active_admin_ids = list(
+            db.scalars(
+                select(User.id).where(
                 User.role == "admin",
                 User.is_active.is_(True),
-                User.id != target.id,
-            )
-        ) or 0
-        if other_active_admins == 0:
+                )
+                .with_for_update()
+            ).all()
+        )
+        if not any(admin_id != target.id for admin_id in active_admin_ids):
             raise HTTPException(
                 status_code=409,
                 detail="The last active administrator cannot be deactivated or demoted.",

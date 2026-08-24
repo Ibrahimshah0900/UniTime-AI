@@ -209,7 +209,11 @@ def update_clash_report(
     actor_user_id: int,
     request: ClashReportReviewUpdate,
 ) -> dict:
-    report = db.get(StudentClashReport, report_id)
+    report = db.scalar(
+        select(StudentClashReport)
+        .where(StudentClashReport.id == report_id)
+        .with_for_update()
+    )
     if report is None:
         raise HTTPException(status_code=404, detail="Clash report not found.")
 

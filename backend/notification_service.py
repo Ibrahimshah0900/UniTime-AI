@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.config import APP_TIMEZONE
@@ -105,7 +106,16 @@ def add_notification(
         payload_json=json.dumps(payload or {}, separators=(",", ":")),
         dedup_key=dedup_key,
     )
-    db.add(notification)
+    if dedup_key is None:
+        db.add(notification)
+        return notification
+
+    try:
+        with db.begin_nested():
+            db.add(notification)
+            db.flush()
+    except IntegrityError:
+        return None
     return notification
 
 

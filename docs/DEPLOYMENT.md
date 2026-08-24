@@ -33,6 +33,12 @@ Use one migration-running instance during deployments if the hosting platform st
 9. Verify CORS from the deployed frontend origin.
 10. Verify production `/docs`, `/redoc`, and `/openapi.json` are disabled.
 
+GitHub Actions performs both the strict SQLite regression suite and an authenticated role-flow smoke test against PostgreSQL 17. The PostgreSQL job applies the complete migration chain before exercising admin, coordinator, faculty, and student API paths.
+
+## Authentication edge protection
+
+The application returns uniform login errors and uses versioned, expiring access tokens. Configure the production ingress or API gateway to rate-limit `/auth/login` and `/auth/register` per source address, while allowing ordinary authenticated API traffic separately. A practical starting point is 10 authentication attempts per minute with a small burst allowance; tune this to the institution's identity and support policies. Do not expose Uvicorn directly to the public internet without this edge control and TLS termination.
+
 ## Notification job
 
 Call `POST /notification-jobs/process` on a one-minute schedule using a coordinator/admin service account. Generation is idempotent: class reminders and daily summaries use durable deduplication keys. For a larger deployment, this endpoint can later be moved behind a private worker without changing persisted notification contracts.

@@ -24,5 +24,42 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: alembic upgrade head
       - run: alembic check
-      - run: python -m pytest tests -q
+      - run: python -m pytest tests -q -p no:cacheprovider -W error
       - run: git diff --check
+      - run: docker build -t unitime-ai-api:ci .
+
+  postgres-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: unitime_ci
+          POSTGRES_USER: unitime_ci
+          POSTGRES_PASSWORD: unitime_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U unitime_ci -d unitime_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      APP_ENV: development
+      AUTH_SECRET_KEY: ci-only-secret-key-with-at-least-32-characters
+      DATABASE_URL: postgresql+psycopg://unitime_ci:unitime_ci_password@127.0.0.1:5432/unitime_ci
+      APP_TIMEZONE: Asia/Karachi
+      RUN_LIVE_DATABASE_TESTS: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements-dev.txt
+      - run: alembic upgrade head
+      - run: alembic check
+      - run: python -m pytest tests/test_live_database_smoke.py -q -p no:cacheprovider -W error

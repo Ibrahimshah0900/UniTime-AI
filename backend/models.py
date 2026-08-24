@@ -25,6 +25,7 @@ class TimetableEntry(Base):
     course_code: Mapped[Optional[str]] = mapped_column(
         String(50),
         nullable=True,
+        index=True,
     )
 
     course_name: Mapped[Optional[str]] = mapped_column(
@@ -50,11 +51,13 @@ class TimetableEntry(Base):
     room: Mapped[Optional[str]] = mapped_column(
         String(150),
         nullable=True,
+        index=True,
     )
 
     day: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
+        index=True,
     )
 
     start_time: Mapped[str] = mapped_column(
@@ -175,6 +178,12 @@ class User(Base):
     password_hash: _AuthMapped[str] = _auth_mapped_column(
         _AuthString(512),
         nullable=False,
+    )
+    token_version: _AuthMapped[int] = _auth_mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
     )
     role: _AuthMapped[str] = _auth_mapped_column(
         _AuthString(32),

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
-from backend.database import SessionLocal
+from backend.database import Base
 from backend.global_optimizer import (
     build_timetable_snapshot,
     optimize_timetable_globally,
@@ -24,7 +26,74 @@ from backend.multi_step_plan_applier import (
 # ---------------------------------------------------------------------------
 
 
-def load_entries() -> list[TimetableEntry]:
+def seed_entries(Session) -> None:
+    with Session() as db:
+        db.add_all(
+            [
+                TimetableEntry(
+                    course_code="CS-101",
+                    course_name="Programming Fundamentals",
+                    semester="Fall 2026",
+                    section="A",
+                    faculty="Dr Ada",
+                    room="C-101",
+                    day="Monday",
+                    start_time="09:00",
+                    end_time="10:00",
+                ),
+                TimetableEntry(
+                    course_code="MTH-101",
+                    course_name="Calculus",
+                    semester="Fall 2026",
+                    section="A",
+                    faculty="Dr Euler",
+                    room="C-102",
+                    day="Monday",
+                    start_time="09:30",
+                    end_time="10:30",
+                ),
+                TimetableEntry(
+                    course_code="CS-201",
+                    course_name="Data Structures",
+                    semester="Fall 2026",
+                    section="A",
+                    faculty="Dr Ada",
+                    room="C-101",
+                    day="Tuesday",
+                    start_time="10:00",
+                    end_time="11:00",
+                ),
+                TimetableEntry(
+                    course_code="PHY-101",
+                    course_name="Physics",
+                    semester="Fall 2026",
+                    section="B",
+                    faculty="Dr Curie",
+                    room="LAB-1",
+                    day="Wednesday",
+                    start_time="11:00",
+                    end_time="12:00",
+                    class_type="lab",
+                ),
+            ]
+        )
+        db.commit()
+
+
+@pytest.fixture
+def test_session():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    seed_entries(Session)
+    yield Session
+
+
+def load_entries(test_session) -> list[TimetableEntry]:
     """
     Load the current timetable in read-only form for optimizer tests.
 
@@ -32,7 +101,7 @@ def load_entries() -> list[TimetableEntry]:
     changes.
     """
 
-    db = SessionLocal()
+    db = test_session()
 
     try:
         statement = (
@@ -53,14 +122,14 @@ def load_entries() -> list[TimetableEntry]:
 # ---------------------------------------------------------------------------
 
 
-def test_timetable_has_entries():
-    entries = load_entries()
+def test_timetable_has_entries(test_session):
+    entries = load_entries(test_session)
 
     assert len(entries) > 0
 
 
-def test_baseline_snapshot_is_valid():
-    entries = load_entries()
+def test_baseline_snapshot_is_valid(test_session):
+    entries = load_entries(test_session)
 
     snapshot = build_timetable_snapshot(
         entries
@@ -94,8 +163,8 @@ def test_baseline_snapshot_is_valid():
 # ---------------------------------------------------------------------------
 
 
-def test_global_optimizer_is_read_only():
-    entries = load_entries()
+def test_global_optimizer_is_read_only(test_session):
+    entries = load_entries(test_session)
 
     before = [
         (
@@ -127,8 +196,8 @@ def test_global_optimizer_is_read_only():
     assert before == after
 
 
-def test_global_optimizer_returns_only_safe_moves():
-    entries = load_entries()
+def test_global_optimizer_returns_only_safe_moves(test_session):
+    entries = load_entries(test_session)
 
     result = optimize_timetable_globally(
         entries,
@@ -199,8 +268,8 @@ def test_global_optimizer_returns_only_safe_moves():
             )
 
 
-def test_global_optimizer_candidate_accounting():
-    entries = load_entries()
+def test_global_optimizer_candidate_accounting(test_session):
+    entries = load_entries(test_session)
 
     result = optimize_timetable_globally(
         entries,
@@ -233,8 +302,8 @@ def test_global_optimizer_candidate_accounting():
     )
 
 
-def test_global_optimizer_best_move_matches_ranking():
-    entries = load_entries()
+def test_global_optimizer_best_move_matches_ranking(test_session):
+    entries = load_entries(test_session)
 
     result = optimize_timetable_globally(
         entries,
@@ -264,8 +333,8 @@ def test_global_optimizer_best_move_matches_ranking():
 # ---------------------------------------------------------------------------
 
 
-def test_multi_step_planner_is_read_only():
-    entries = load_entries()
+def test_multi_step_planner_is_read_only(test_session):
+    entries = load_entries(test_session)
 
     before = [
         (
@@ -297,8 +366,8 @@ def test_multi_step_planner_is_read_only():
     assert before == after
 
 
-def test_multi_step_plan_never_worsens_global_safety():
-    entries = load_entries()
+def test_multi_step_plan_never_worsens_global_safety(test_session):
+    entries = load_entries(test_session)
 
     result = (
         build_multi_step_optimization_plan(
@@ -364,8 +433,8 @@ def test_multi_step_plan_never_worsens_global_safety():
     )
 
 
-def test_every_planner_step_is_monotonically_safe():
-    entries = load_entries()
+def test_every_planner_step_is_monotonically_safe(test_session):
+    entries = load_entries(test_session)
 
     result = (
         build_multi_step_optimization_plan(
@@ -411,8 +480,8 @@ def test_every_planner_step_is_monotonically_safe():
         )
 
 
-def test_planner_does_not_move_same_entry_twice():
-    entries = load_entries()
+def test_planner_does_not_move_same_entry_twice(test_session):
+    entries = load_entries(test_session)
 
     result = (
         build_multi_step_optimization_plan(
@@ -434,8 +503,8 @@ def test_planner_does_not_move_same_entry_twice():
     )
 
 
-def test_planner_step_count_is_bounded():
-    entries = load_entries()
+def test_planner_step_count_is_bounded(test_session):
+    entries = load_entries(test_session)
 
     requested = 5
 
@@ -462,8 +531,8 @@ def test_planner_step_count_is_bounded():
 # ---------------------------------------------------------------------------
 
 
-def test_planner_rejects_zero_steps():
-    entries = load_entries()
+def test_planner_rejects_zero_steps(test_session):
+    entries = load_entries(test_session)
 
     with pytest.raises(
         ValueError,
@@ -475,8 +544,8 @@ def test_planner_rejects_zero_steps():
         )
 
 
-def test_planner_rejects_excessive_steps():
-    entries = load_entries()
+def test_planner_rejects_excessive_steps(test_session):
+    entries = load_entries(test_session)
 
     with pytest.raises(
         ValueError,
@@ -491,14 +560,14 @@ def test_planner_rejects_excessive_steps():
         )
 
 
-def test_executor_rejects_zero_steps_without_writing():
+def test_executor_rejects_zero_steps_without_writing(test_session):
     """
     This exercises executor input protection only.
 
     max_steps=0 fails before any timetable mutation or commit.
     """
 
-    db = SessionLocal()
+    db = test_session()
 
     try:
         with pytest.raises(
@@ -515,13 +584,13 @@ def test_executor_rejects_zero_steps_without_writing():
         db.close()
 
 
-def test_executor_rejects_excessive_steps_without_writing():
+def test_executor_rejects_excessive_steps_without_writing(test_session):
     """
     This also fails before execution begins, so it is safe
     against the current database.
     """
 
-    db = SessionLocal()
+    db = test_session()
 
     try:
         with pytest.raises(

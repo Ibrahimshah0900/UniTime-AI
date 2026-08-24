@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.enrollment_schemas import EnrollmentCreate
 from backend.models import StudentEnrollment
-from backend.schedule_matching import section_matches, semester_matches
+from backend.schedule_matching import (
+    section_matches,
+    semester_matches,
+    timetable_sort_key,
+)
 
 
 def list_student_enrollments(db: Session, user_id: int) -> list[StudentEnrollment]:
@@ -29,6 +33,20 @@ def create_student_enrollment(
     user_id: int,
     request: EnrollmentCreate,
 ) -> StudentEnrollment:
+    existing = db.scalar(
+        select(StudentEnrollment.id).where(
+            StudentEnrollment.user_id == user_id,
+            func.upper(StudentEnrollment.course_code) == request.course_code,
+            func.upper(StudentEnrollment.section) == request.section,
+            func.upper(StudentEnrollment.semester) == request.semester.upper(),
+        )
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This course enrollment already exists.",
+        )
+
     enrollment = StudentEnrollment(
         user_id=user_id,
         course_code=request.course_code,
@@ -74,7 +92,10 @@ def get_student_timetable(db: Session, user_id: int):
     from backend.models import TimetableEntry
 
     course_codes = {enrollment.course_code.strip().upper() for enrollment in enrollments}
-    statement = select(TimetableEntry).where(TimetableEntry.course_code.is_not(None))
+    statement = select(TimetableEntry).where(
+        TimetableEntry.course_code.is_not(None),
+        func.upper(TimetableEntry.course_code).in_(course_codes),
+    )
     entries = list(db.scalars(statement).all())
 
     matches = []
@@ -98,4 +119,4 @@ def get_student_timetable(db: Session, user_id: int):
                 seen_ids.add(entry.id)
             break
 
-    return sorted(matches, key=lambda item: (item.day, item.start_time, item.course_code or ""))
+    return sorted(matches, key=timetable_sort_key)

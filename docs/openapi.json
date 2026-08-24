@@ -107,6 +107,31 @@
         "title": "AdminUserUpdate",
         "type": "object"
       },
+      "AuditTrailResponse": {
+        "properties": {
+          "audit_trail": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Audit Trail",
+            "type": "array"
+          },
+          "summary": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "summary",
+          "audit_trail"
+        ],
+        "title": "AuditTrailResponse",
+        "type": "object"
+      },
       "Body_import_timetable_timetable_import_post": {
         "properties": {
           "file": {
@@ -119,6 +144,50 @@
           "file"
         ],
         "title": "Body_import_timetable_timetable_import_post",
+        "type": "object"
+      },
+      "ChangeCollectionResponse": {
+        "properties": {
+          "changes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "changes"
+        ],
+        "title": "ChangeCollectionResponse",
+        "type": "object"
+      },
+      "ClashCollectionResponse": {
+        "properties": {
+          "clashes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Clashes",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "clashes"
+        ],
+        "title": "ClashCollectionResponse",
         "type": "object"
       },
       "ClashReportCreate": {
@@ -816,6 +885,13 @@
         "title": "FacultyAssignmentResponse",
         "type": "object"
       },
+      "FlexibleOperationResponse": {
+        "additionalProperties": true,
+        "description": "Preserve legacy optimizer payloads while publishing an object contract.",
+        "properties": {},
+        "title": "FlexibleOperationResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -827,6 +903,24 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "database"
+        ],
+        "title": "HealthResponse",
         "type": "object"
       },
       "LoginRequest": {
@@ -850,6 +944,34 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "MigrationReadinessResponse": {
+        "properties": {
+          "at_head": {
+            "title": "At Head",
+            "type": "boolean"
+          },
+          "expected_revision": {
+            "title": "Expected Revision",
+            "type": "string"
+          },
+          "managed": {
+            "title": "Managed",
+            "type": "boolean"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "managed",
+          "revision",
+          "expected_revision",
+          "at_head"
+        ],
+        "title": "MigrationReadinessResponse",
         "type": "object"
       },
       "NotificationJobResponse": {
@@ -1026,6 +1148,19 @@
         "title": "NotificationPreferenceUpdate",
         "type": "object"
       },
+      "NotificationReadAllResponse": {
+        "properties": {
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "updated"
+        ],
+        "title": "NotificationReadAllResponse",
+        "type": "object"
+      },
       "NotificationResponse": {
         "properties": {
           "created_at": {
@@ -1093,6 +1228,23 @@
         "title": "NotificationResponse",
         "type": "object"
       },
+      "OptimizerExecutionCollectionResponse": {
+        "properties": {
+          "executions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Executions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "executions"
+        ],
+        "title": "OptimizerExecutionCollectionResponse",
+        "type": "object"
+      },
       "PasswordChange": {
         "additionalProperties": false,
         "properties": {
@@ -1132,6 +1284,28 @@
         "title": "ProfileUpdate",
         "type": "object"
       },
+      "ReadinessResponse": {
+        "properties": {
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "migrations": {
+            "$ref": "#/components/schemas/MigrationReadinessResponse"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "migrations"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
       "RegisterRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1163,8 +1337,11 @@
         "type": "object"
       },
       "RoomChangeRequest": {
+        "additionalProperties": false,
         "properties": {
           "room": {
+            "maxLength": 150,
+            "minLength": 1,
             "title": "Room",
             "type": "string"
           }
@@ -1175,7 +1352,127 @@
         "title": "RoomChangeRequest",
         "type": "object"
       },
+      "RoomSuggestionCollectionResponse": {
+        "properties": {
+          "resolutions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Resolutions",
+            "type": "array"
+          },
+          "room_clashes": {
+            "title": "Room Clashes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "room_clashes",
+          "resolutions"
+        ],
+        "title": "RoomSuggestionCollectionResponse",
+        "type": "object"
+      },
+      "RootResponse": {
+        "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app",
+          "status",
+          "version",
+          "phase"
+        ],
+        "title": "RootResponse",
+        "type": "object"
+      },
+      "StudentGroupCollectionResponse": {
+        "properties": {
+          "groups": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "summary",
+          "groups"
+        ],
+        "title": "StudentGroupCollectionResponse",
+        "type": "object"
+      },
+      "StudentResolutionCollectionResponse": {
+        "properties": {
+          "resolutions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Resolutions",
+            "type": "array"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "summary",
+          "resolutions"
+        ],
+        "title": "StudentResolutionCollectionResponse",
+        "type": "object"
+      },
+      "StudentRiskCollectionResponse": {
+        "properties": {
+          "risks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Risks",
+            "type": "array"
+          },
+          "summary": {
+            "additionalProperties": true,
+            "title": "Summary",
+            "type": "object"
+          }
+        },
+        "required": [
+          "summary",
+          "risks"
+        ],
+        "title": "StudentRiskCollectionResponse",
+        "type": "object"
+      },
       "TimetableEntryCreate": {
+        "additionalProperties": false,
         "properties": {
           "class_type": {
             "default": "lecture",
@@ -1193,6 +1490,7 @@
           "course_code": {
             "anyOf": [
               {
+                "maxLength": 50,
                 "type": "string"
               },
               {
@@ -1204,6 +1502,7 @@
           "course_name": {
             "anyOf": [
               {
+                "maxLength": 150,
                 "type": "string"
               },
               {
@@ -1241,6 +1540,7 @@
           "faculty": {
             "anyOf": [
               {
+                "maxLength": 150,
                 "type": "string"
               },
               {
@@ -1252,6 +1552,7 @@
           "raw_text": {
             "anyOf": [
               {
+                "maxLength": 500,
                 "type": "string"
               },
               {
@@ -1263,6 +1564,7 @@
           "room": {
             "anyOf": [
               {
+                "maxLength": 150,
                 "type": "string"
               },
               {
@@ -1274,6 +1576,7 @@
           "section": {
             "anyOf": [
               {
+                "maxLength": 50,
                 "type": "string"
               },
               {
@@ -1285,6 +1588,7 @@
           "semester": {
             "anyOf": [
               {
+                "maxLength": 50,
                 "type": "string"
               },
               {
@@ -1320,6 +1624,7 @@
         "type": "object"
       },
       "TimetableEntryResponse": {
+        "additionalProperties": false,
         "properties": {
           "class_type": {
             "default": "lecture",
@@ -1337,6 +1642,7 @@
           "course_code": {
             "anyOf": [
               {
+                "maxLength": 50,
                 "type": "string"
               },
               {
@@ -1348,6 +1654,7 @@
           "course_name": {
             "anyOf": [
               {
+                "maxLength": 150,
                 "type": "string"
               },
               {
@@ -1385,6 +1692,7 @@
           "faculty": {
             "anyOf": [
               {
+                "maxLength": 150,
                 "type": "string"
               },
               {
@@ -1400,6 +1708,7 @@
           "raw_text": {
             "anyOf": [
               {
+                "maxLength": 500,
                 "type": "string"
               },
               {
@@ -1411,6 +1720,7 @@
           "room": {
             "anyOf": [
               {
+                "maxLength": 150,
                 "type": "string"
               },
               {
@@ -1422,6 +1732,7 @@
           "section": {
             "anyOf": [
               {
+                "maxLength": 50,
                 "type": "string"
               },
               {
@@ -1433,6 +1744,7 @@
           "semester": {
             "anyOf": [
               {
+                "maxLength": 50,
                 "type": "string"
               },
               {
@@ -1466,6 +1778,82 @@
           "id"
         ],
         "title": "TimetableEntryResponse",
+        "type": "object"
+      },
+      "TimetableImportError": {
+        "properties": {
+          "details": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row",
+          "type",
+          "details"
+        ],
+        "title": "TimetableImportError",
+        "type": "object"
+      },
+      "TimetableImportResponse": {
+        "properties": {
+          "column_mapping": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Column Mapping",
+            "type": "object"
+          },
+          "duplicates": {
+            "title": "Duplicates",
+            "type": "integer"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/TimetableImportError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "imported": {
+            "title": "Imported",
+            "type": "integer"
+          },
+          "invalid": {
+            "title": "Invalid",
+            "type": "integer"
+          },
+          "rows_read": {
+            "title": "Rows Read",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filename",
+          "rows_read",
+          "imported",
+          "duplicates",
+          "invalid",
+          "column_mapping",
+          "errors"
+        ],
+        "title": "TimetableImportResponse",
         "type": "object"
       },
       "TokenResponse": {
@@ -1599,7 +1987,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.6.0"
+    "version": "0.6.1"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -1610,7 +1998,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RootResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -1922,7 +2312,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AuditTrailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2051,7 +2443,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeCollectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2083,7 +2477,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2125,7 +2521,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2342,7 +2740,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ClashCollectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2363,7 +2763,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RoomSuggestionCollectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2404,7 +2806,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2435,7 +2839,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StudentGroupCollectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2467,7 +2873,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2498,7 +2906,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResolutionCollectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2519,7 +2929,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRiskCollectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2768,7 +3180,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -2976,7 +3390,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationReadAllResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3047,7 +3463,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OptimizerExecutionCollectionResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3079,7 +3497,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3121,7 +3541,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3163,7 +3585,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3207,7 +3631,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3238,7 +3664,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3271,7 +3699,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3314,7 +3744,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3345,7 +3777,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3361,7 +3795,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3393,7 +3829,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3435,7 +3873,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3840,7 +4280,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableImportResponse"
+                }
               }
             },
             "description": "Successful Response"
