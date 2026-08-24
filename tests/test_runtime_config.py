@@ -181,6 +181,12 @@ def test_production_configuration_can_be_valid(
         "production-test-secret-key-0123456789abcdef",
     )
 
+    monkeypatch.setattr(
+        runtime_config,
+        "DATABASE_URL",
+        "postgresql+psycopg://unitime:test@example.com/unitime",
+    )
+
     result = (
         runtime_config
         .validate_runtime_config()
@@ -189,6 +195,24 @@ def test_production_configuration_can_be_valid(
     assert result[
         "production"
     ] is True
+
+
+def test_production_rejects_sqlite_database(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(runtime_config, "IS_PRODUCTION", True)
+    monkeypatch.setattr(runtime_config, "APP_ENV", "production")
+    monkeypatch.setattr(runtime_config, "DATABASE_URL", "sqlite:///data/unitime.db")
+    monkeypatch.setattr(runtime_config, "ALLOWED_HOSTS", ["api.example.com"])
+    monkeypatch.setattr(runtime_config, "CORS_ORIGINS", ["https://app.example.com"])
+    monkeypatch.setattr(
+        runtime_config,
+        "AUTH_SECRET_KEY",
+        "production-test-secret-key-0123456789abcdef",
+    )
+
+    with pytest.raises(RuntimeError, match="must use PostgreSQL"):
+        runtime_config.validate_runtime_config()
 
 
 def test_documentation_enabled_in_development(

@@ -25,6 +25,23 @@ MUTATION_ROUTES = [
     ("POST", "/optimizer/executions/999999/redo"),
 ]
 
+OPERATIONAL_READ_ROUTES = [
+    "/timetable",
+    "/timetable/999999",
+    "/clashes",
+    "/clashes/room-suggestions",
+    "/clashes/student-risk",
+    "/clashes/student-groups",
+    "/clashes/student-resolutions",
+    "/optimizer/global",
+    "/optimizer/plan",
+    "/student-schedule-changes",
+    "/changes",
+    "/audit-trail",
+    "/optimizer/executions",
+    "/optimizer/executions/999999",
+]
+
 
 @pytest.mark.parametrize("method,path", MUTATION_ROUTES)
 def test_mutation_routes_require_coordinator_or_admin(method: str, path: str):
@@ -33,15 +50,33 @@ def test_mutation_routes_require_coordinator_or_admin(method: str, path: str):
     anonymous = client.request(method, path, json={})
     assert anonymous.status_code == 401
 
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-        role="student",
-        is_active=True,
-    )
-    try:
-        student = client.request(method, path, json={})
-        assert student.status_code == 403
-    finally:
-        app.dependency_overrides.clear()
+    for role in ("student", "faculty"):
+        app.dependency_overrides[get_current_user] = lambda role=role: SimpleNamespace(
+            role=role,
+            is_active=True,
+        )
+        try:
+            forbidden = client.request(method, path, json={})
+            assert forbidden.status_code == 403
+        finally:
+            app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("path", OPERATIONAL_READ_ROUTES)
+def test_operational_reads_require_coordinator_or_admin(path: str):
+    client = TestClient(app)
+
+    assert client.get(path).status_code == 401
+
+    for role in ("student", "faculty"):
+        app.dependency_overrides[get_current_user] = lambda role=role: SimpleNamespace(
+            role=role,
+            is_active=True,
+        )
+        try:
+            assert client.get(path).status_code == 403
+        finally:
+            app.dependency_overrides.clear()
 
 
 def test_coordinator_admin_role_policy():

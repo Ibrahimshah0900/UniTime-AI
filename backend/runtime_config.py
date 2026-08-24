@@ -47,6 +47,10 @@ def validate_runtime_config() -> dict[str, Any]:
         )
 
     if IS_PRODUCTION:
+        if not DATABASE_URL.startswith(("postgresql://", "postgresql+psycopg://")):
+            errors.append(
+                "Production DATABASE_URL must use PostgreSQL with the psycopg driver."
+            )
         if (
             AUTH_SECRET_KEY == DEFAULT_AUTH_SECRET_KEY
             or len(AUTH_SECRET_KEY) < 32

@@ -106,7 +106,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.2.0",
+    version="0.6.0",
 )
 
 app.add_middleware(
@@ -213,8 +213,8 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.2.0",
-        "phase": 2,
+        "version": "0.6.0",
+        "phase": "backend_stabilization",
     }
 
 
@@ -284,6 +284,7 @@ def create_timetable_entry(
 @app.get(
     "/timetable",
     response_model=list[TimetableEntryResponse],
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_timetable(
     db: Session = Depends(get_db),
@@ -305,6 +306,7 @@ def get_timetable(
 @app.get(
     "/timetable/{entry_id}",
     response_model=TimetableEntryResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_timetable_entry(
     entry_id: int,
@@ -377,7 +379,7 @@ async def import_timetable(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/clashes")
+@app.get("/clashes", dependencies=[Depends(require_coordinator_or_admin)])
 def get_clashes(
     db: Session = Depends(get_db),
 ):
@@ -400,7 +402,10 @@ def get_clashes(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/clashes/room-suggestions")
+@app.get(
+    "/clashes/room-suggestions",
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_room_clash_suggestions(
     db: Session = Depends(get_db),
 ):
@@ -433,7 +438,10 @@ def get_room_clash_suggestions(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/clashes/student-risk")
+@app.get(
+    "/clashes/student-risk",
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_student_conflict_risks(
     db: Session = Depends(get_db),
 ):
@@ -460,7 +468,10 @@ def get_student_conflict_risks(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/clashes/student-groups")
+@app.get(
+    "/clashes/student-groups",
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_student_conflict_groups(
     db: Session = Depends(get_db),
 ):
@@ -491,7 +502,10 @@ def get_student_conflict_groups(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/clashes/student-resolutions")
+@app.get(
+    "/clashes/student-resolutions",
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_student_conflict_resolutions(
     db: Session = Depends(get_db),
 ):
@@ -581,7 +595,10 @@ def get_student_conflict_resolutions(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/optimizer/global")
+@app.get(
+    "/optimizer/global",
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_global_timetable_optimization(
     limit: int = 20,
     db: Session = Depends(get_db),
@@ -630,7 +647,10 @@ def get_global_timetable_optimization(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/optimizer/plan")
+@app.get(
+    "/optimizer/plan",
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_multi_step_optimization_plan(
     max_steps: int = 5,
     db: Session = Depends(get_db),
@@ -719,7 +739,10 @@ def apply_student_conflict_best_fix(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/student-schedule-changes")
+@app.get(
+    "/student-schedule-changes",
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_student_schedule_changes(
     db: Session = Depends(get_db),
 ):
@@ -1256,7 +1279,7 @@ def apply_best_room_fix(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/changes")
+@app.get("/changes", dependencies=[Depends(require_coordinator_or_admin)])
 def get_changes(
     db: Session = Depends(get_db),
 ):
@@ -1675,7 +1698,7 @@ def redo_change(
 # ---------------------------------------------------------------------------
 
 
-@app.get("/audit-trail")
+@app.get("/audit-trail", dependencies=[Depends(require_coordinator_or_admin)])
 def get_audit_trail(
     db: Session = Depends(get_db),
 ):
@@ -1914,7 +1937,10 @@ def redo_optimizer_execution_endpoint(
             detail=str(exc),
         ) from exc
 
-@app.get("/optimizer/executions")
+@app.get(
+    "/optimizer/executions",
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def list_optimizer_executions_endpoint(
     db: Session = Depends(get_db),
 ):
@@ -1923,7 +1949,10 @@ def list_optimizer_executions_endpoint(
     }
 
 
-@app.get("/optimizer/executions/{execution_id}")
+@app.get(
+    "/optimizer/executions/{execution_id}",
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
 def get_optimizer_execution_endpoint(
     execution_id: str,
     db: Session = Depends(get_db),
