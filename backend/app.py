@@ -21,6 +21,8 @@ from backend.api_middleware import register_api_middleware
 from backend.api_errors import register_api_error_handlers
 from backend.auth_dependencies import require_coordinator_or_admin
 from backend.auth_routes import router as auth_router
+from backend.clash_report_routes import review_router as clash_report_review_router
+from backend.clash_report_routes import student_router as student_clash_report_router
 from backend.enrollment_routes import router as enrollment_router
 from backend.student_routes import router as student_router
 from backend.clash_detector import detect_clashes
@@ -117,6 +119,8 @@ register_api_error_handlers(app)
 app.include_router(auth_router)
 app.include_router(enrollment_router)
 app.include_router(student_router)
+app.include_router(student_clash_report_router)
+app.include_router(clash_report_review_router)
 
 
 # ---------------------------------------------------------------------------

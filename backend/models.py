@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.database import Base
@@ -225,3 +225,71 @@ class StudentEnrollment(Base):
         nullable=False,
         default=_auth_utc_now,
     )
+
+class StudentClashReport(Base):
+    __tablename__ = "student_clash_reports"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('submitted','under_review','resolved','rejected','duplicate')",
+            name="ck_student_clash_reports_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    student_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="submitted", index=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    evidence_reference: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    duplicate_of_report_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("student_clash_reports.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    resolution_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_auth_utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_auth_utc_now, onupdate=_auth_utc_now)
+
+
+class StudentClashReportItem(Base):
+    __tablename__ = "student_clash_report_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    report_id: Mapped[int] = mapped_column(
+        ForeignKey("student_clash_reports.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    timetable_entry_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("timetable_entries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    course_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    section: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    semester: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    day: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    start_time: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    end_time: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+
+
+class StudentClashReportEvent(Base):
+    __tablename__ = "student_clash_report_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    report_id: Mapped[int] = mapped_column(
+        ForeignKey("student_clash_reports.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    actor_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    from_status: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    to_status: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_auth_utc_now)
