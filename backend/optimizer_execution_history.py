@@ -17,7 +17,7 @@ from sqlalchemy.orm import (
     mapped_column,
 )
 
-from backend.database import Base, engine
+from backend.database import Base
 
 
 class OptimizerExecution(Base):
@@ -178,23 +178,6 @@ class OptimizerExecutionStep(Base):
         DateTime,
         nullable=False,
         default=lambda: datetime.now(UTC).replace(tzinfo=None),
-    )
-
-
-def ensure_execution_history_tables() -> None:
-    """
-    Create Phase 2 execution-history tables if needed.
-    Existing data is preserved.
-    """
-
-    OptimizerExecution.__table__.create(
-        bind=engine,
-        checkfirst=True,
-    )
-
-    OptimizerExecutionStep.__table__.create(
-        bind=engine,
-        checkfirst=True,
     )
 
 
@@ -452,7 +435,6 @@ def get_execution_steps(
 __all__ = [
     "OptimizerExecution",
     "OptimizerExecutionStep",
-    "ensure_execution_history_tables",
     "get_execution",
     "create_execution",
     "link_execution_step",

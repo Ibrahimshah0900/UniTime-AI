@@ -17,7 +17,6 @@ from backend.optimizer_execution_history import (
     OptimizerExecution,
     OptimizerExecutionStep,
     create_execution,
-    ensure_execution_history_tables,
     finalize_execution,
     get_execution_steps,
     link_execution_step,
@@ -772,9 +771,6 @@ def apply_multi_step_optimization_plan(
     execution_id = (
         uuid4().hex
     )
-
-    ensure_execution_history_tables()
-
     history_baseline = build_timetable_snapshot(
         get_all_entries(db)
     )
