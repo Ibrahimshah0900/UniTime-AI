@@ -4,23 +4,64 @@ import time
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
+from backend.config import IS_PRODUCTION
 from backend.logging_config import get_logger
 
 
 logger = get_logger(__name__)
 
 
+def apply_security_headers(
+    response: Response,
+) -> None:
+    """
+    Add baseline browser/API security headers.
+
+    HSTS is enabled only in production because local
+    development normally uses plain HTTP.
+    """
+
+    response.headers[
+        "X-Content-Type-Options"
+    ] = "nosniff"
+
+    response.headers[
+        "X-Frame-Options"
+    ] = "DENY"
+
+    response.headers[
+        "Referrer-Policy"
+    ] = "no-referrer"
+
+    response.headers[
+        "Permissions-Policy"
+    ] = (
+        "camera=(), microphone=(), geolocation=()"
+    )
+
+    if IS_PRODUCTION:
+        response.headers[
+            "Strict-Transport-Security"
+        ] = (
+            "max-age=31536000; "
+            "includeSubDomains"
+        )
+
+
 def register_api_middleware(
     app: FastAPI,
 ) -> None:
     """
-    Register application-wide request logging and
-    unexpected-error handling.
+    Register application-wide:
 
-    Existing FastAPI HTTPException responses remain handled
-    by FastAPI normally.
+    - request IDs
+    - request logging
+    - safe unexpected-error responses
+    - baseline security headers
+
+    Existing FastAPI HTTPException behavior remains intact.
     """
 
     @app.middleware("http")
@@ -56,7 +97,7 @@ def register_api_middleware(
                 duration_ms,
             )
 
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=500,
                 content={
                     "success": False,
@@ -65,10 +106,17 @@ def register_api_middleware(
                     ),
                     "request_id": request_id,
                 },
-                headers={
-                    "X-Request-ID": request_id,
-                },
             )
+
+            response.headers[
+                "X-Request-ID"
+            ] = request_id
+
+            apply_security_headers(
+                response
+            )
+
+            return response
 
         duration_ms = (
             time.perf_counter()
@@ -78,6 +126,10 @@ def register_api_middleware(
         response.headers[
             "X-Request-ID"
         ] = request_id
+
+        apply_security_headers(
+            response
+        )
 
         logger.info(
             (

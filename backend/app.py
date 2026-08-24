@@ -6,10 +6,11 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.config import CORS_ORIGINS
+from backend.config import ALLOWED_HOSTS, CORS_ORIGINS
 from backend.logging_config import configure_logging, get_logger
 from backend.readiness import check_readiness
 from backend.api_middleware import register_api_middleware
@@ -82,6 +83,11 @@ logger = get_logger(__name__)
 app = FastAPI(
     title="UniTime AI API",
     version="0.2.0",
+)
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=ALLOWED_HOSTS,
 )
 
 app.add_middleware(

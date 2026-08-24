@@ -49,3 +49,15 @@ LOG_LEVEL = os.getenv(
     "LOG_LEVEL",
     "INFO",
 ).strip().upper()
+
+DEFAULT_ALLOWED_HOSTS = (
+    "localhost,127.0.0.1,testserver"
+)
+
+ALLOWED_HOSTS = _parse_origins(
+    os.getenv(
+        "ALLOWED_HOSTS",
+        DEFAULT_ALLOWED_HOSTS,
+    )
+)
+
