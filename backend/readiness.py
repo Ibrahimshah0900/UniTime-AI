@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 
@@ -10,6 +13,9 @@ from backend.logging_config import get_logger
 
 
 logger = get_logger(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ALEMBIC_CONFIG_PATH = PROJECT_ROOT / "alembic.ini"
 
 
 def database_ping(
@@ -52,15 +58,41 @@ def get_migration_revision(
         ).scalar()
 
 
+def get_expected_migration_revision() -> str:
+    """
+    Return the single Alembic head expected by this
+    application checkout.
+    """
+
+    config = Config(
+        str(ALEMBIC_CONFIG_PATH)
+    )
+    script = ScriptDirectory.from_config(
+        config
+    )
+    heads = script.get_heads()
+
+    if len(heads) != 1:
+        raise RuntimeError(
+            "Application migration history must have "
+            "exactly one head."
+        )
+
+    return heads[0]
+
+
 def check_readiness(
     db_engine: Engine = application_engine,
+    *,
+    require_migration_head: bool = False,
 ) -> dict[str, Any]:
     """
     Return deployment readiness information.
 
-    Unexpected database failures are converted into a
-    controlled RuntimeError so the API can return HTTP 503
-    rather than exposing internal database details.
+    The default mode preserves the original readiness
+    response contract. Strict mode additionally requires
+    the database revision to equal the Alembic head shipped
+    with the application.
     """
 
     try:
@@ -81,11 +113,54 @@ def check_readiness(
             "Service database is not ready."
         ) from exc
 
+    if not require_migration_head:
+        return {
+            "status": "ready",
+            "database": "connected",
+            "migrations": {
+                "managed": revision is not None,
+                "revision": revision,
+            },
+        }
+
+    try:
+        expected_revision = (
+            get_expected_migration_revision()
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Migration metadata readiness check failed."
+        )
+
+        raise RuntimeError(
+            "Service migration metadata is not ready."
+        ) from exc
+
+    at_head = (
+        revision == expected_revision
+    )
+
+    if not at_head:
+        logger.error(
+            "Database migration revision is not at "
+            "application head; current=%s expected=%s",
+            revision,
+            expected_revision,
+        )
+
+        raise RuntimeError(
+            "Service database migrations are not at "
+            "the application head."
+        )
+
     return {
         "status": "ready",
         "database": "connected",
         "migrations": {
-            "managed": revision is not None,
+            "managed": True,
             "revision": revision,
+            "expected_revision": expected_revision,
+            "at_head": True,
         },
     }

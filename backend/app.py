@@ -1875,7 +1875,7 @@ def get_optimizer_execution_endpoint(
 @app.get("/ready")
 def readiness_endpoint():
     try:
-        return check_readiness()
+        return check_readiness(require_migration_head=True)
     except RuntimeError as exc:
         raise HTTPException(
             status_code=503,
