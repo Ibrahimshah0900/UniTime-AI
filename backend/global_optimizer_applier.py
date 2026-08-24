@@ -11,6 +11,7 @@ from backend.global_optimizer import (
     optimize_timetable_globally,
 )
 from backend.models import TimetableEntry
+from backend.notification_service import add_time_change_notifications
 from backend.student_conflict_analyzer import (
     analyze_student_conflicts,
 )
@@ -324,6 +325,15 @@ def create_global_change_record(
 
     db.add(
         change
+    )
+    db.flush()
+    add_time_change_notifications(
+        db,
+        entry=entry,
+        old_day=old_day,
+        old_start_time=old_start_time,
+        old_end_time=old_end_time,
+        event_key=f"global-change:{change.id}",
     )
 
     return change

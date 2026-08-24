@@ -258,6 +258,85 @@ class FacultyClassAssignment(Base):
         default=_auth_utc_now,
     )
 
+
+class NotificationPreference(Base):
+    __tablename__ = "notification_preferences"
+    __table_args__ = (
+        CheckConstraint(
+            "class_reminder_minutes IS NULL OR class_reminder_minutes IN (5,10,15,30)",
+            name="ck_notification_preferences_reminder_minutes",
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    class_reminder_minutes: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+        default=15,
+    )
+    daily_summary_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    daily_summary_time: Mapped[str] = mapped_column(
+        String(5),
+        nullable=False,
+        default="07:00",
+    )
+    schedule_change_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+    clash_report_updates_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+        onupdate=_auth_utc_now,
+    )
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (
+        CheckConstraint(
+            "type IN ('class_reminder','daily_summary','schedule_change','room_change','time_change','cancellation','clash_report_status')",
+            name="ck_notifications_type",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    payload_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    dedup_key: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        unique=True,
+    )
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+        index=True,
+    )
+
 class StudentClashReport(Base):
     __tablename__ = "student_clash_reports"
     __table_args__ = (

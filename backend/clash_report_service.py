@@ -15,6 +15,7 @@ from backend.models import (
     TimetableEntry,
     User,
 )
+from backend.notification_service import add_clash_report_status_notification
 
 
 ALLOWED_STATUS_TRANSITIONS = {
@@ -248,7 +249,7 @@ def update_clash_report(
         duplicate_target.id if duplicate_target is not None else None
     )
     db.add(
-        StudentClashReportEvent(
+        event := StudentClashReportEvent(
             report_id=report.id,
             actor_user_id=actor_user_id,
             action="status_changed",
@@ -259,6 +260,15 @@ def update_clash_report(
     )
 
     try:
+        db.flush()
+        add_clash_report_status_notification(
+            db,
+            user_id=report.student_user_id,
+            report_id=report.id,
+            status=request.status,
+            resolution_note=request.resolution_note,
+            event_key=str(event.id),
+        )
         db.commit()
         db.refresh(report)
     except Exception:

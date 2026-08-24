@@ -13,6 +13,7 @@ from backend.global_optimizer import (
     optimize_timetable_globally,
 )
 from backend.models import TimetableEntry
+from backend.notification_service import add_time_change_notifications
 from backend.optimizer_execution_history import (
     OptimizerExecution,
     OptimizerExecutionStep,
@@ -365,6 +366,15 @@ def create_multi_step_change_record(
 
     db.add(
         change
+    )
+    db.flush()
+    add_time_change_notifications(
+        db,
+        entry=entry,
+        old_day=old_day,
+        old_start_time=old_start_time,
+        old_end_time=old_end_time,
+        event_key=f"multi-step-change:{change.id}",
     )
 
     return change

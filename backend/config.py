@@ -90,3 +90,8 @@ AUTH_ACCESS_TOKEN_MINUTES = _positive_int_env(
     60,
 )
 
+APP_TIMEZONE = os.getenv(
+    "APP_TIMEZONE",
+    "Asia/Karachi",
+).strip() or "Asia/Karachi"
+

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from backend.config import (
     ALLOWED_HOSTS,
     APP_ENV,
+    APP_TIMEZONE,
     CORS_ORIGINS,
     IS_PRODUCTION,
 )
@@ -23,6 +25,11 @@ def validate_runtime_config() -> dict[str, Any]:
     """
 
     errors: list[str] = []
+
+    try:
+        ZoneInfo(APP_TIMEZONE)
+    except ZoneInfoNotFoundError:
+        errors.append("APP_TIMEZONE must be a valid IANA timezone.")
 
     if not CORS_ORIGINS:
         errors.append(

@@ -23,6 +23,7 @@ from sqlalchemy.orm import (
 from backend.clash_detector import detect_clashes
 from backend.database import Base
 from backend.models import TimetableEntry
+from backend.notification_service import add_time_change_notifications
 from backend.student_conflict_analyzer import (
     analyze_student_conflicts,
 )
@@ -666,6 +667,15 @@ def create_student_change_record(
     )
 
     db.add(change)
+    db.flush()
+    add_time_change_notifications(
+        db,
+        entry=entry,
+        old_day=old_day,
+        old_start_time=old_start_time,
+        old_end_time=old_end_time,
+        event_key=f"student-change:{change.id}",
+    )
 
     return change
 
@@ -1104,6 +1114,15 @@ def undo_student_resolution(
 
         change.undone = True
 
+        add_time_change_notifications(
+            db,
+            entry=entry,
+            old_day=current_day,
+            old_start_time=current_start,
+            old_end_time=current_end,
+            event_key=f"student-change-undo:{change.id}",
+        )
+
         db.commit()
 
         db.refresh(entry)
@@ -1335,6 +1354,15 @@ def redo_student_resolution(
         )
 
         change.undone = False
+
+        add_time_change_notifications(
+            db,
+            entry=entry,
+            old_day=old_day,
+            old_start_time=old_start_time,
+            old_end_time=old_end_time,
+            event_key=f"student-change-redo:{change.id}",
+        )
 
         db.commit()
 

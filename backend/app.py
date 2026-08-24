@@ -5,6 +5,7 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
+from uuid import uuid4
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy import select
@@ -12,6 +13,9 @@ from sqlalchemy.orm import Session
 
 from backend.config import ALLOWED_HOSTS, CORS_ORIGINS
 from backend.logging_config import configure_logging, get_logger
+from backend.notification_routes import job_router as notification_job_router
+from backend.notification_routes import router as notification_router
+from backend.notification_service import add_schedule_change_notifications
 from backend.readiness import check_readiness
 from backend.runtime_config import (
     api_documentation_settings,
@@ -125,6 +129,8 @@ app.include_router(student_clash_report_router)
 app.include_router(clash_report_review_router)
 app.include_router(faculty_router)
 app.include_router(faculty_management_router)
+app.include_router(notification_router)
+app.include_router(notification_job_router)
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +181,19 @@ def create_change_record(
     )
 
     db.add(change)
+    db.flush()
+
+    entry = db.get(TimetableEntry, entry_id)
+    if entry is not None:
+        add_schedule_change_notifications(
+            db,
+            entry=entry,
+            notification_type="room_change",
+            title=f"Room changed for {entry.course_code or entry.course_name}",
+            message=f"Room changed from {old_room or 'unassigned'} to {new_room or 'unassigned'}.",
+            event_key=f"room-change:{change.id}",
+            change_details={"old_room": old_room, "new_room": new_room},
+        )
 
     return change
 
@@ -320,6 +339,14 @@ def delete_timetable_entry(
             detail="Timetable entry not found.",
         )
 
+    add_schedule_change_notifications(
+        db,
+        entry=entry,
+        notification_type="cancellation",
+        title=f"Class cancelled: {entry.course_code or entry.course_name}",
+        message=f"The {entry.day} class at {entry.start_time} has been removed.",
+        event_key=f"cancellation:{entry.id}:{uuid4().hex}",
+    )
     db.delete(entry)
     db.commit()
 
@@ -1372,6 +1399,16 @@ def undo_change(
 
     change.undone = True
 
+    add_schedule_change_notifications(
+        db,
+        entry=entry,
+        notification_type="room_change",
+        title=f"Room change reversed for {entry.course_code or entry.course_name}",
+        message=f"Room restored from {current_room or 'unassigned'} to {entry.room or 'unassigned'}.",
+        event_key=f"room-change-undo:{change.id}",
+        change_details={"old_room": current_room, "new_room": entry.room},
+    )
+
     try:
         db.commit()
 
@@ -1592,6 +1629,16 @@ def redo_change(
         )
 
     change.undone = False
+
+    add_schedule_change_notifications(
+        db,
+        entry=entry,
+        notification_type="room_change",
+        title=f"Room change reapplied for {entry.course_code or entry.course_name}",
+        message=f"Room changed from {old_current_room or 'unassigned'} to {entry.room or 'unassigned'}.",
+        event_key=f"room-change-redo:{change.id}",
+        change_details={"old_room": old_current_room, "new_room": entry.room},
+    )
 
     try:
         db.commit()
