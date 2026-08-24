@@ -7,8 +7,22 @@ export function titleCase(value: string) {
   return value.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+export function parseBackendDate(value: string) {
+  const normalized = value.trim()
+
+  // Backend timestamps are UTC. SQLite may serialize them without
+  // an explicit timezone, so add Z only when no timezone is present.
+  const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(normalized)
+
+  return parseISO(hasTimezone ? normalized : `${normalized}Z`)
+}
+
 export function formatRelative(value: string) {
-  try { return formatDistanceToNow(parseISO(value), { addSuffix: true }) } catch { return value }
+  try {
+    return formatDistanceToNow(parseBackendDate(value), { addSuffix: true })
+  } catch {
+    return value
+  }
 }
 
 export function formatClock(value: string | null | undefined) {

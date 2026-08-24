@@ -19,7 +19,19 @@ export function AppShell() {
 
   useEffect(() => {
     if (!user) return
-    notificationsApi.list({ limit: 5 }).then((data) => { setNotices(data.notifications); setUnread(data.unread_count) }).catch(() => undefined)
+
+    const refreshNotifications = () => {
+      notificationsApi.list({ limit: 5 })
+        .then((data) => {
+          setNotices(data.notifications)
+          setUnread(data.unread_count)
+        })
+        .catch(() => undefined)
+    }
+
+    refreshNotifications()
+    window.addEventListener('unitime:notifications-changed', refreshNotifications)
+    return () => window.removeEventListener('unitime:notifications-changed', refreshNotifications)
   }, [user])
 
   if (!user) return null
