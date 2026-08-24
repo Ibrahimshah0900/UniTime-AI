@@ -18,6 +18,7 @@ from backend.runtime_config import (
     validate_runtime_config,
 )
 from backend.api_middleware import register_api_middleware
+from backend.api_errors import register_api_error_handlers
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
 from backend.database import Base, SessionLocal, engine
@@ -108,6 +109,7 @@ app.add_middleware(
 )
 
 register_api_middleware(app)
+register_api_error_handlers(app)
 
 
 # ---------------------------------------------------------------------------

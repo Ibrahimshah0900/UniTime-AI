@@ -70,6 +70,7 @@ def register_api_middleware(
         call_next,
     ):
         request_id = uuid4().hex
+        request.state.request_id = request_id
         started_at = time.perf_counter()
 
         try:
