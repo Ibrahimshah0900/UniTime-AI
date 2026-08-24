@@ -19,9 +19,10 @@ from backend.runtime_config import (
 )
 from backend.api_middleware import register_api_middleware
 from backend.api_errors import register_api_error_handlers
+from backend.auth_routes import router as auth_router
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
-from backend.database import Base, SessionLocal, engine
+from backend.database import Base, engine, get_db
 from backend.global_optimizer import (
     optimize_timetable_globally,
 )
@@ -110,20 +111,12 @@ app.add_middleware(
 
 register_api_middleware(app)
 register_api_error_handlers(app)
+app.include_router(auth_router)
 
 
 # ---------------------------------------------------------------------------
 # DATABASE HELPERS
 # ---------------------------------------------------------------------------
-
-
-def get_db():
-    db = SessionLocal()
-
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def get_all_entries(

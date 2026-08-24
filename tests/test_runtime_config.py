@@ -175,6 +175,12 @@ def test_production_configuration_can_be_valid(
         ],
     )
 
+    monkeypatch.setattr(
+        runtime_config,
+        "AUTH_SECRET_KEY",
+        "production-test-secret-key-0123456789abcdef",
+    )
+
     result = (
         runtime_config
         .validate_runtime_config()

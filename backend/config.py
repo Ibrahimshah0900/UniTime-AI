@@ -74,3 +74,19 @@ def _positive_int_env(name: str, default: int) -> int:
 MAX_TIMETABLE_UPLOAD_MB = _positive_int_env('MAX_TIMETABLE_UPLOAD_MB', 10)
 MAX_TIMETABLE_UPLOAD_BYTES = MAX_TIMETABLE_UPLOAD_MB * 1024 * 1024
 
+DEFAULT_AUTH_SECRET_KEY = (
+    "unitime-ai-development-secret-key-change-before-production-2026"
+)
+AUTH_SECRET_KEY = (
+    os.getenv(
+        "AUTH_SECRET_KEY",
+        DEFAULT_AUTH_SECRET_KEY,
+    ).strip()
+    or DEFAULT_AUTH_SECRET_KEY
+)
+AUTH_ALGORITHM = "HS256"
+AUTH_ACCESS_TOKEN_MINUTES = _positive_int_env(
+    "AUTH_ACCESS_TOKEN_MINUTES",
+    60,
+)
+

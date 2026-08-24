@@ -8,6 +8,7 @@ from backend.config import (
     CORS_ORIGINS,
     IS_PRODUCTION,
 )
+from backend.config import AUTH_SECRET_KEY, DEFAULT_AUTH_SECRET_KEY
 from backend.database import DATABASE_URL
 
 
@@ -39,6 +40,14 @@ def validate_runtime_config() -> dict[str, Any]:
         )
 
     if IS_PRODUCTION:
+        if (
+            AUTH_SECRET_KEY == DEFAULT_AUTH_SECRET_KEY
+            or len(AUTH_SECRET_KEY) < 32
+        ):
+            errors.append(
+                "Production AUTH_SECRET_KEY must be a custom secret "
+                "with at least 32 characters."
+            )
         if APP_ENV != "production":
             errors.append(
                 "Production environment is inconsistent."
