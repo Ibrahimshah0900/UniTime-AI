@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -9,12 +10,20 @@ DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 DATABASE_PATH = DATA_DIR / "unitime_ai.db"
-DATABASE_URL = f"sqlite:///{DATABASE_PATH.as_posix()}"
+DEFAULT_DATABASE_URL = f"sqlite:///{DATABASE_PATH.as_posix()}"
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 
+
+ENGINE_OPTIONS = {}
+
+if DATABASE_URL.startswith("sqlite"):
+    ENGINE_OPTIONS["connect_args"] = {
+        "check_same_thread": False,
+    }
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    **ENGINE_OPTIONS,
 )
 
 
