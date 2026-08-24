@@ -65,7 +65,6 @@ from backend.student_resolution_applier import (
 # DATABASE TABLES
 # ---------------------------------------------------------------------------
 
-Base.metadata.create_all(bind=engine)
 
 
 # ---------------------------------------------------------------------------
