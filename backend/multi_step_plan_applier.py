@@ -13,6 +13,15 @@ from backend.global_optimizer import (
     optimize_timetable_globally,
 )
 from backend.models import TimetableEntry
+from backend.optimizer_execution_history import (
+    OptimizerExecution,
+    OptimizerExecutionStep,
+    create_execution,
+    ensure_execution_history_tables,
+    finalize_execution,
+    get_execution_steps,
+    link_execution_step,
+)
 from backend.student_conflict_analyzer import (
     analyze_student_conflicts,
 )
@@ -539,6 +548,13 @@ def apply_one_live_step(
 
     db.flush()
 
+    link_execution_step(
+        db,
+        execution_id=execution_id,
+        step_number=step_number,
+        change_id=history.id,
+    )
+
     db.commit()
 
     db.refresh(
@@ -756,6 +772,23 @@ def apply_multi_step_optimization_plan(
     execution_id = (
         uuid4().hex
     )
+
+    ensure_execution_history_tables()
+
+    history_baseline = build_timetable_snapshot(
+        get_all_entries(db)
+    )
+
+    create_execution(
+        db,
+        execution_id=execution_id,
+        requested_steps=max_steps,
+        baseline=history_baseline,
+    )
+
+    # Commit the plan-level record first so it survives
+    # even when a later optimizer step fails safely.
+    db.commit()
 
     initial_entries = get_all_entries(
         db

@@ -16,6 +16,15 @@ from backend.global_optimizer import (
 )
 from backend.global_optimizer_applier import apply_global_best_move
 from backend.multi_step_optimizer import build_multi_step_optimization_plan
+from backend.multi_step_execution_service import apply_multi_step_plan_with_history
+from backend.optimizer_execution_rollback import (
+    redo_optimizer_execution,
+    undo_optimizer_execution,
+)
+from backend.optimizer_execution_reader import (
+    get_optimizer_execution_detail,
+    list_optimizer_executions,
+)
 from backend.multi_step_plan_applier import apply_multi_step_optimization_plan
 from backend.importer import import_timetable_file
 from backend.models import (
@@ -576,7 +585,7 @@ def apply_multi_step_optimizer_plan(
     db: Session = Depends(get_db),
 ):
     try:
-        return apply_multi_step_optimization_plan(
+        return apply_multi_step_plan_with_history(
             db,
             max_steps=max_steps,
         )
@@ -1770,3 +1779,62 @@ def get_audit_trail(
             audit_items
         ),
     }
+
+@app.post("/optimizer/executions/{execution_id}/undo")
+def undo_optimizer_execution_endpoint(
+    execution_id: str,
+    db: Session = Depends(get_db),
+):
+    try:
+        return undo_optimizer_execution(
+            db,
+            execution_id=execution_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/optimizer/executions/{execution_id}/redo")
+def redo_optimizer_execution_endpoint(
+    execution_id: str,
+    db: Session = Depends(get_db),
+):
+    try:
+        return redo_optimizer_execution(
+            db,
+            execution_id=execution_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
+
+@app.get("/optimizer/executions")
+def list_optimizer_executions_endpoint(
+    db: Session = Depends(get_db),
+):
+    return {
+        "executions": list_optimizer_executions(db),
+    }
+
+
+@app.get("/optimizer/executions/{execution_id}")
+def get_optimizer_execution_endpoint(
+    execution_id: str,
+    db: Session = Depends(get_db),
+):
+    try:
+        return get_optimizer_execution_detail(
+            db,
+            execution_id=execution_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
