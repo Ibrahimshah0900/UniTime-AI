@@ -18,6 +18,7 @@ MUTATION_ROUTES = [
     ("POST", "/student-schedule-changes/999999/undo"),
     ("POST", "/student-schedule-changes/999999/redo"),
     ("PATCH", "/timetable/999999/room"),
+    ("PATCH", "/timetable/999999/time"),
     ("POST", "/clashes/room/999998/999999/apply-best-fix"),
     ("POST", "/changes/999999/undo"),
     ("POST", "/changes/999999/redo"),

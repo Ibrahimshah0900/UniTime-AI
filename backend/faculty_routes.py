@@ -2,16 +2,21 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from backend.auth_dependencies import require_coordinator_or_admin, require_faculty
 from backend.database import get_db
-from backend.faculty_schemas import FacultyAssignmentCreate, FacultyAssignmentResponse
+from backend.faculty_schemas import (
+    FacultyAssignmentCreate,
+    FacultyAssignmentResponse,
+    FacultyDirectoryResponse,
+)
 from backend.faculty_service import (
     create_faculty_assignment,
     delete_faculty_assignment,
     get_faculty_timetable,
+    list_faculty_directory,
     list_faculty_assignments,
 )
 from backend.models import User
@@ -23,6 +28,26 @@ management_router = APIRouter(
     prefix="/faculty-assignments",
     tags=["Faculty Assignments"],
 )
+directory_router = APIRouter(
+    prefix="/faculty-directory",
+    tags=["Faculty Directory"],
+)
+
+
+@directory_router.get("", response_model=FacultyDirectoryResponse)
+def get_faculty_directory(
+    current_user: Annotated[User, Depends(require_coordinator_or_admin)],
+    db: Session = Depends(get_db),
+    search: str | None = Query(default=None, max_length=200),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+):
+    return list_faculty_directory(
+        db,
+        search=search,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @faculty_router.get("/assignments", response_model=list[FacultyAssignmentResponse])

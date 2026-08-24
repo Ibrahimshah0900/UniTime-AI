@@ -117,6 +117,36 @@ class TimetableChange(Base):
         nullable=True,
     )
 
+    old_day: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
+    new_day: Mapped[Optional[str]] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
+    old_start_time: Mapped[Optional[str]] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    new_start_time: Mapped[Optional[str]] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    old_end_time: Mapped[Optional[str]] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    new_end_time: Mapped[Optional[str]] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
     reason: Mapped[Optional[str]] = mapped_column(
         String(500),
         nullable=True,

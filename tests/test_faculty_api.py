@@ -10,7 +10,7 @@ from backend.api_errors import register_api_error_handlers
 from backend.auth_dependencies import get_current_user
 from backend.auth_security import hash_password
 from backend.database import Base, get_db
-from backend.faculty_routes import faculty_router, management_router
+from backend.faculty_routes import directory_router, faculty_router, management_router
 from backend.models import TimetableEntry, User
 
 
@@ -25,6 +25,7 @@ def create_context():
     app = FastAPI()
     register_api_error_handlers(app)
     app.include_router(faculty_router)
+    app.include_router(directory_router)
     app.include_router(management_router)
 
     def override_get_db():
@@ -68,6 +69,7 @@ def test_faculty_routes_require_authentication():
     assert client.get("/faculty/assignments").status_code == 401
     assert client.get("/faculty/timetable").status_code == 401
     assert client.get("/faculty-assignments").status_code == 401
+    assert client.get("/faculty-directory").status_code == 401
 
 
 def test_faculty_and_management_routes_enforce_roles():
@@ -79,14 +81,53 @@ def test_faculty_and_management_routes_enforce_roles():
     app.dependency_overrides[get_current_user] = lambda: student
     assert client.get("/faculty/timetable").status_code == 403
     assert client.get("/faculty-assignments").status_code == 403
+    assert client.get("/faculty-directory").status_code == 403
 
     app.dependency_overrides[get_current_user] = lambda: faculty
     assert client.get("/faculty/timetable").status_code == 200
     assert client.get("/faculty-assignments").status_code == 403
+    assert client.get("/faculty-directory").status_code == 403
 
     app.dependency_overrides[get_current_user] = lambda: coordinator
     assert client.get("/faculty/timetable").status_code == 403
     assert client.get("/faculty-assignments").status_code == 200
+    assert client.get("/faculty-directory").status_code == 200
+
+
+def test_coordinator_can_search_minimal_active_faculty_directory():
+    app, client, Session = create_context()
+    coordinator = create_user(Session, "coordinator@example.edu", "coordinator")
+    visible = create_user(Session, "ada.faculty@example.edu", "faculty")
+    create_user(Session, "other.faculty@example.edu", "faculty")
+    create_user(Session, "student@example.edu", "student")
+    with Session() as db:
+        db.add(
+            User(
+                email="inactive.faculty@example.edu",
+                full_name="Inactive Faculty",
+                password_hash=hash_password("Password123"),
+                role="faculty",
+                is_active=False,
+            )
+        )
+        db.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: coordinator
+    response = client.get("/faculty-directory?search=ada&limit=10")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "faculty": [
+            {
+                "id": visible.id,
+                "full_name": visible.full_name,
+                "email": visible.email,
+            }
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 10,
+    }
 
 
 def test_coordinator_assigns_class_and_faculty_reads_own_timetable():

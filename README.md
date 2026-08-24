@@ -1,8 +1,6 @@
 # UniTime-AI
 
-UniTime-AI is a FastAPI university timetable and clash-resolution backend for students, faculty, coordinators, and administrators. It includes authentication/RBAC, timetable import and clash analysis, optimizer execution and rollback, student enrollments and personal schedules, faculty assignments, student clash reporting, notifications/reminders, dashboards, and account administration.
-
-Frontend UI work intentionally follows the separate Gemini handoff/integration workflow in `AGENTS.md`. The `frontend` directory remains untouched until generated frontend code is returned for integration.
+UniTime-AI is a full-stack university timetable and clash-resolution application for students, faculty, coordinators, and administrators. The FastAPI backend provides authentication/RBAC, timetable import and safe editing, clash analysis, optimizer execution and rollback, personal schedules, faculty assignments, clash reporting, notifications/reminders, dashboards, and account administration. The React/Vite frontend provides the corresponding role-adaptive user workflows.
 
 ## Local setup
 
@@ -12,8 +10,9 @@ Frontend UI work intentionally follows the separate Gemini handoff/integration w
 4. Apply migrations: `alembic upgrade head`
 5. Run tests: `python -m pytest tests -q`
 6. Start the API: `python -m uvicorn backend.app:app --reload`
+7. In `frontend`, run `npm install` and `npm run dev`.
 
-Development documentation is available at `http://127.0.0.1:8000/docs`. Strict readiness is at `/ready`; liveness is at `/health`.
+Development documentation is available at `http://127.0.0.1:8000/docs`. The frontend defaults to `http://127.0.0.1:5173`. Strict readiness is at `/ready`; liveness is at `/health`.
 
 ## Database ownership
 
@@ -26,6 +25,10 @@ Always run `alembic upgrade head` before starting a new application release. `/r
 ## Production
 
 The repository includes a non-root Docker image and GitHub Actions backend CI. The image applies migrations before starting Uvicorn. Required production configuration and deployment checks are documented in `docs/DEPLOYMENT.md`.
+
+For a complete local production-style stack, set `POSTGRES_PASSWORD` and `AUTH_SECRET_KEY`, then run `docker compose up --build`. This starts PostgreSQL, the API, one notification worker, and the built frontend on port 8080.
+
+Run due reminders from a platform scheduler with `python -m backend.notification_worker --once`, or deploy the documented single continuous worker process.
 
 ## API contract
 

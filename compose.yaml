@@ -1,0 +1,69 @@
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: unitime
+      POSTGRES_USER: unitime
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - unitime-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unitime -d unitime"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  backend:
+    image: unitime-ai-api:local
+    build: .
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://unitime:${POSTGRES_PASSWORD}@database:5432/unitime
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?Set AUTH_SECRET_KEY to at least 32 random characters}
+      AUTH_ACCESS_TOKEN_MINUTES: ${AUTH_ACCESS_TOKEN_MINUTES:-60}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Karachi}
+      CORS_ORIGINS: ${PUBLIC_FRONTEND_ORIGIN:-http://localhost:8080}
+      ALLOWED_HOSTS: backend,localhost,127.0.0.1
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MAX_TIMETABLE_UPLOAD_MB: ${MAX_TIMETABLE_UPLOAD_MB:-10}
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  notification-worker:
+    image: unitime-ai-api:local
+    command: ["python", "-m", "backend.notification_worker", "--interval-seconds", "60"]
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://unitime:${POSTGRES_PASSWORD}@database:5432/unitime
+      AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Karachi}
+      CORS_ORIGINS: ${PUBLIC_FRONTEND_ORIGIN:-http://localhost:8080}
+      ALLOWED_HOSTS: backend
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  unitime-postgres:

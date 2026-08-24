@@ -31,6 +31,7 @@ from backend.clash_report_routes import student_router as student_clash_report_r
 from backend.enrollment_routes import router as enrollment_router
 from backend.dashboard_routes import router as dashboard_router
 from backend.faculty_routes import faculty_router
+from backend.faculty_routes import directory_router as faculty_directory_router
 from backend.faculty_routes import management_router as faculty_management_router
 from backend.student_routes import router as student_router
 from backend.clash_detector import detect_clashes
@@ -62,14 +63,18 @@ from backend.operation_schemas import (
     ChangeCollectionResponse,
     ClashCollectionResponse,
     FlexibleOperationResponse,
+    GlobalOptimizationResponse,
     HealthResponse,
     OptimizerExecutionCollectionResponse,
+    OptimizerExecutionDetailResponse,
+    OptimizerPlanResponse,
     ReadinessResponse,
     RootResponse,
     RoomSuggestionCollectionResponse,
     StudentGroupCollectionResponse,
     StudentResolutionCollectionResponse,
     StudentRiskCollectionResponse,
+    StudentScheduleChangeCollectionResponse,
     TimetableImportResponse,
 )
 from backend.room_resolver import (
@@ -82,6 +87,8 @@ from backend.schemas import (
     RoomChangeRequest,
     TimetableEntryCreate,
     TimetableEntryResponse,
+    TimetableTimeChangeRequest,
+    TimetableTimeChangeResponse,
 )
 from backend.schedule_matching import timetable_sort_key
 from backend.student_conflict_analyzer import (
@@ -100,6 +107,11 @@ from backend.student_resolution_applier import (
     apply_student_resolution,
     redo_student_resolution,
     undo_student_resolution,
+)
+from backend.timetable_time_service import (
+    apply_manual_time_change,
+    redo_manual_time_change,
+    undo_manual_time_change,
 )
 
 
@@ -123,7 +135,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.6.1",
+    version="0.7.0",
 )
 
 app.add_middleware(
@@ -147,6 +159,7 @@ app.include_router(student_router)
 app.include_router(student_clash_report_router)
 app.include_router(clash_report_review_router)
 app.include_router(faculty_router)
+app.include_router(faculty_directory_router)
 app.include_router(faculty_management_router)
 app.include_router(notification_router)
 app.include_router(notification_job_router)
@@ -230,8 +243,8 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.6.1",
-        "phase": "backend_stabilization",
+        "version": "0.7.0",
+        "phase": "frontend_integration",
     }
 
 
@@ -619,7 +632,7 @@ def get_student_conflict_resolutions(
 
 @app.get(
     "/optimizer/global",
-    response_model=FlexibleOperationResponse,
+    response_model=GlobalOptimizationResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_global_timetable_optimization(
@@ -672,7 +685,7 @@ def get_global_timetable_optimization(
 
 @app.get(
     "/optimizer/plan",
-    response_model=FlexibleOperationResponse,
+    response_model=OptimizerPlanResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_multi_step_optimization_plan(
@@ -777,7 +790,7 @@ def apply_student_conflict_best_fix(
 
 @app.get(
     "/student-schedule-changes",
-    response_model=FlexibleOperationResponse,
+    response_model=StudentScheduleChangeCollectionResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_student_schedule_changes(
@@ -1066,6 +1079,24 @@ def change_timetable_room(
     return entry
 
 
+@app.patch(
+    "/timetable/{entry_id}/time",
+    response_model=TimetableTimeChangeResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
+)
+def change_timetable_time(
+    entry_id: int,
+    request: TimetableTimeChangeRequest,
+    db: Session = Depends(get_db),
+):
+    acquire_timetable_write_lock(db)
+    return apply_manual_time_change(
+        db,
+        entry_id=entry_id,
+        request=request,
+    )
+
+
 # ---------------------------------------------------------------------------
 # APPLY BEST ROOM FIX
 # ---------------------------------------------------------------------------
@@ -1351,6 +1382,12 @@ def get_changes(
                 "change_type": change.change_type,
                 "old_room": change.old_room,
                 "new_room": change.new_room,
+                "old_day": change.old_day,
+                "new_day": change.new_day,
+                "old_start_time": change.old_start_time,
+                "new_start_time": change.new_start_time,
+                "old_end_time": change.old_end_time,
+                "new_end_time": change.new_end_time,
                 "reason": change.reason,
                 "score": change.score,
                 "created_at": (
@@ -1390,6 +1427,9 @@ def undo_change(
             status_code=404,
             detail="Change record not found.",
         )
+
+    if change.change_type == "manual_time_change":
+        return undo_manual_time_change(db, change_id=change.id)
 
     if change.undone:
         raise HTTPException(
@@ -1554,6 +1594,9 @@ def redo_change(
             status_code=404,
             detail="Change record not found.",
         )
+
+    if change.change_type == "manual_time_change":
+        return redo_manual_time_change(db, change_id=change.id)
 
     if not change.undone:
         raise HTTPException(
@@ -1786,7 +1829,11 @@ def get_audit_trail(
 
         audit_items.append(
             {
-                "audit_type": "room_change",
+                "audit_type": (
+                    "timetable_time_change"
+                    if change.change_type == "manual_time_change"
+                    else "room_change"
+                ),
                 "history_id": change.id,
                 "entry_id": change.entry_id,
                 "course_code": (
@@ -1803,14 +1850,16 @@ def get_audit_trail(
                     change.change_type
                 ),
                 "before": {
-                    "room": (
-                        change.old_room
-                    ),
+                    "room": change.old_room,
+                    "day": change.old_day,
+                    "start_time": change.old_start_time,
+                    "end_time": change.old_end_time,
                 },
                 "after": {
-                    "room": (
-                        change.new_room
-                    ),
+                    "room": change.new_room,
+                    "day": change.new_day,
+                    "start_time": change.new_start_time,
+                    "end_time": change.new_end_time,
                 },
                 "reason": (
                     change.reason
@@ -1930,6 +1979,13 @@ def get_audit_trail(
         == "room_change"
     )
 
+    time_count = sum(
+        1
+        for item in audit_items
+        if item["audit_type"]
+        == "timetable_time_change"
+    )
+
     student_count = sum(
         1
         for item in audit_items
@@ -1950,6 +2006,9 @@ def get_audit_trail(
             ),
             "room_changes": (
                 room_count
+            ),
+            "timetable_time_changes": (
+                time_count
             ),
             "student_schedule_changes": (
                 student_count
@@ -2018,7 +2077,7 @@ def list_optimizer_executions_endpoint(
 
 @app.get(
     "/optimizer/executions/{execution_id}",
-    response_model=FlexibleOperationResponse,
+    response_model=OptimizerExecutionDetailResponse,
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_optimizer_execution_endpoint(

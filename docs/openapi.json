@@ -107,22 +107,239 @@
         "title": "AdminUserUpdate",
         "type": "object"
       },
+      "AlternativeRoomResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "room": {
+            "title": "Room",
+            "type": "string"
+          },
+          "room_type": {
+            "title": "Room Type",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "weekly_usage_count": {
+            "title": "Weekly Usage Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "room",
+          "room_type",
+          "weekly_usage_count",
+          "score",
+          "reasons"
+        ],
+        "title": "AlternativeRoomResponse",
+        "type": "object"
+      },
+      "AuditItemResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/AuditStateResponse"
+          },
+          "audit_type": {
+            "title": "Audit Type",
+            "type": "string"
+          },
+          "before": {
+            "$ref": "#/components/schemas/AuditStateResponse"
+          },
+          "change_type": {
+            "title": "Change Type",
+            "type": "string"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "history_id": {
+            "title": "History Id",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "risk_cost_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Cost After"
+          },
+          "risk_cost_before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Cost Before"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "undone": {
+            "title": "Undone",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "audit_type",
+          "history_id",
+          "entry_id",
+          "course_code",
+          "course_name",
+          "change_type",
+          "before",
+          "after",
+          "score",
+          "undone",
+          "created_at"
+        ],
+        "title": "AuditItemResponse",
+        "type": "object"
+      },
+      "AuditStateResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "day": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          }
+        },
+        "title": "AuditStateResponse",
+        "type": "object"
+      },
       "AuditTrailResponse": {
         "properties": {
           "audit_trail": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/AuditItemResponse"
             },
             "title": "Audit Trail",
             "type": "array"
           },
           "summary": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "title": "Summary",
-            "type": "object"
+            "$ref": "#/components/schemas/AuditTrailSummaryResponse"
           }
         },
         "required": [
@@ -130,6 +347,132 @@
           "audit_trail"
         ],
         "title": "AuditTrailResponse",
+        "type": "object"
+      },
+      "AuditTrailSummaryResponse": {
+        "properties": {
+          "active_changes": {
+            "title": "Active Changes",
+            "type": "integer"
+          },
+          "room_changes": {
+            "title": "Room Changes",
+            "type": "integer"
+          },
+          "student_schedule_changes": {
+            "title": "Student Schedule Changes",
+            "type": "integer"
+          },
+          "timetable_time_changes": {
+            "title": "Timetable Time Changes",
+            "type": "integer"
+          },
+          "total_changes": {
+            "title": "Total Changes",
+            "type": "integer"
+          },
+          "undone_changes": {
+            "title": "Undone Changes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_changes",
+          "active_changes",
+          "undone_changes",
+          "room_changes",
+          "timetable_time_changes",
+          "student_schedule_changes"
+        ],
+        "title": "AuditTrailSummaryResponse",
+        "type": "object"
+      },
+      "BestRoomFixResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "from_room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Room"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          },
+          "to_room": {
+            "title": "To Room",
+            "type": "string"
+          },
+          "weekly_usage_count": {
+            "title": "Weekly Usage Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entry_id",
+          "course_code",
+          "course_name",
+          "from_room",
+          "to_room",
+          "day",
+          "start_time",
+          "end_time",
+          "score",
+          "weekly_usage_count",
+          "reasons"
+        ],
+        "title": "BestRoomFixResponse",
         "type": "object"
       },
       "Body_import_timetable_timetable_import_post": {
@@ -150,8 +493,7 @@
         "properties": {
           "changes": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/TimetableChangeResponse"
             },
             "title": "Changes",
             "type": "array"
@@ -172,8 +514,7 @@
         "properties": {
           "clashes": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/StructuralClashResponse"
             },
             "title": "Clashes",
             "type": "array"
@@ -885,11 +1226,105 @@
         "title": "FacultyAssignmentResponse",
         "type": "object"
       },
+      "FacultyDirectoryEntryResponse": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "full_name",
+          "email"
+        ],
+        "title": "FacultyDirectoryEntryResponse",
+        "type": "object"
+      },
+      "FacultyDirectoryResponse": {
+        "properties": {
+          "faculty": {
+            "items": {
+              "$ref": "#/components/schemas/FacultyDirectoryEntryResponse"
+            },
+            "title": "Faculty",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "faculty",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "FacultyDirectoryResponse",
+        "type": "object"
+      },
       "FlexibleOperationResponse": {
         "additionalProperties": true,
-        "description": "Preserve legacy optimizer payloads while publishing an object contract.",
+        "description": "Compatibility contract for mutation responses with endpoint-specific details.",
         "properties": {},
         "title": "FlexibleOperationResponse",
+        "type": "object"
+      },
+      "GlobalOptimizationResponse": {
+        "properties": {
+          "baseline": {
+            "$ref": "#/components/schemas/OptimizerSnapshotResponse"
+          },
+          "best_move": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OptimizerMoveResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "candidate_summary": {
+            "$ref": "#/components/schemas/OptimizerCandidateSummaryResponse"
+          },
+          "important_note": {
+            "title": "Important Note",
+            "type": "string"
+          },
+          "ranked_moves": {
+            "items": {
+              "$ref": "#/components/schemas/OptimizerMoveResponse"
+            },
+            "title": "Ranked Moves",
+            "type": "array"
+          }
+        },
+        "required": [
+          "baseline",
+          "candidate_summary",
+          "best_move",
+          "ranked_moves",
+          "important_note"
+        ],
+        "title": "GlobalOptimizationResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1228,12 +1663,181 @@
         "title": "NotificationResponse",
         "type": "object"
       },
+      "OperationEntryResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "class_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Type"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_levels": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Course Levels",
+            "type": "array"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "entry_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Kind"
+          },
+          "faculty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Faculty"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "raw_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Text"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "semester": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semester"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "course_code",
+          "course_name",
+          "semester",
+          "section",
+          "faculty",
+          "room",
+          "start_time",
+          "end_time"
+        ],
+        "title": "OperationEntryResponse",
+        "type": "object"
+      },
+      "OptimizerCandidateSummaryResponse": {
+        "properties": {
+          "generated": {
+            "title": "Generated",
+            "type": "integer"
+          },
+          "globally_safe": {
+            "title": "Globally Safe",
+            "type": "integer"
+          },
+          "rejected": {
+            "title": "Rejected",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "generated",
+          "globally_safe",
+          "rejected"
+        ],
+        "title": "OptimizerCandidateSummaryResponse",
+        "type": "object"
+      },
       "OptimizerExecutionCollectionResponse": {
         "properties": {
           "executions": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/OptimizerExecutionResponse"
             },
             "title": "Executions",
             "type": "array"
@@ -1243,6 +1847,692 @@
           "executions"
         ],
         "title": "OptimizerExecutionCollectionResponse",
+        "type": "object"
+      },
+      "OptimizerExecutionDetailResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "applied_steps": {
+            "title": "Applied Steps",
+            "type": "integer"
+          },
+          "baseline": {
+            "$ref": "#/components/schemas/OptimizerExecutionMetricsResponse"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "execution_id": {
+            "title": "Execution Id",
+            "type": "string"
+          },
+          "final": {
+            "$ref": "#/components/schemas/OptimizerExecutionMetricsResponse"
+          },
+          "requested_steps": {
+            "title": "Requested Steps",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/OptimizerExecutionStepResponse"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          }
+        },
+        "required": [
+          "execution_id",
+          "status",
+          "requested_steps",
+          "applied_steps",
+          "baseline",
+          "final",
+          "stop_reason",
+          "error_message",
+          "created_at",
+          "completed_at",
+          "steps"
+        ],
+        "title": "OptimizerExecutionDetailResponse",
+        "type": "object"
+      },
+      "OptimizerExecutionMetricsResponse": {
+        "properties": {
+          "general_clashes": {
+            "title": "General Clashes",
+            "type": "integer"
+          },
+          "student_groups": {
+            "title": "Student Groups",
+            "type": "integer"
+          },
+          "student_risk_cost": {
+            "title": "Student Risk Cost",
+            "type": "integer"
+          },
+          "total_student_risks": {
+            "title": "Total Student Risks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "student_risk_cost",
+          "total_student_risks",
+          "student_groups",
+          "general_clashes"
+        ],
+        "title": "OptimizerExecutionMetricsResponse",
+        "type": "object"
+      },
+      "OptimizerExecutionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "applied_steps": {
+            "title": "Applied Steps",
+            "type": "integer"
+          },
+          "baseline": {
+            "$ref": "#/components/schemas/OptimizerExecutionMetricsResponse"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "execution_id": {
+            "title": "Execution Id",
+            "type": "string"
+          },
+          "final": {
+            "$ref": "#/components/schemas/OptimizerExecutionMetricsResponse"
+          },
+          "requested_steps": {
+            "title": "Requested Steps",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          }
+        },
+        "required": [
+          "execution_id",
+          "status",
+          "requested_steps",
+          "applied_steps",
+          "baseline",
+          "final",
+          "stop_reason",
+          "error_message",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "OptimizerExecutionResponse",
+        "type": "object"
+      },
+      "OptimizerExecutionStepResponse": {
+        "properties": {
+          "change_id": {
+            "title": "Change Id",
+            "type": "integer"
+          },
+          "step_number": {
+            "title": "Step Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step_number",
+          "change_id"
+        ],
+        "title": "OptimizerExecutionStepResponse",
+        "type": "object"
+      },
+      "OptimizerImprovementResponse": {
+        "properties": {
+          "general_clashes": {
+            "$ref": "#/components/schemas/OptimizerImprovementValueResponse"
+          },
+          "student_groups": {
+            "$ref": "#/components/schemas/OptimizerImprovementValueResponse"
+          },
+          "student_risk_cost": {
+            "$ref": "#/components/schemas/OptimizerImprovementValueResponse"
+          },
+          "student_risks": {
+            "$ref": "#/components/schemas/OptimizerImprovementValueResponse"
+          }
+        },
+        "required": [
+          "student_risk_cost",
+          "student_risks",
+          "student_groups",
+          "general_clashes"
+        ],
+        "title": "OptimizerImprovementResponse",
+        "type": "object"
+      },
+      "OptimizerImprovementValueResponse": {
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "integer"
+          },
+          "before": {
+            "title": "Before",
+            "type": "integer"
+          },
+          "reduction": {
+            "title": "Reduction",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "before",
+          "after",
+          "reduction"
+        ],
+        "title": "OptimizerImprovementValueResponse",
+        "type": "object"
+      },
+      "OptimizerMoveResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "class_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Type"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "faculty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Faculty"
+          },
+          "global_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Global Score"
+          },
+          "improvement": {
+            "$ref": "#/components/schemas/OptimizerImprovementResponse"
+          },
+          "local_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Score"
+          },
+          "move_from": {
+            "$ref": "#/components/schemas/TimeSlotResponse"
+          },
+          "move_to": {
+            "$ref": "#/components/schemas/TimeSlotResponse"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "room_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Status"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "source_group_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Group Id"
+          }
+        },
+        "required": [
+          "source_group_id",
+          "entry_id",
+          "course_code",
+          "course_name",
+          "section",
+          "faculty",
+          "room",
+          "class_type",
+          "move_from",
+          "move_to",
+          "local_score",
+          "global_score",
+          "room_status",
+          "improvement"
+        ],
+        "title": "OptimizerMoveResponse",
+        "type": "object"
+      },
+      "OptimizerPlanResponse": {
+        "properties": {
+          "baseline": {
+            "$ref": "#/components/schemas/OptimizerSnapshotResponse"
+          },
+          "important_note": {
+            "title": "Important Note",
+            "type": "string"
+          },
+          "overall_improvement": {
+            "$ref": "#/components/schemas/OptimizerImprovementResponse"
+          },
+          "planned_steps": {
+            "title": "Planned Steps",
+            "type": "integer"
+          },
+          "planner_statistics": {
+            "$ref": "#/components/schemas/OptimizerPlannerStatisticsResponse"
+          },
+          "projected_final": {
+            "$ref": "#/components/schemas/OptimizerSnapshotResponse"
+          },
+          "requested_max_steps": {
+            "title": "Requested Max Steps",
+            "type": "integer"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/OptimizerPlanStepResponse"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "stop_reason": {
+            "title": "Stop Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requested_max_steps",
+          "planned_steps",
+          "stop_reason",
+          "baseline",
+          "projected_final",
+          "overall_improvement",
+          "planner_statistics",
+          "steps",
+          "important_note"
+        ],
+        "title": "OptimizerPlanResponse",
+        "type": "object"
+      },
+      "OptimizerPlanStepResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "class_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Type"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "faculty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Faculty"
+          },
+          "global_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Global Score"
+          },
+          "improvement": {
+            "$ref": "#/components/schemas/OptimizerImprovementResponse"
+          },
+          "local_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Score"
+          },
+          "move_from": {
+            "$ref": "#/components/schemas/TimeSlotResponse"
+          },
+          "move_to": {
+            "$ref": "#/components/schemas/TimeSlotResponse"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "room_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Status"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "source_group_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Group Id"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_group_id",
+          "entry_id",
+          "course_code",
+          "course_name",
+          "section",
+          "faculty",
+          "room",
+          "class_type",
+          "move_from",
+          "move_to",
+          "local_score",
+          "global_score",
+          "room_status",
+          "improvement",
+          "step"
+        ],
+        "title": "OptimizerPlanStepResponse",
+        "type": "object"
+      },
+      "OptimizerPlannerStatisticsResponse": {
+        "properties": {
+          "rejected_during_planning": {
+            "title": "Rejected During Planning",
+            "type": "integer"
+          },
+          "unique_entries_moved": {
+            "title": "Unique Entries Moved",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unique_entries_moved",
+          "rejected_during_planning"
+        ],
+        "title": "OptimizerPlannerStatisticsResponse",
+        "type": "object"
+      },
+      "OptimizerSnapshotResponse": {
+        "properties": {
+          "clashes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Clashes",
+            "type": "object"
+          },
+          "student_groups": {
+            "title": "Student Groups",
+            "type": "integer"
+          },
+          "student_risk_cost": {
+            "title": "Student Risk Cost",
+            "type": "integer"
+          },
+          "student_risks": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Student Risks",
+            "type": "object"
+          }
+        },
+        "required": [
+          "student_risk_cost",
+          "student_risks",
+          "student_groups",
+          "clashes"
+        ],
+        "title": "OptimizerSnapshotResponse",
         "type": "object"
       },
       "PasswordChange": {
@@ -1352,12 +2642,164 @@
         "title": "RoomChangeRequest",
         "type": "object"
       },
+      "RoomEntrySuggestionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "alternative_rooms": {
+            "items": {
+              "$ref": "#/components/schemas/AlternativeRoomResponse"
+            },
+            "title": "Alternative Rooms",
+            "type": "array"
+          },
+          "class_type": {
+            "title": "Class Type",
+            "type": "string"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "current_room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Room"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_id",
+          "course_code",
+          "course_name",
+          "current_room",
+          "day",
+          "start_time",
+          "end_time",
+          "class_type",
+          "alternative_rooms"
+        ],
+        "title": "RoomEntrySuggestionResponse",
+        "type": "object"
+      },
+      "RoomResolutionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "best_fix": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BestRoomFixResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "clash_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clash Type"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/RoomEntrySuggestionResponse"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "clash_type",
+          "day",
+          "reason",
+          "suggestions",
+          "best_fix"
+        ],
+        "title": "RoomResolutionResponse",
+        "type": "object"
+      },
       "RoomSuggestionCollectionResponse": {
         "properties": {
           "resolutions": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/RoomResolutionResponse"
             },
             "title": "Resolutions",
             "type": "array"
@@ -1402,20 +2844,58 @@
         "title": "RootResponse",
         "type": "object"
       },
+      "StructuralClashResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "entry_1": {
+            "$ref": "#/components/schemas/OperationEntryResponse"
+          },
+          "entry_2": {
+            "$ref": "#/components/schemas/OperationEntryResponse"
+          },
+          "overlap": {
+            "$ref": "#/components/schemas/TimeOverlapResponse"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "severity",
+          "day",
+          "overlap",
+          "reason",
+          "entry_1",
+          "entry_2"
+        ],
+        "title": "StructuralClashResponse",
+        "type": "object"
+      },
       "StudentGroupCollectionResponse": {
         "properties": {
           "groups": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/StudentGroupResponse"
             },
             "title": "Groups",
             "type": "array"
           },
           "summary": {
-            "additionalProperties": true,
-            "title": "Summary",
-            "type": "object"
+            "$ref": "#/components/schemas/StudentGroupSummaryResponse"
           }
         },
         "required": [
@@ -1425,20 +2905,291 @@
         "title": "StudentGroupCollectionResponse",
         "type": "object"
       },
+      "StudentGroupResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "course_levels": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Course Levels",
+            "type": "array"
+          },
+          "courses_involved": {
+            "title": "Courses Involved",
+            "type": "integer"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/OperationEntryResponse"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "integer"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "pairwise_risks": {
+            "title": "Pairwise Risks",
+            "type": "integer"
+          },
+          "priority_score": {
+            "title": "Priority Score",
+            "type": "number"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "string"
+          },
+          "shared_sections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Shared Sections",
+            "type": "array"
+          },
+          "time_window": {
+            "$ref": "#/components/schemas/TimeWindowResponse"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "type",
+          "risk_level",
+          "priority_score",
+          "day",
+          "time_window",
+          "course_levels",
+          "shared_sections",
+          "courses_involved",
+          "pairwise_risks",
+          "entries",
+          "evidence",
+          "limitations",
+          "action"
+        ],
+        "title": "StudentGroupResponse",
+        "type": "object"
+      },
+      "StudentGroupSummaryResponse": {
+        "properties": {
+          "confirmed_groups": {
+            "title": "Confirmed Groups",
+            "type": "integer"
+          },
+          "important_note": {
+            "title": "Important Note",
+            "type": "string"
+          },
+          "probable_groups": {
+            "title": "Probable Groups",
+            "type": "integer"
+          },
+          "total_groups": {
+            "title": "Total Groups",
+            "type": "integer"
+          },
+          "unique_timetable_entries_involved": {
+            "title": "Unique Timetable Entries Involved",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_groups",
+          "confirmed_groups",
+          "probable_groups",
+          "unique_timetable_entries_involved",
+          "important_note"
+        ],
+        "title": "StudentGroupSummaryResponse",
+        "type": "object"
+      },
+      "StudentMoveResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "class_type": {
+            "title": "Class Type",
+            "type": "string"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "current_room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Room"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "faculty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Faculty"
+          },
+          "faculty_available": {
+            "title": "Faculty Available",
+            "type": "boolean"
+          },
+          "move_from": {
+            "$ref": "#/components/schemas/TimeSlotResponse"
+          },
+          "move_to": {
+            "$ref": "#/components/schemas/TimeSlotResponse"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "risk_after": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Risk After",
+            "type": "object"
+          },
+          "risk_before": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Risk Before",
+            "type": "object"
+          },
+          "risk_cost_after": {
+            "title": "Risk Cost After",
+            "type": "integer"
+          },
+          "risk_cost_before": {
+            "title": "Risk Cost Before",
+            "type": "integer"
+          },
+          "room_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room Available"
+          },
+          "room_status": {
+            "title": "Room Status",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          }
+        },
+        "required": [
+          "entry_id",
+          "course_code",
+          "course_name",
+          "section",
+          "faculty",
+          "current_room",
+          "class_type",
+          "move_from",
+          "move_to",
+          "score",
+          "faculty_available",
+          "room_status",
+          "room_available",
+          "risk_before",
+          "risk_after",
+          "risk_cost_before",
+          "risk_cost_after",
+          "reasons"
+        ],
+        "title": "StudentMoveResponse",
+        "type": "object"
+      },
       "StudentResolutionCollectionResponse": {
         "properties": {
           "resolutions": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/StudentResolutionResponse"
             },
             "title": "Resolutions",
             "type": "array"
           },
           "summary": {
-            "additionalProperties": true,
-            "title": "Summary",
-            "type": "object"
+            "$ref": "#/components/schemas/StudentResolutionSummaryResponse"
           }
         },
         "required": [
@@ -1448,20 +3199,117 @@
         "title": "StudentResolutionCollectionResponse",
         "type": "object"
       },
+      "StudentResolutionResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "alternatives": {
+            "items": {
+              "$ref": "#/components/schemas/StudentMoveResponse"
+            },
+            "title": "Alternatives",
+            "type": "array"
+          },
+          "best_fix": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudentMoveResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "courses_involved": {
+            "title": "Courses Involved",
+            "type": "integer"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "integer"
+          },
+          "important_note": {
+            "title": "Important Note",
+            "type": "string"
+          },
+          "priority_score": {
+            "title": "Priority Score",
+            "type": "number"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "string"
+          },
+          "time_window": {
+            "$ref": "#/components/schemas/TimeWindowResponse"
+          }
+        },
+        "required": [
+          "group_id",
+          "risk_level",
+          "priority_score",
+          "day",
+          "time_window",
+          "courses_involved",
+          "best_fix",
+          "alternatives",
+          "important_note"
+        ],
+        "title": "StudentResolutionResponse",
+        "type": "object"
+      },
+      "StudentResolutionSummaryResponse": {
+        "properties": {
+          "best_fixes_requiring_room": {
+            "title": "Best Fixes Requiring Room",
+            "type": "integer"
+          },
+          "fully_feasible_best_fixes": {
+            "title": "Fully Feasible Best Fixes",
+            "type": "integer"
+          },
+          "groups_with_suggestion": {
+            "title": "Groups With Suggestion",
+            "type": "integer"
+          },
+          "groups_without_suggestion": {
+            "title": "Groups Without Suggestion",
+            "type": "integer"
+          },
+          "important_note": {
+            "title": "Important Note",
+            "type": "string"
+          },
+          "total_groups": {
+            "title": "Total Groups",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_groups",
+          "groups_with_suggestion",
+          "groups_without_suggestion",
+          "fully_feasible_best_fixes",
+          "best_fixes_requiring_room",
+          "important_note"
+        ],
+        "title": "StudentResolutionSummaryResponse",
+        "type": "object"
+      },
       "StudentRiskCollectionResponse": {
         "properties": {
           "risks": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/StudentRiskResponse"
             },
             "title": "Risks",
             "type": "array"
           },
           "summary": {
-            "additionalProperties": true,
-            "title": "Summary",
-            "type": "object"
+            "$ref": "#/components/schemas/StudentRiskSummaryResponse"
           }
         },
         "required": [
@@ -1469,6 +3317,454 @@
           "risks"
         ],
         "title": "StudentRiskCollectionResponse",
+        "type": "object"
+      },
+      "StudentRiskResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "entry_1": {
+            "$ref": "#/components/schemas/OperationEntryResponse"
+          },
+          "entry_2": {
+            "$ref": "#/components/schemas/OperationEntryResponse"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "overlap": {
+            "$ref": "#/components/schemas/TimeOverlapResponse"
+          },
+          "risk_level": {
+            "title": "Risk Level",
+            "type": "string"
+          },
+          "risk_type": {
+            "title": "Risk Type",
+            "type": "string"
+          },
+          "same_course_level": {
+            "title": "Same Course Level",
+            "type": "boolean"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "shared_sections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Shared Sections",
+            "type": "array"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "risk_type",
+          "risk_level",
+          "score",
+          "day",
+          "overlap",
+          "shared_sections",
+          "same_course_level",
+          "evidence",
+          "limitations",
+          "entry_1",
+          "entry_2"
+        ],
+        "title": "StudentRiskResponse",
+        "type": "object"
+      },
+      "StudentRiskSummaryResponse": {
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "integer"
+          },
+          "important_note": {
+            "title": "Important Note",
+            "type": "string"
+          },
+          "possible": {
+            "title": "Possible",
+            "type": "integer"
+          },
+          "probable": {
+            "title": "Probable",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "confirmed",
+          "probable",
+          "possible",
+          "important_note"
+        ],
+        "title": "StudentRiskSummaryResponse",
+        "type": "object"
+      },
+      "StudentScheduleChangeCollectionResponse": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/StudentScheduleChangeResponse"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "changes"
+        ],
+        "title": "StudentScheduleChangeCollectionResponse",
+        "type": "object"
+      },
+      "StudentScheduleChangeResponse": {
+        "properties": {
+          "change_type": {
+            "title": "Change Type",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "group_id": {
+            "title": "Group Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "new_day": {
+            "title": "New Day",
+            "type": "string"
+          },
+          "new_end_time": {
+            "title": "New End Time",
+            "type": "string"
+          },
+          "new_start_time": {
+            "title": "New Start Time",
+            "type": "string"
+          },
+          "old_day": {
+            "title": "Old Day",
+            "type": "string"
+          },
+          "old_end_time": {
+            "title": "Old End Time",
+            "type": "string"
+          },
+          "old_start_time": {
+            "title": "Old Start Time",
+            "type": "string"
+          },
+          "risk_cost_after": {
+            "title": "Risk Cost After",
+            "type": "integer"
+          },
+          "risk_cost_before": {
+            "title": "Risk Cost Before",
+            "type": "integer"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "total_risks_after": {
+            "title": "Total Risks After",
+            "type": "integer"
+          },
+          "total_risks_before": {
+            "title": "Total Risks Before",
+            "type": "integer"
+          },
+          "undone": {
+            "title": "Undone",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "entry_id",
+          "group_id",
+          "change_type",
+          "old_day",
+          "old_start_time",
+          "old_end_time",
+          "new_day",
+          "new_start_time",
+          "new_end_time",
+          "score",
+          "risk_cost_before",
+          "risk_cost_after",
+          "total_risks_before",
+          "total_risks_after",
+          "undone",
+          "created_at"
+        ],
+        "title": "StudentScheduleChangeResponse",
+        "type": "object"
+      },
+      "TimeOverlapResponse": {
+        "properties": {
+          "entry_1_time": {
+            "title": "Entry 1 Time",
+            "type": "string"
+          },
+          "entry_2_time": {
+            "title": "Entry 2 Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_1_time",
+          "entry_2_time"
+        ],
+        "title": "TimeOverlapResponse",
+        "type": "object"
+      },
+      "TimeSlotResponse": {
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "start_time",
+          "end_time"
+        ],
+        "title": "TimeSlotResponse",
+        "type": "object"
+      },
+      "TimeWindowResponse": {
+        "properties": {
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start_time",
+          "end_time"
+        ],
+        "title": "TimeWindowResponse",
+        "type": "object"
+      },
+      "TimetableChangeResponse": {
+        "properties": {
+          "change_type": {
+            "title": "Change Type",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "new_day": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Day"
+          },
+          "new_end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New End Time"
+          },
+          "new_room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Room"
+          },
+          "new_start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Start Time"
+          },
+          "old_day": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Day"
+          },
+          "old_end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old End Time"
+          },
+          "old_room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Room"
+          },
+          "old_start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Start Time"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "undone": {
+            "title": "Undone",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "entry_id",
+          "change_type",
+          "old_room",
+          "new_room",
+          "old_day",
+          "new_day",
+          "old_start_time",
+          "new_start_time",
+          "old_end_time",
+          "new_end_time",
+          "reason",
+          "score",
+          "created_at",
+          "undone"
+        ],
+        "title": "TimetableChangeResponse",
         "type": "object"
       },
       "TimetableEntryCreate": {
@@ -1856,6 +4152,88 @@
         "title": "TimetableImportResponse",
         "type": "object"
       },
+      "TimetableTimeChangeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "enum": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday"
+            ],
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "start_time",
+          "end_time"
+        ],
+        "title": "TimetableTimeChangeRequest",
+        "type": "object"
+      },
+      "TimetableTimeChangeResponse": {
+        "properties": {
+          "change_id": {
+            "title": "Change Id",
+            "type": "integer"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/TimetableEntryResponse"
+          },
+          "safety": {
+            "$ref": "#/components/schemas/TimetableTimeChangeSafetyResponse"
+          }
+        },
+        "required": [
+          "entry",
+          "change_id",
+          "safety"
+        ],
+        "title": "TimetableTimeChangeResponse",
+        "type": "object"
+      },
+      "TimetableTimeChangeSafetyResponse": {
+        "properties": {
+          "clashes_after": {
+            "title": "Clashes After",
+            "type": "integer"
+          },
+          "clashes_before": {
+            "title": "Clashes Before",
+            "type": "integer"
+          },
+          "student_risk_cost_after": {
+            "title": "Student Risk Cost After",
+            "type": "integer"
+          },
+          "student_risk_cost_before": {
+            "title": "Student Risk Cost Before",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "clashes_before",
+          "clashes_after",
+          "student_risk_cost_before",
+          "student_risk_cost_after"
+        ],
+        "title": "TimetableTimeChangeSafetyResponse",
+        "type": "object"
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -1987,7 +4365,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.6.1"
+    "version": "0.7.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -3113,6 +5491,84 @@
         ]
       }
     },
+    "/faculty-directory": {
+      "get": {
+        "operationId": "get_faculty_directory_faculty_directory_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacultyDirectoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Faculty Directory",
+        "tags": [
+          "Faculty Directory"
+        ]
+      }
+    },
     "/faculty/assignments": {
       "get": {
         "operationId": "get_my_faculty_assignments_faculty_assignments_get",
@@ -3498,7 +5954,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                  "$ref": "#/components/schemas/OptimizerExecutionDetailResponse"
                 }
               }
             },
@@ -3632,7 +6088,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                  "$ref": "#/components/schemas/GlobalOptimizationResponse"
                 }
               }
             },
@@ -3700,7 +6156,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                  "$ref": "#/components/schemas/OptimizerPlanResponse"
                 }
               }
             },
@@ -3796,7 +6252,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FlexibleOperationResponse"
+                  "$ref": "#/components/schemas/StudentScheduleChangeCollectionResponse"
                 }
               }
             },
@@ -4437,6 +6893,60 @@
           }
         ],
         "summary": "Change Timetable Room"
+      }
+    },
+    "/timetable/{entry_id}/time": {
+      "patch": {
+        "operationId": "change_timetable_time_timetable__entry_id__time_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimetableTimeChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableTimeChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Change Timetable Time"
       }
     }
   }

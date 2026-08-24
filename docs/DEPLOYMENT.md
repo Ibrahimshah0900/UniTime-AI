@@ -18,22 +18,25 @@ Never commit production credentials. Configure them in the hosting platform's se
 
 Build with `docker build -t unitime-ai-api .`. The image runs as a non-root user, applies `alembic upgrade head`, then starts Uvicorn on `$PORT`.
 
+The repository also includes `frontend/Dockerfile`, an unprivileged Nginx SPA configuration, and `compose.yaml` for a complete PostgreSQL/backend/notification-worker/frontend deployment. Set `POSTGRES_PASSWORD` and a random `AUTH_SECRET_KEY` of at least 32 characters, then run `docker compose up --build`. The frontend is exposed on port 8080 by default and proxies same-origin `/api` requests to FastAPI.
+
 Use one migration-running instance during deployments if the hosting platform starts multiple replicas simultaneously. After migrations complete, scale application replicas normally.
 
 ## Release checks
 
 1. `python -m pytest tests -q`
 2. `alembic check`
-3. `git diff --check`
-4. Build the container.
-5. Apply migrations against a staging PostgreSQL database.
-6. Verify `/health` returns 200.
-7. Verify `/ready` returns 200 and reports the expected migration head.
-8. Run authenticated smoke tests for student, faculty, coordinator, and admin roles.
-9. Verify CORS from the deployed frontend origin.
-10. Verify production `/docs`, `/redoc`, and `/openapi.json` are disabled.
+3. In `frontend`, run `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e`.
+4. `git diff --check`
+5. Build both backend and frontend containers.
+6. Apply migrations against a staging PostgreSQL database.
+7. Verify `/health` returns 200.
+8. Verify `/ready` returns 200 and reports the expected migration head.
+9. Run authenticated smoke tests for student, faculty, coordinator, and admin roles.
+10. Verify the deployed frontend can reach same-origin `/api/ready`.
+11. Verify production `/docs`, `/redoc`, and `/openapi.json` are disabled.
 
-GitHub Actions performs both the strict SQLite regression suite and an authenticated role-flow smoke test against PostgreSQL 17. The PostgreSQL job applies the complete migration chain before exercising admin, coordinator, faculty, and student API paths.
+GitHub Actions performs the strict SQLite regression suite, an authenticated role-flow smoke test against PostgreSQL 17, frontend lint/type/unit/build checks, and the isolated five-role browser suite. The PostgreSQL job applies the complete migration chain before exercising admin, coordinator, faculty, and student API paths.
 
 ## Authentication edge protection
 
@@ -41,7 +44,9 @@ The application returns uniform login errors and uses versioned, expiring access
 
 ## Notification job
 
-Call `POST /notification-jobs/process` on a one-minute schedule using a coordinator/admin service account. Generation is idempotent: class reminders and daily summaries use durable deduplication keys. For a larger deployment, this endpoint can later be moved behind a private worker without changing persisted notification contracts.
+Run `python -m backend.notification_worker --once` every minute using the hosting platform's cron/scheduled-job facility. The command accesses the configured database directly, so no long-lived bearer token is needed. Alternatively, run `python -m backend.notification_worker --interval-seconds 60` as a separate worker process and configure the platform to restart it on failure. Do not run the continuous worker inside every API replica.
+
+Generation is idempotent: class reminders and daily summaries use durable deduplication keys, so a retried run does not create duplicate notifications. `POST /notification-jobs/process` remains available for an authenticated coordinator/admin to trigger or test the same processor manually.
 
 ## Rollback
 

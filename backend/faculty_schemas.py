@@ -54,3 +54,18 @@ class FacultyAssignmentResponse(BaseModel):
     semester: str
     created_by_user_id: int | None
     created_at: datetime
+
+
+class FacultyDirectoryEntryResponse(BaseModel):
+    id: int
+    full_name: str
+    email: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FacultyDirectoryResponse(BaseModel):
+    faculty: list[FacultyDirectoryEntryResponse]
+    total: int
+    offset: int
+    limit: int

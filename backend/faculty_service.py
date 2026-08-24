@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,44 @@ from backend.schedule_matching import (
     semester_matches,
     timetable_sort_key,
 )
+
+
+def list_faculty_directory(
+    db: Session,
+    *,
+    search: str | None = None,
+    offset: int = 0,
+    limit: int = 50,
+) -> dict:
+    filters = [
+        User.role == "faculty",
+        User.is_active.is_(True),
+    ]
+    if search and search.strip():
+        pattern = f"%{search.strip()}%"
+        filters.append(
+            or_(
+                User.full_name.ilike(pattern),
+                User.email.ilike(pattern),
+            )
+        )
+
+    total = db.scalar(select(func.count(User.id)).where(*filters)) or 0
+    faculty = list(
+        db.scalars(
+            select(User)
+            .where(*filters)
+            .order_by(User.full_name, User.id)
+            .offset(offset)
+            .limit(limit)
+        ).all()
+    )
+    return {
+        "faculty": faculty,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 def _serialize_assignment(

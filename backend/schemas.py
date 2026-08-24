@@ -195,3 +195,41 @@ class RoomChangeRequest(BaseModel):
         if not normalized:
             raise ValueError("room is required")
         return normalized
+
+
+class TimetableTimeChangeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    day: AllowedDay
+    start_time: str
+    end_time: str
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def validate_time_format(cls, value: str) -> str:
+        try:
+            parsed = time.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(
+                "Time must use HH:MM format, for example 14:30"
+            ) from exc
+        return parsed.strftime("%H:%M")
+
+    @model_validator(mode="after")
+    def validate_time_order(self):
+        if time.fromisoformat(self.end_time) <= time.fromisoformat(self.start_time):
+            raise ValueError("end_time must be later than start_time")
+        return self
+
+
+class TimetableTimeChangeSafetyResponse(BaseModel):
+    clashes_before: int
+    clashes_after: int
+    student_risk_cost_before: int
+    student_risk_cost_after: int
+
+
+class TimetableTimeChangeResponse(BaseModel):
+    entry: TimetableEntryResponse
+    change_id: int
+    safety: TimetableTimeChangeSafetyResponse
