@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from backend.config import CORS_ORIGINS
 from backend.logging_config import configure_logging, get_logger
+from backend.readiness import check_readiness
 from backend.api_middleware import register_api_middleware
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
@@ -1851,6 +1852,16 @@ def get_optimizer_execution_endpoint(
     except ValueError as exc:
         raise HTTPException(
             status_code=404,
+            detail=str(exc),
+        ) from exc
+
+@app.get("/ready")
+def readiness_endpoint():
+    try:
+        return check_readiness()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
             detail=str(exc),
         ) from exc
 
