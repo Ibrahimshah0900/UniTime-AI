@@ -60,3 +60,8 @@ def require_roles(*roles: UserRole) -> Callable[..., User]:
         return current_user
 
     return role_dependency
+
+require_coordinator_or_admin = require_roles(
+    UserRole.COORDINATOR,
+    UserRole.ADMIN,
+)

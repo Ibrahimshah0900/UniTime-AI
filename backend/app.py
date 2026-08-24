@@ -19,6 +19,7 @@ from backend.runtime_config import (
 )
 from backend.api_middleware import register_api_middleware
 from backend.api_errors import register_api_error_handlers
+from backend.auth_dependencies import require_coordinator_or_admin
 from backend.auth_routes import router as auth_router
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
@@ -198,6 +199,7 @@ def health_check():
     "/timetable",
     response_model=TimetableEntryResponse,
     status_code=201,
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def create_timetable_entry(
     entry: TimetableEntryCreate,
@@ -289,6 +291,7 @@ def get_timetable_entry(
 @app.delete(
     "/timetable/{entry_id}",
     status_code=204,
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def delete_timetable_entry(
     entry_id: int,
@@ -314,7 +317,7 @@ def delete_timetable_entry(
 # ---------------------------------------------------------------------------
 
 
-@app.post("/timetable/import")
+@app.post("/timetable/import", dependencies=[Depends(require_coordinator_or_admin)])
 async def import_timetable(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -606,7 +609,7 @@ def get_multi_step_optimization_plan(
 # ---------------------------------------------------------------------------
 
 
-@app.post("/optimizer/plan/apply")
+@app.post("/optimizer/plan/apply", dependencies=[Depends(require_coordinator_or_admin)])
 def apply_multi_step_optimizer_plan(
     max_steps: int = 5,
     db: Session = Depends(get_db),
@@ -628,7 +631,7 @@ def apply_multi_step_optimizer_plan(
 # ---------------------------------------------------------------------------
 
 
-@app.post("/optimizer/global/apply-best")
+@app.post("/optimizer/global/apply-best", dependencies=[Depends(require_coordinator_or_admin)])
 def apply_global_optimizer_best_move(
     db: Session = Depends(get_db),
 ):
@@ -647,7 +650,8 @@ def apply_global_optimizer_best_move(
 
 
 @app.post(
-    "/clashes/student-groups/{group_id}/apply-best-fix"
+    "/clashes/student-groups/{group_id}/apply-best-fix",
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def apply_student_conflict_best_fix(
     group_id: int,
@@ -741,7 +745,8 @@ def get_student_schedule_changes(
 
 
 @app.post(
-    "/student-schedule-changes/{change_id}/undo"
+    "/student-schedule-changes/{change_id}/undo",
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def undo_student_schedule_change(
     change_id: int,
@@ -766,7 +771,8 @@ def undo_student_schedule_change(
 
 
 @app.post(
-    "/student-schedule-changes/{change_id}/redo"
+    "/student-schedule-changes/{change_id}/redo",
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def redo_student_schedule_change(
     change_id: int,
@@ -793,6 +799,7 @@ def redo_student_schedule_change(
 @app.patch(
     "/timetable/{entry_id}/room",
     response_model=TimetableEntryResponse,
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def change_timetable_room(
     entry_id: int,
@@ -956,7 +963,8 @@ def change_timetable_room(
 
 
 @app.post(
-    "/clashes/room/{entry_1_id}/{entry_2_id}/apply-best-fix"
+    "/clashes/room/{entry_1_id}/{entry_2_id}/apply-best-fix",
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def apply_best_room_fix(
     entry_1_id: int,
@@ -1248,7 +1256,8 @@ def get_changes(
 
 
 @app.post(
-    "/changes/{change_id}/undo"
+    "/changes/{change_id}/undo",
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def undo_change(
     change_id: int,
@@ -1399,7 +1408,8 @@ def undo_change(
 
 
 @app.post(
-    "/changes/{change_id}/redo"
+    "/changes/{change_id}/redo",
+    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def redo_change(
     change_id: int,
@@ -1807,7 +1817,7 @@ def get_audit_trail(
         ),
     }
 
-@app.post("/optimizer/executions/{execution_id}/undo")
+@app.post("/optimizer/executions/{execution_id}/undo", dependencies=[Depends(require_coordinator_or_admin)])
 def undo_optimizer_execution_endpoint(
     execution_id: str,
     db: Session = Depends(get_db),
@@ -1824,7 +1834,7 @@ def undo_optimizer_execution_endpoint(
         ) from exc
 
 
-@app.post("/optimizer/executions/{execution_id}/redo")
+@app.post("/optimizer/executions/{execution_id}/redo", dependencies=[Depends(require_coordinator_or_admin)])
 def redo_optimizer_execution_endpoint(
     execution_id: str,
     db: Session = Depends(get_db),
