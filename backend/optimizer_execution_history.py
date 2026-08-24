@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 from sqlalchemy import (
@@ -121,7 +121,7 @@ class OptimizerExecution(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
     )
 
     completed_at: Mapped[Optional[datetime]] = mapped_column(
@@ -177,7 +177,7 @@ class OptimizerExecutionStep(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
     )
 
 
@@ -417,7 +417,7 @@ def finalize_execution(
     )
 
     execution.completed_at = (
-        datetime.utcnow()
+        datetime.now(UTC).replace(tzinfo=None)
     )
 
     db.flush()

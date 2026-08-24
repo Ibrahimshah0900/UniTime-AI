@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, Float, Integer, String
@@ -127,7 +127,7 @@ class TimetableChange(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
     )
 
     undone: Mapped[bool] = mapped_column(

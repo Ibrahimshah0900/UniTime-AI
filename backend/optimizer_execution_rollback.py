@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -232,7 +232,7 @@ def redo_optimizer_execution(
     )
 
     execution.completed_at = (
-        datetime.utcnow()
+        datetime.now(UTC).replace(tzinfo=None)
     )
 
     db.commit()
