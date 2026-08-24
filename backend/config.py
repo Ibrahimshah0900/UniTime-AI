@@ -44,3 +44,8 @@ CORS_ORIGINS = _parse_origins(
 
 
 IS_PRODUCTION = APP_ENV == "production"
+
+LOG_LEVEL = os.getenv(
+    "LOG_LEVEL",
+    "INFO",
+).strip().upper()

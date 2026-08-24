@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.config import CORS_ORIGINS
+from backend.logging_config import configure_logging, get_logger
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
 from backend.database import Base, SessionLocal, engine
@@ -72,6 +73,9 @@ from backend.student_resolution_applier import (
 # ---------------------------------------------------------------------------
 # APP
 # ---------------------------------------------------------------------------
+
+configure_logging()
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="UniTime AI API",
