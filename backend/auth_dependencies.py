@@ -65,3 +65,5 @@ require_coordinator_or_admin = require_roles(
     UserRole.COORDINATOR,
     UserRole.ADMIN,
 )
+
+require_student = require_roles(UserRole.STUDENT)

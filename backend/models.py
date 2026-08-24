@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.database import Base
@@ -197,4 +197,31 @@ class User(Base):
         nullable=False,
         default=_auth_utc_now,
         onupdate=_auth_utc_now,
+    )
+
+class StudentEnrollment(Base):
+    __tablename__ = "student_enrollments"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "course_code",
+            "section",
+            "semester",
+            name="uq_student_enrollment_identity",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    course_code: Mapped[str] = mapped_column(String(50), nullable=False)
+    section: Mapped[str] = mapped_column(String(50), nullable=False)
+    semester: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
     )
