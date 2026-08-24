@@ -23,11 +23,13 @@ from backend.runtime_config import (
 )
 from backend.api_middleware import register_api_middleware
 from backend.api_errors import register_api_error_handlers
+from backend.account_routes import account_router, admin_router
 from backend.auth_dependencies import require_coordinator_or_admin
 from backend.auth_routes import router as auth_router
 from backend.clash_report_routes import review_router as clash_report_review_router
 from backend.clash_report_routes import student_router as student_clash_report_router
 from backend.enrollment_routes import router as enrollment_router
+from backend.dashboard_routes import router as dashboard_router
 from backend.faculty_routes import faculty_router
 from backend.faculty_routes import management_router as faculty_management_router
 from backend.student_routes import router as student_router
@@ -131,6 +133,9 @@ app.include_router(faculty_router)
 app.include_router(faculty_management_router)
 app.include_router(notification_router)
 app.include_router(notification_job_router)
+app.include_router(account_router)
+app.include_router(admin_router)
+app.include_router(dashboard_router)
 
 
 # ---------------------------------------------------------------------------
