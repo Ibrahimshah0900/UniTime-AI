@@ -5,10 +5,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.auth_schemas import RegisterRequest, normalize_email
+from backend.auth_schemas import (
+    RegisterRequest,
+    normalize_email,
+    normalize_registration_number,
+)
 from backend.auth_security import hash_password, verify_password
 from backend.auth_types import UserRole
-from backend.models import User
+from backend.models import StudentProfile, User
 
 
 _DUMMY_PASSWORD_HASH = hash_password("unitime-ai-login-timing-sentinel")
@@ -16,6 +20,17 @@ _DUMMY_PASSWORD_HASH = hash_password("unitime-ai-login-timing-sentinel")
 
 def get_user_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == normalize_email(email)))
+
+
+def get_user_by_registration_number(db: Session, registration_number: str) -> User | None:
+    return db.scalar(
+        select(User)
+        .join(StudentProfile, StudentProfile.user_id == User.id)
+        .where(
+            StudentProfile.registration_number
+            == normalize_registration_number(registration_number)
+        )
+    )
 
 
 def get_user_by_id(db: Session, user_id: int) -> User | None:
@@ -33,9 +48,23 @@ def create_student_account(db: Session, request: RegisterRequest) -> User:
         role=UserRole.STUDENT.value,
         is_active=True,
     )
-    db.add(user)
-
     try:
+        db.add(user)
+        db.flush()
+        db.add(
+            StudentProfile(
+                user_id=user.id,
+                registration_number=f"DEV-{user.id:08d}",
+                department="Self-registered",
+                program="Self-registered",
+                batch="Unverified",
+                current_semester=1,
+                section="Unassigned",
+                academic_status="active",
+                is_verified=False,
+                onboarding_completed=True,
+            )
+        )
         db.commit()
         db.refresh(user)
     except IntegrityError as exc:
@@ -48,8 +77,21 @@ def create_student_account(db: Session, request: RegisterRequest) -> User:
     return user
 
 
-def authenticate_user(db: Session, *, email: str, password: str) -> User | None:
-    user = get_user_by_email(db, email)
+def authenticate_user(
+    db: Session,
+    *,
+    password: str,
+    identifier: str | None = None,
+    email: str | None = None,
+) -> User | None:
+    login_identifier = identifier or email
+    if login_identifier is None or (identifier is not None and email is not None):
+        raise ValueError("Provide exactly one login identifier.")
+    user = (
+        get_user_by_email(db, login_identifier)
+        if "@" in login_identifier
+        else get_user_by_registration_number(db, login_identifier)
+    )
     if user is None:
         verify_password(password, _DUMMY_PASSWORD_HASH)
         return None

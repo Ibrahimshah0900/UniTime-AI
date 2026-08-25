@@ -1,6 +1,6 @@
 # UniTime-AI
 
-UniTime-AI is a full-stack university timetable and clash-resolution application for students, faculty, coordinators, and administrators. The FastAPI backend provides authentication/RBAC, timetable import and safe editing, clash analysis, optimizer execution and rollback, personal schedules, faculty assignments, clash reporting, notifications/reminders, dashboards, and account administration. The React/Vite frontend provides the corresponding role-adaptive user workflows.
+UniTime-AI is a full-stack university timetable and clash-resolution application for students, faculty, coordinators, and administrators. The FastAPI backend provides institution-controlled student/faculty provisioning, registration-number or email authentication, verified student profiles, transactional roster import, RBAC, timetable import and safe editing, clash analysis, optimizer execution and rollback, personal schedules, faculty assignments, clash reporting, notifications/reminders, dashboards, and account administration. The React/Vite frontend provides the corresponding role-adaptive user workflows.
 
 ## Local setup
 

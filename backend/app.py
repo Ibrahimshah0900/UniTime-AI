@@ -35,6 +35,10 @@ from backend.faculty_routes import faculty_router
 from backend.faculty_routes import directory_router as faculty_directory_router
 from backend.faculty_routes import management_router as faculty_management_router
 from backend.student_routes import router as student_router
+from backend.student_identity_routes import (
+    account_router as student_identity_account_router,
+    management_router as student_identity_management_router,
+)
 from backend.term_routes import router as academic_term_router
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
@@ -142,7 +146,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.8.0",
+    version="0.9.0",
 )
 
 app.add_middleware(
@@ -172,6 +176,8 @@ app.include_router(notification_router)
 app.include_router(notification_job_router)
 app.include_router(account_router)
 app.include_router(admin_router)
+app.include_router(student_identity_account_router)
+app.include_router(student_identity_management_router)
 app.include_router(dashboard_router)
 app.include_router(academic_term_router)
 
@@ -255,8 +261,8 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.8.0",
-        "phase": "academic_term_foundation",
+        "version": "0.9.0",
+        "phase": "institutional_provisioning",
     }
 
 

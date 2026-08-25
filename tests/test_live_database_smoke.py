@@ -79,11 +79,18 @@ def test_live_postgresql_role_flow():
                 },
             )
             student = client.post(
-                "/auth/register",
+                "/students",
+                headers=admin_headers,
                 json={
+                    "registration_number": f"SMOKE-{namespace.upper()}",
                     "full_name": "Smoke Student",
                     "email": student_email,
-                    "password": password,
+                    "department": "Testing",
+                    "program": "Smoke Program",
+                    "batch": "2026",
+                    "current_semester": 1,
+                    "section": "A",
+                    "temporary_password": password,
                 },
             )
             assert coordinator.status_code == 201
@@ -121,8 +128,25 @@ def test_live_postgresql_role_flow():
             )
             assert assignment.status_code == 201
 
-            student_token = login(client, student_email, password)
+            temporary_student_token = login(client, student_email, password)
+            temporary_student_headers = authorization(temporary_student_token)
+            changed = client.post(
+                "/account/change-password",
+                headers=temporary_student_headers,
+                json={
+                    "current_password": password,
+                    "new_password": f"{password}-permanent",
+                },
+            )
+            assert changed.status_code == 204
+            student_token = login(client, student_email, f"{password}-permanent")
             student_headers = authorization(student_token)
+            onboarded = client.patch(
+                "/account/student-profile",
+                headers=student_headers,
+                json={"complete_onboarding": True},
+            )
+            assert onboarded.status_code == 200
             enrollment = client.post(
                 "/student/enrollments",
                 headers=student_headers,

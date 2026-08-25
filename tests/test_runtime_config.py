@@ -186,6 +186,11 @@ def test_production_configuration_can_be_valid(
         "DATABASE_URL",
         "postgresql+psycopg://unitime:test@example.com/unitime",
     )
+    monkeypatch.setattr(
+        runtime_config,
+        "ALLOW_PUBLIC_STUDENT_REGISTRATION",
+        False,
+    )
 
     result = (
         runtime_config
@@ -195,6 +200,21 @@ def test_production_configuration_can_be_valid(
     assert result[
         "production"
     ] is True
+
+
+def test_production_rejects_public_student_registration(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(runtime_config, "IS_PRODUCTION", True)
+    monkeypatch.setattr(runtime_config, "APP_ENV", "production")
+    monkeypatch.setattr(runtime_config, "ALLOW_PUBLIC_STUDENT_REGISTRATION", True)
+    monkeypatch.setattr(runtime_config, "DATABASE_URL", "postgresql+psycopg://user:pass@db/app")
+    monkeypatch.setattr(runtime_config, "AUTH_SECRET_KEY", "production-test-secret-key-0123456789abcdef")
+    monkeypatch.setattr(runtime_config, "ALLOWED_HOSTS", ["api.example.com"])
+    monkeypatch.setattr(runtime_config, "CORS_ORIGINS", ["https://app.example.com"])
+
+    with pytest.raises(RuntimeError, match="Public student registration"):
+        runtime_config.validate_runtime_config()
 
 
 def test_production_rejects_sqlite_database(

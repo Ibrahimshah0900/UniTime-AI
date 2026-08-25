@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from backend.auth_dependencies import get_current_user
 from backend.auth_security import hash_password
 from backend.database import Base, get_db
-from backend.models import StudentEnrollment, TimetableEntry, User
+from backend.models import StudentEnrollment, StudentProfile, TimetableEntry, User
 from backend.student_routes import router as student_router
 
 
@@ -33,6 +33,8 @@ def seed_student_data(Session):
     with Session() as db:
         user = User(email="student@example.edu", full_name="Student User", password_hash=hash_password("Password123"), role="student", is_active=True)
         db.add(user)
+        db.flush()
+        db.add(StudentProfile(user_id=user.id, registration_number=f"TEST-{user.id:06d}", department="Computing", program="BS AI", batch="2026", current_semester=3, section="A", is_verified=True, onboarding_completed=True))
         db.commit()
         db.refresh(user)
         db.add(StudentEnrollment(user_id=user.id, course_code="AI232", section="A", semester="Fall 2026"))

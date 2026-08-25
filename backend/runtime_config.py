@@ -4,6 +4,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from backend.config import (
+    ALLOW_PUBLIC_STUDENT_REGISTRATION,
     ALLOWED_HOSTS,
     APP_ENV,
     APP_TIMEZONE,
@@ -47,6 +48,10 @@ def validate_runtime_config() -> dict[str, Any]:
         )
 
     if IS_PRODUCTION:
+        if ALLOW_PUBLIC_STUDENT_REGISTRATION:
+            errors.append(
+                "Public student registration must be disabled in production."
+            )
         if not DATABASE_URL.startswith(("postgresql://", "postgresql+psycopg://")):
             errors.append(
                 "Production DATABASE_URL must use PostgreSQL with the psycopg driver."

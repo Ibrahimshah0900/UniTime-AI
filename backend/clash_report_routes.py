@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from backend.auth_dependencies import require_coordinator_or_admin, require_student
+from backend.auth_dependencies import require_coordinator_or_admin, require_verified_student
 from backend.clash_report_schemas import (
     ClashReportCreate,
     ClashReportDetailResponse,
@@ -34,7 +34,7 @@ review_router = APIRouter(prefix="/clash-reports", tags=["Clash Report Review"])
 @student_router.post("", response_model=ClashReportDetailResponse, status_code=201)
 def submit_my_clash_report(
     request: ClashReportCreate,
-    current_user: Annotated[User, Depends(require_student)],
+    current_user: Annotated[User, Depends(require_verified_student)],
     db: Session = Depends(get_db),
 ):
     return create_clash_report(
@@ -46,7 +46,7 @@ def submit_my_clash_report(
 
 @student_router.get("", response_model=ClashReportListResponse)
 def list_my_clash_reports(
-    current_user: Annotated[User, Depends(require_student)],
+    current_user: Annotated[User, Depends(require_verified_student)],
     db: Session = Depends(get_db),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
@@ -64,7 +64,7 @@ def list_my_clash_reports(
 @student_router.get("/{report_id}", response_model=ClashReportDetailResponse)
 def get_my_clash_report(
     report_id: int,
-    current_user: Annotated[User, Depends(require_student)],
+    current_user: Annotated[User, Depends(require_verified_student)],
     db: Session = Depends(get_db),
 ):
     return get_clash_report(

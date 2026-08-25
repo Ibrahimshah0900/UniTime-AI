@@ -11,6 +11,7 @@ from backend.auth_security import access_token_lifetime_seconds, create_access_t
 from backend.auth_service import authenticate_user, create_student_account
 from backend.database import get_db
 from backend.models import User
+import backend.config as config
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -18,16 +19,25 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=UserResponse, status_code=201)
 def register_student(request: RegisterRequest, db: Session = Depends(get_db)) -> User:
+    if not config.ALLOW_PUBLIC_STUDENT_REGISTRATION:
+        raise HTTPException(
+            status_code=403,
+            detail="Public student registration is disabled. Contact your institution.",
+        )
     return create_student_account(db, request)
 
 
 @router.post("/login", response_model=TokenResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
-    user = authenticate_user(db, email=request.email, password=request.password)
+    user = authenticate_user(
+        db,
+        identifier=request.login_identifier,
+        password=request.password,
+    )
     if user is None:
         raise HTTPException(
             status_code=401,
-            detail="Email or password is incorrect.",
+            detail="Login identifier or password is incorrect.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

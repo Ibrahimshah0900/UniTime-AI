@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
 
@@ -210,9 +210,9 @@ class User(Base):
     id: _AuthMapped[int] = _auth_mapped_column(
         primary_key=True
     )
-    email: _AuthMapped[str] = _auth_mapped_column(
+    email: _AuthMapped[Optional[str]] = _auth_mapped_column(
         _AuthString(320),
-        nullable=False,
+        nullable=True,
         unique=True,
     )
     full_name: _AuthMapped[str] = _auth_mapped_column(
@@ -227,6 +227,12 @@ class User(Base):
         Integer,
         nullable=False,
         default=0,
+        server_default="0",
+    )
+    must_change_password: _AuthMapped[bool] = _auth_mapped_column(
+        _AuthBoolean,
+        nullable=False,
+        default=False,
         server_default="0",
     )
     role: _AuthMapped[str] = _auth_mapped_column(
@@ -250,6 +256,82 @@ class User(Base):
         nullable=False,
         default=_auth_utc_now,
         onupdate=_auth_utc_now,
+    )
+    student_profile: _AuthMapped[Optional["StudentProfile"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+        foreign_keys="StudentProfile.user_id",
+    )
+
+
+class StudentProfile(Base):
+    __tablename__ = "student_profiles"
+    __table_args__ = (
+        CheckConstraint(
+            "current_semester >= 1 AND current_semester <= 16",
+            name="ck_student_profiles_current_semester",
+        ),
+        CheckConstraint(
+            "academic_status IN ('active','on_leave','graduated','suspended')",
+            name="ck_student_profiles_academic_status",
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    registration_number: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        unique=True,
+    )
+    department: Mapped[str] = mapped_column(String(100), nullable=False)
+    program: Mapped[str] = mapped_column(String(120), nullable=False)
+    batch: Mapped[str] = mapped_column(String(40), nullable=False)
+    current_semester: Mapped[int] = mapped_column(Integer, nullable=False)
+    section: Mapped[str] = mapped_column(String(50), nullable=False)
+    academic_status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="active",
+        server_default="active",
+    )
+    is_verified: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="0",
+    )
+    preferred_name: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    onboarding_completed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="0",
+    )
+    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+        onupdate=_auth_utc_now,
+    )
+    user: Mapped[User] = relationship(
+        back_populates="student_profile",
+        foreign_keys=[user_id],
     )
 
 

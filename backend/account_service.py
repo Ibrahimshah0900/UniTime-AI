@@ -19,6 +19,11 @@ def update_profile(db: Session, *, user: User, request: ProfileUpdate) -> User:
     managed_user = db.get(User, user.id)
     if managed_user is None:
         raise HTTPException(status_code=404, detail="User not found.")
+    if managed_user.role == "student" and managed_user.student_profile is not None:
+        raise HTTPException(
+            status_code=403,
+            detail="Institutional student names can only be changed by a coordinator or administrator.",
+        )
     managed_user.full_name = request.full_name
     db.commit()
     db.refresh(managed_user)
@@ -33,6 +38,7 @@ def change_password(db: Session, *, user: User, request: PasswordChange) -> None
         raise HTTPException(status_code=400, detail="Current password is incorrect.")
     managed_user.password_hash = hash_password(request.new_password)
     managed_user.token_version += 1
+    managed_user.must_change_password = False
     db.commit()
 
 

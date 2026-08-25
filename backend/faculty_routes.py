@@ -11,6 +11,8 @@ from backend.faculty_schemas import (
     FacultyAssignmentCreate,
     FacultyAssignmentResponse,
     FacultyDirectoryResponse,
+    FacultyProvisionCreate,
+    FacultyProvisionResponse,
 )
 from backend.faculty_service import (
     create_faculty_assignment,
@@ -18,6 +20,7 @@ from backend.faculty_service import (
     get_faculty_timetable,
     list_faculty_directory,
     list_faculty_assignments,
+    provision_faculty_account,
 )
 from backend.models import User
 from backend.schemas import TimetableEntryResponse
@@ -48,6 +51,15 @@ def get_faculty_directory(
         offset=offset,
         limit=limit,
     )
+
+
+@directory_router.post("", response_model=FacultyProvisionResponse, status_code=201)
+def create_faculty_account(
+    request: FacultyProvisionCreate,
+    current_user: Annotated[User, Depends(require_coordinator_or_admin)],
+    db: Session = Depends(get_db),
+):
+    return provision_faculty_account(db, request)
 
 
 @faculty_router.get("/assignments", response_model=list[FacultyAssignmentResponse])

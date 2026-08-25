@@ -11,7 +11,7 @@ from backend.auth_dependencies import get_current_user
 from backend.auth_security import hash_password
 from backend.database import Base, get_db
 from backend.enrollment_routes import router as enrollment_router
-from backend.models import User
+from backend.models import StudentProfile, User
 
 
 def create_context():
@@ -48,6 +48,20 @@ def create_student(Session):
             is_active=True,
         )
         db.add(user)
+        db.flush()
+        db.add(
+            StudentProfile(
+                user_id=user.id,
+                registration_number=f"TEST-{user.id:06d}",
+                department="Computing",
+                program="BS AI",
+                batch="2026",
+                current_semester=3,
+                section="A",
+                is_verified=True,
+                onboarding_completed=True,
+            )
+        )
         db.commit()
         db.refresh(user)
         db.expunge(user)

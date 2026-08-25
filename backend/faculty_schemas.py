@@ -9,6 +9,7 @@ from backend.schedule_matching import (
     normalize_section,
     normalize_semester,
 )
+from backend.auth_schemas import UserResponse, normalize_email
 
 
 class FacultyAssignmentCreate(BaseModel):
@@ -71,3 +72,30 @@ class FacultyDirectoryResponse(BaseModel):
     total: int
     offset: int
     limit: int
+
+
+class FacultyProvisionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    full_name: str = Field(min_length=2, max_length=200)
+    email: str = Field(min_length=5, max_length=320)
+    temporary_password: str | None = Field(default=None, min_length=8, max_length=128)
+    is_active: bool = True
+
+    @field_validator("full_name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        normalized = " ".join(value.split())
+        if len(normalized) < 2:
+            raise ValueError("Full name is required.")
+        return normalized
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return normalize_email(value)
+
+
+class FacultyProvisionResponse(BaseModel):
+    faculty: UserResponse
+    temporary_password: str

@@ -15,10 +15,10 @@ def auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def login(client: TestClient, email: str, password: str = "Password123") -> str:
+def login(client: TestClient, identifier: str, password: str = "Password123") -> str:
     response = client.post(
         "/auth/login",
-        json={"email": email, "password": password},
+        json={"identifier": identifier, "password": password},
     )
     assert response.status_code == 200
     return response.json()["access_token"]
@@ -79,16 +79,42 @@ def test_complete_backend_role_journey_with_real_tokens():
         assert faculty.status_code == 201
 
         registration = client.post(
-            "/auth/register",
+            "/students",
+            headers=admin_headers,
             json={
+                "registration_number": "FA23-BAI-042",
                 "full_name": "Student User",
                 "email": "student@example.edu",
-                "password": "Password123",
+                "department": "Computer Science",
+                "program": "BS Artificial Intelligence",
+                "batch": "Fall 2023",
+                "current_semester": 6,
+                "section": "A",
+                "temporary_password": "TemporaryPassword123",
             },
         )
         assert registration.status_code == 201
-        student_token = login(client, "student@example.edu")
+        temporary_token = login(
+            client,
+            "student@example.edu",
+            "TemporaryPassword123",
+        )
+        temporary_headers = auth_header(temporary_token)
+        assert client.post(
+            "/account/change-password",
+            headers=temporary_headers,
+            json={
+                "current_password": "TemporaryPassword123",
+                "new_password": "Password123",
+            },
+        ).status_code == 204
+        student_token = login(client, "FA23-BAI-042")
         student_headers = auth_header(student_token)
+        assert client.patch(
+            "/account/student-profile",
+            headers=student_headers,
+            json={"complete_onboarding": True},
+        ).status_code == 200
 
         first = client.post(
             "/timetable",

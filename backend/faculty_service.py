@@ -5,7 +5,8 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.faculty_schemas import FacultyAssignmentCreate
+from backend.auth_security import hash_password
+from backend.faculty_schemas import FacultyAssignmentCreate, FacultyProvisionCreate
 from backend.models import FacultyClassAssignment, TimetableEntry, User
 from backend.schedule_matching import (
     section_matches,
@@ -13,6 +14,38 @@ from backend.schedule_matching import (
     timetable_sort_key,
 )
 from backend.term_service import get_active_term, resolve_term_for_write
+from backend.student_identity_service import generate_temporary_password
+
+
+def provision_faculty_account(db: Session, request: FacultyProvisionCreate) -> dict:
+    if db.scalar(select(User.id).where(User.email == request.email)) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="An account with this institutional email already exists.",
+        )
+    temporary_password = request.temporary_password or generate_temporary_password()
+    user = User(
+        email=request.email,
+        full_name=request.full_name,
+        password_hash=hash_password(temporary_password),
+        role="faculty",
+        is_active=request.is_active,
+        must_change_password=True,
+    )
+    db.add(user)
+    try:
+        db.commit()
+        db.refresh(user)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="An account with this institutional email already exists.",
+        ) from exc
+    except Exception:
+        db.rollback()
+        raise
+    return {"faculty": user, "temporary_password": temporary_password}
 
 
 def list_faculty_directory(

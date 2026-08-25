@@ -9,6 +9,7 @@
 - `ALLOWED_HOSTS`: comma-separated deployed API hosts; no wildcard
 - `APP_TIMEZONE`: valid IANA timezone, normally `Asia/Karachi`
 - `AUTH_ACCESS_TOKEN_MINUTES`: positive integer
+- `ALLOW_PUBLIC_STUDENT_REGISTRATION=false` (required in production)
 - `MAX_TIMETABLE_UPLOAD_MB`: positive integer
 - `LOG_LEVEL`: `INFO` or the deployment-specific level
 
@@ -22,7 +23,7 @@ The repository also includes `frontend/Dockerfile`, an unprivileged Nginx SPA co
 
 Use one migration-running instance during deployments if the hosting platform starts multiple replicas simultaneously. After migrations complete, scale application replicas normally.
 
-The current migration head is `8ff39f7b22e6`. It introduces explicit academic-term lifecycle data and backfills existing operational and history rows into `LEGACY-IMPORTED` without deleting the prior timetable.
+The current migration head is `5989aedcfe45`. It adds verified institutional student profiles, registration-number identity, nullable official email, and first-login password state. Existing student accounts are preserved as unverified legacy profiles for coordinator review; they are not falsely marked institutionally verified.
 
 ## Release checks
 
@@ -42,7 +43,7 @@ GitHub Actions performs the strict SQLite regression suite, an authenticated rol
 
 ## Authentication edge protection
 
-The application returns uniform login errors and uses versioned, expiring access tokens. Configure the production ingress or API gateway to rate-limit `/auth/login` and `/auth/register` per source address, while allowing ordinary authenticated API traffic separately. A practical starting point is 10 authentication attempts per minute with a small burst allowance; tune this to the institution's identity and support policies. Do not expose Uvicorn directly to the public internet without this edge control and TLS termination.
+The application returns uniform login errors and uses versioned, expiring access tokens. Public registration must remain disabled in production; student and faculty accounts are created through authenticated institutional provisioning routes. Configure the production ingress or API gateway to rate-limit `/auth/login` per source address, while allowing ordinary authenticated API traffic separately. A practical starting point is 10 authentication attempts per minute with a small burst allowance; tune this to the institution's identity and support policies. Do not expose Uvicorn directly to the public internet without this edge control and TLS termination.
 
 ## Notification job
 

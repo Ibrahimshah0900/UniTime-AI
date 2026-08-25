@@ -1,6 +1,6 @@
 # UniTime-AI backend API contract
 
-Contract version: `0.8.0`
+Contract version: `0.9.0`
 
 The exact OpenAPI snapshot is committed as `docs/openapi.json`. JSON requests reject unknown fields where request models use `extra="forbid"`. Authenticated requests send `Authorization: Bearer <access_token>`.
 
@@ -21,11 +21,12 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 ## Authorization matrix
 
-- Public: `POST /auth/register`, `POST /auth/login`, `/`, `/health`, `/ready`.
-- Any authenticated role: `/auth/me`, `/account/*`, `/dashboard`, `/notifications*`, `/notification-preferences`, and read-only `/academic-terms*` access.
-- Student only: `/student/enrollments*`, `/student/timetable`, `/student/clash-reports*`.
+- Public: `POST /auth/login`, `/`, `/health`, `/ready`. `POST /auth/register` is a local compatibility route controlled by `ALLOW_PUBLIC_STUDENT_REGISTRATION` and is forbidden in production.
+- Any authenticated role: `/auth/me` and password/account setup routes. Users with a temporary credential must change it before ordinary role endpoints become available.
+- Ready authenticated roles: `/dashboard`, `/notifications*`, `/notification-preferences`, and read-only `/academic-terms*` access.
+- Verified, active, onboarded student only: `/student/enrollments*`, `/student/timetable`, `/student/clash-reports*`.
 - Faculty only: `/faculty/assignments`, `/faculty/timetable`.
-- Coordinator/admin: institutional timetable CRUD/import, clash analytics and fixes, optimizer plans/actions/history, faculty assignment management, clash-report review, notification job processing, audit/change history.
+- Coordinator/admin: student provisioning, roster import, faculty provisioning, institutional timetable CRUD/import, clash analytics and fixes, optimizer plans/actions/history, faculty assignment management, clash-report review, notification job processing, audit/change history.
 - Admin only: `/admin/users*`.
 - Coordinator/admin: create, activate, and archive academic terms. Only one term may be active; archived terms are read-only.
 
@@ -33,17 +34,18 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 | Group | Methods and paths | Contract purpose |
 |---|---|---|
-| Authentication | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Student registration, JWT login, current user |
+| Authentication | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Development-only compatibility registration, email/registration-number JWT login, current user and first-login state |
 | Academic terms | `GET/POST /academic-terms`, `GET /academic-terms/current`, `POST /academic-terms/{id}/activate`, `POST /academic-terms/{id}/archive` | Explicit planning/active/archived lifecycle and current-term context |
-| Account | `PATCH /account/profile`, `POST /account/change-password` | Own profile and password |
+| Account | `PATCH /account/profile`, `POST /account/change-password`, `GET/PATCH /account/student-profile` | Own permitted profile fields, mandatory temporary-password replacement, and student onboarding |
 | Admin users | `GET/POST /admin/users`, `PATCH /admin/users/{user_id}` | Search/create/update roles and activation |
+| Student provisioning | `GET/POST /students`, `GET/PATCH /students/{user_id}`, `POST /students/{user_id}/temporary-password`, `POST /students/import` | Coordinator/admin institutional identity, verification, activation, one-time credential reset, and transactional CSV/XLSX roster import |
 | Dashboard | `GET /dashboard` | Role-specific operational summary |
 | Student enrollments | `GET/POST /student/enrollments`, `DELETE /student/enrollments/{id}` | Stable course/section/semester enrollment identity |
 | Student timetable | `GET /student/timetable` | Personal classes derived from enrollments |
 | Clash reports | `GET/POST /student/clash-reports`, `GET /student/clash-reports/{id}` | Submit and track owned reports |
 | Clash review | `GET /clash-reports`, `GET/PATCH /clash-reports/{id}` | Queue, detail, lifecycle, resolution and duplicate linking |
 | Faculty | `GET /faculty/assignments`, `GET /faculty/timetable` | Own stable mappings and schedule |
-| Faculty directory | `GET /faculty-directory` | Paginated active-faculty lookup for coordinator/admin assignment workflows |
+| Faculty directory | `GET/POST /faculty-directory` | Paginated active-faculty lookup and coordinator/admin faculty provisioning |
 | Faculty management | `GET/POST /faculty-assignments`, `DELETE /faculty-assignments/{id}` | Coordinator/admin class mapping |
 | Notifications | `GET /notifications`, `PATCH /notifications/{id}/read`, `POST /notifications/read-all` | Paginated inbox and read state |
 | Preferences/jobs | `GET/PUT /notification-preferences`, `POST /notification-jobs/process` | Reminder preferences and idempotent generator |
@@ -57,6 +59,10 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 ## Key request contracts
 
+- Login accepts exactly one of `identifier` or legacy `email`, plus `password`. `identifier` may be a canonical registration number or email. Faculty, coordinator, and admin email login remains supported.
+- Student provision requires `registration_number`, `full_name`, `department`, `program`, `batch`, `current_semester`, and `section`; `email` is optional. A caller may provide a temporary password or receive a cryptographically generated value once in the creation response. Plaintext credentials are never persisted or logged.
+- Student roster import accepts multipart CSV/XLSX. `dry_run=true` previews the all-row validation summary; any invalid/duplicate-in-file row prevents application. `update_existing=true` updates institutional academic fields by registration number without implicitly changing verification or activation state. Existing rows are duplicates by default.
+- Provisioned users must change their temporary password, which invalidates the first token. A verified student must then complete `/account/student-profile` onboarding before enrollment, personal timetable, or clash-report operations.
 - Enrollment create: `course_code`, `section`, `semester` (non-empty strings). Course and section identities are stored uppercase; semester casing is normalized consistently. Case-only variants are duplicates.
 - Clash-report create: 2–10 unique positive `timetable_entry_ids`, optional `notes`, optional `evidence_reference`. Every entry must belong to the student's personal timetable and at least one selected pair must overlap.
 - Clash review: `status` plus terminal `resolution_note`; duplicate status also requires `duplicate_of_report_id`. Allowed transitions are `submitted -> under_review|rejected|duplicate` and `under_review -> resolved|rejected|duplicate`.
@@ -76,4 +82,4 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 ## Token handling
 
-Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.8.0; clients return to login after expiry.
+Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.9.0; clients return to login after expiry.

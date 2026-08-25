@@ -11,7 +11,7 @@ from backend.auth_security import InvalidAccessTokenError, decode_access_token
 from backend.auth_service import get_user_by_id
 from backend.auth_types import UserRole
 from backend.database import get_db
-from backend.models import User
+from backend.models import StudentProfile, User
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -61,6 +61,11 @@ def require_roles(*roles: UserRole) -> Callable[..., User]:
                 status_code=403,
                 detail="You do not have permission to perform this action.",
             )
+        if getattr(current_user, "must_change_password", False):
+            raise HTTPException(
+                status_code=403,
+                detail="Change the temporary password before accessing this feature.",
+            )
         return current_user
 
     return role_dependency
@@ -75,3 +80,37 @@ require_student = require_roles(UserRole.STUDENT)
 require_faculty = require_roles(UserRole.FACULTY)
 
 require_admin = require_roles(UserRole.ADMIN)
+
+
+def require_ready_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    if current_user.must_change_password:
+        raise HTTPException(
+            status_code=403,
+            detail="Change the temporary password before accessing this feature.",
+        )
+    return current_user
+
+
+def require_verified_student(
+    current_user: Annotated[User, Depends(require_student)],
+    db: Session = Depends(get_db),
+) -> User:
+    profile = db.get(StudentProfile, current_user.id)
+    if profile is None or not profile.is_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="A verified institutional student profile is required.",
+        )
+    if profile.academic_status != "active":
+        raise HTTPException(
+            status_code=403,
+            detail="The student academic profile is not active.",
+        )
+    if not profile.onboarding_completed:
+        raise HTTPException(
+            status_code=403,
+            detail="Complete first-login onboarding before accessing this feature.",
+        )
+    return current_user

@@ -71,6 +71,18 @@ def _positive_int_env(name: str, default: int) -> int:
         raise RuntimeError(f'{name} must be at least 1.')
     return value
 
+
+def _boolean_env(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    normalized = raw_value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise RuntimeError(f'{name} must be a boolean value.')
+
 MAX_TIMETABLE_UPLOAD_MB = _positive_int_env('MAX_TIMETABLE_UPLOAD_MB', 10)
 MAX_TIMETABLE_UPLOAD_BYTES = MAX_TIMETABLE_UPLOAD_MB * 1024 * 1024
 
@@ -88,6 +100,13 @@ AUTH_ALGORITHM = "HS256"
 AUTH_ACCESS_TOKEN_MINUTES = _positive_int_env(
     "AUTH_ACCESS_TOKEN_MINUTES",
     60,
+)
+
+# Compatibility registration is useful for local demos, but production access
+# must always be created by an authorized institutional operator.
+ALLOW_PUBLIC_STUDENT_REGISTRATION = _boolean_env(
+    "ALLOW_PUBLIC_STUDENT_REGISTRATION",
+    not IS_PRODUCTION,
 )
 
 APP_TIMEZONE = os.getenv(

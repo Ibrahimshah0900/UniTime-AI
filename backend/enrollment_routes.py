@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
-from backend.auth_dependencies import require_student
+from backend.auth_dependencies import require_verified_student
 from backend.database import get_db
 from backend.enrollment_schemas import EnrollmentCreate, EnrollmentResponse
 from backend.enrollment_service import (
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/student/enrollments", tags=["Student Enrollments"])
 
 @router.get("", response_model=list[EnrollmentResponse])
 def get_my_enrollments(
-    current_user: Annotated[User, Depends(require_student)],
+    current_user: Annotated[User, Depends(require_verified_student)],
     db: Session = Depends(get_db),
 ):
     return list_student_enrollments(db, current_user.id)
@@ -30,7 +30,7 @@ def get_my_enrollments(
 @router.post("", response_model=EnrollmentResponse, status_code=201)
 def add_my_enrollment(
     request: EnrollmentCreate,
-    current_user: Annotated[User, Depends(require_student)],
+    current_user: Annotated[User, Depends(require_verified_student)],
     db: Session = Depends(get_db),
 ):
     return create_student_enrollment(
@@ -43,7 +43,7 @@ def add_my_enrollment(
 @router.delete("/{enrollment_id}", status_code=204)
 def remove_my_enrollment(
     enrollment_id: int,
-    current_user: Annotated[User, Depends(require_student)],
+    current_user: Annotated[User, Depends(require_verified_student)],
     db: Session = Depends(get_db),
 ) -> Response:
     delete_student_enrollment(
