@@ -1,6 +1,195 @@
 {
   "components": {
     "schemas": {
+      "AcademicTermCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 40,
+            "minLength": 2,
+            "title": "Code",
+            "type": "string"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "starts_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts On"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "AcademicTermCreate",
+        "type": "object"
+      },
+      "AcademicTermListResponse": {
+        "properties": {
+          "active_term_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Term Id"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/AcademicTermResponse"
+            },
+            "title": "Terms",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "terms",
+          "total",
+          "active_term_id"
+        ],
+        "title": "AcademicTermListResponse",
+        "type": "object"
+      },
+      "AcademicTermResponse": {
+        "properties": {
+          "activated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activated At"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "starts_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts On"
+          },
+          "status": {
+            "enum": [
+              "planning",
+              "active",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "status",
+          "starts_on",
+          "ends_on",
+          "created_by_user_id",
+          "activated_at",
+          "archived_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AcademicTermResponse",
+        "type": "object"
+      },
       "AdminUserCreate": {
         "additionalProperties": false,
         "properties": {
@@ -257,6 +446,10 @@
             ],
             "title": "Score"
           },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
           "undone": {
             "title": "Undone",
             "type": "boolean"
@@ -264,6 +457,7 @@
         },
         "required": [
           "audit_type",
+          "term_id",
           "history_id",
           "entry_id",
           "course_code",
@@ -666,6 +860,10 @@
             "title": "Student User Id",
             "type": "integer"
           },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -674,6 +872,7 @@
         },
         "required": [
           "id",
+          "term_id",
           "student_user_id",
           "student_name",
           "student_email",
@@ -1013,6 +1212,10 @@
             "title": "Student User Id",
             "type": "integer"
           },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -1021,6 +1224,7 @@
         },
         "required": [
           "id",
+          "term_id",
           "student_user_id",
           "student_name",
           "student_email",
@@ -1113,6 +1317,10 @@
             "title": "Semester",
             "type": "string"
           },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
           "user_id": {
             "title": "User Id",
             "type": "integer"
@@ -1120,6 +1328,7 @@
         },
         "required": [
           "id",
+          "term_id",
           "user_id",
           "course_code",
           "section",
@@ -1154,6 +1363,18 @@
             "minLength": 1,
             "title": "Semester",
             "type": "string"
+          },
+          "term_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Term Id"
           }
         },
         "required": [
@@ -1210,10 +1431,15 @@
           "semester": {
             "title": "Semester",
             "type": "string"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
           }
         },
         "required": [
           "id",
+          "term_id",
           "faculty_user_id",
           "faculty_name",
           "faculty_email",
@@ -1628,6 +1854,10 @@
             ],
             "title": "Read At"
           },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -1652,6 +1882,7 @@
         },
         "required": [
           "id",
+          "term_id",
           "user_id",
           "type",
           "title",
@@ -1924,9 +2155,14 @@
               }
             ],
             "title": "Stop Reason"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
           }
         },
         "required": [
+          "term_id",
           "execution_id",
           "status",
           "requested_steps",
@@ -2038,9 +2274,14 @@
               }
             ],
             "title": "Stop Reason"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
           }
         },
         "required": [
+          "term_id",
           "execution_id",
           "status",
           "requested_steps",
@@ -3513,6 +3754,10 @@
             "title": "Score",
             "type": "number"
           },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
           "total_risks_after": {
             "title": "Total Risks After",
             "type": "integer"
@@ -3528,6 +3773,7 @@
         },
         "required": [
           "id",
+          "term_id",
           "entry_id",
           "group_id",
           "change_type",
@@ -3742,6 +3988,10 @@
             ],
             "title": "Score"
           },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
           "undone": {
             "title": "Undone",
             "type": "boolean"
@@ -3749,6 +3999,7 @@
         },
         "required": [
           "id",
+          "term_id",
           "entry_id",
           "change_type",
           "old_room",
@@ -4065,13 +4316,18 @@
           "start_time": {
             "title": "Start Time",
             "type": "string"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
           }
         },
         "required": [
           "day",
           "start_time",
           "end_time",
-          "id"
+          "id",
+          "term_id"
         ],
         "title": "TimetableEntryResponse",
         "type": "object"
@@ -4365,7 +4621,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.7.0"
+    "version": "0.8.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -4385,6 +4641,196 @@
           }
         },
         "summary": "Root"
+      }
+    },
+    "/academic-terms": {
+      "get": {
+        "operationId": "get_academic_terms_academic_terms_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicTermListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Academic Terms",
+        "tags": [
+          "Academic Terms"
+        ]
+      },
+      "post": {
+        "operationId": "create_term_academic_terms_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcademicTermCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicTermResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Term",
+        "tags": [
+          "Academic Terms"
+        ]
+      }
+    },
+    "/academic-terms/current": {
+      "get": {
+        "operationId": "get_current_academic_term_academic_terms_current_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicTermResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Current Academic Term",
+        "tags": [
+          "Academic Terms"
+        ]
+      }
+    },
+    "/academic-terms/{term_id}/activate": {
+      "post": {
+        "operationId": "activate_term_academic_terms__term_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "term_id",
+            "required": true,
+            "schema": {
+              "title": "Term Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicTermResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Activate Term",
+        "tags": [
+          "Academic Terms"
+        ]
+      }
+    },
+    "/academic-terms/{term_id}/archive": {
+      "post": {
+        "operationId": "archive_term_academic_terms__term_id__archive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "term_id",
+            "required": true,
+            "schema": {
+              "title": "Term Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademicTermResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Archive Term",
+        "tags": [
+          "Academic Terms"
+        ]
       }
     },
     "/account/change-password": {
@@ -4686,6 +5132,25 @@
     "/audit-trail": {
       "get": {
         "operationId": "get_audit_trail_audit_trail_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -4696,6 +5161,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -4817,6 +5292,25 @@
     "/changes": {
       "get": {
         "operationId": "get_changes_changes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -4827,6 +5321,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -4973,6 +5477,23 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
             }
           }
         ],
@@ -5367,6 +5888,23 @@
                 }
               ],
               "title": "Faculty User Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
             }
           }
         ],
@@ -5915,6 +6453,25 @@
     "/optimizer/executions": {
       "get": {
         "operationId": "list_optimizer_executions_endpoint_optimizer_executions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -5925,6 +6482,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -6247,6 +6814,25 @@
     "/student-schedule-changes": {
       "get": {
         "operationId": "get_student_schedule_changes_student_schedule_changes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -6257,6 +6843,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -6380,6 +6976,23 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
             }
           }
         ],
@@ -6654,6 +7267,25 @@
     "/timetable": {
       "get": {
         "operationId": "get_timetable_timetable_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -6668,6 +7300,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -6679,6 +7321,25 @@
       },
       "post": {
         "operationId": "create_timetable_entry_timetable_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -6722,6 +7383,25 @@
     "/timetable/import": {
       "post": {
         "operationId": "import_timetable_timetable_import_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "multipart/form-data": {

@@ -1,6 +1,6 @@
 # UniTime-AI backend API contract
 
-Contract version: `0.7.0`
+Contract version: `0.8.0`
 
 The exact OpenAPI snapshot is committed as `docs/openapi.json`. JSON requests reject unknown fields where request models use `extra="forbid"`. Authenticated requests send `Authorization: Bearer <access_token>`.
 
@@ -22,17 +22,19 @@ Validation failures use status 422 and add `details`, containing safe `location`
 ## Authorization matrix
 
 - Public: `POST /auth/register`, `POST /auth/login`, `/`, `/health`, `/ready`.
-- Any authenticated role: `/auth/me`, `/account/*`, `/dashboard`, `/notifications*`, `/notification-preferences`.
+- Any authenticated role: `/auth/me`, `/account/*`, `/dashboard`, `/notifications*`, `/notification-preferences`, and read-only `/academic-terms*` access.
 - Student only: `/student/enrollments*`, `/student/timetable`, `/student/clash-reports*`.
 - Faculty only: `/faculty/assignments`, `/faculty/timetable`.
 - Coordinator/admin: institutional timetable CRUD/import, clash analytics and fixes, optimizer plans/actions/history, faculty assignment management, clash-report review, notification job processing, audit/change history.
 - Admin only: `/admin/users*`.
+- Coordinator/admin: create, activate, and archive academic terms. Only one term may be active; archived terms are read-only.
 
 ## Endpoint groups
 
 | Group | Methods and paths | Contract purpose |
 |---|---|---|
 | Authentication | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Student registration, JWT login, current user |
+| Academic terms | `GET/POST /academic-terms`, `GET /academic-terms/current`, `POST /academic-terms/{id}/activate`, `POST /academic-terms/{id}/archive` | Explicit planning/active/archived lifecycle and current-term context |
 | Account | `PATCH /account/profile`, `POST /account/change-password` | Own profile and password |
 | Admin users | `GET/POST /admin/users`, `PATCH /admin/users/{user_id}` | Search/create/update roles and activation |
 | Dashboard | `GET /dashboard` | Role-specific operational summary |
@@ -66,6 +68,7 @@ Validation failures use status 422 and add `details`, containing safe `location`
 ## Stable response conventions
 
 - Collection APIs added after Phase 4 expose explicit totals or lists as shown in OpenAPI.
+- Timetable entries, enrollments, faculty assignments, clash reports, notifications, and scheduling history expose `term_id`. Current operational APIs default to the active term; archived rows remain readable but cannot be mutated.
 - Student clash-report detail includes immutable `items` snapshots and ordered `events` audit history.
 - Notifications contain parsed `payload`, `read_at`, and `created_at`; clients must use `type` for presentation behavior.
 - `/dashboard` returns `{role, generated_for_day, data}`; `data` is role-specific and clients must branch on `role`.
@@ -73,4 +76,4 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 ## Token handling
 
-Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.7.0; clients return to login after expiry.
+Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.8.0; clients return to login after expiry.

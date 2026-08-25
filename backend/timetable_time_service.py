@@ -15,10 +15,17 @@ from backend.student_resolution_applier import (
     calculate_risk_cost,
     validate_specific_destination,
 )
+from backend.term_service import resolve_term_for_write
 
 
-def _all_entries(db: Session) -> list[TimetableEntry]:
-    return list(db.scalars(select(TimetableEntry).order_by(TimetableEntry.id)).all())
+def _all_entries(db: Session, term_id: int) -> list[TimetableEntry]:
+    return list(
+        db.scalars(
+            select(TimetableEntry)
+            .where(TimetableEntry.term_id == term_id)
+            .order_by(TimetableEntry.id)
+        ).all()
+    )
 
 
 def _entry_clashes(clashes: list[dict[str, Any]], entry_id: int) -> list[dict[str, Any]]:
@@ -38,7 +45,7 @@ def _apply_safe_destination(
     start_time: str,
     end_time: str,
 ) -> dict[str, int]:
-    entries_before = _all_entries(db)
+    entries_before = _all_entries(db, entry.term_id)
     clashes_before = detect_clashes(entries_before)
     risks_before = analyze_student_conflicts(entries_before)
 
@@ -58,7 +65,7 @@ def _apply_safe_destination(
     entry.end_time = end_time
     db.flush()
 
-    entries_after = _all_entries(db)
+    entries_after = _all_entries(db, entry.term_id)
     clashes_after = detect_clashes(entries_after)
     risks_after = analyze_student_conflicts(entries_after)
     target_clashes = _entry_clashes(clashes_after, entry.id)
@@ -101,6 +108,7 @@ def apply_manual_time_change(
         entry = db.get(TimetableEntry, entry_id)
         if entry is None:
             raise HTTPException(status_code=404, detail="Timetable entry not found.")
+        resolve_term_for_write(db, entry.term_id, allow_planning=True)
         old_day = entry.day
         old_start_time = entry.start_time
         old_end_time = entry.end_time
@@ -119,6 +127,7 @@ def apply_manual_time_change(
             end_time=request.end_time,
         )
         change = TimetableChange(
+            term_id=entry.term_id,
             entry_id=entry.id,
             change_type="manual_time_change",
             old_day=old_day,
@@ -158,6 +167,7 @@ def undo_manual_time_change(db: Session, *, change_id: int) -> dict[str, Any]:
         entry = db.get(TimetableEntry, change.entry_id)
         if entry is None:
             raise HTTPException(status_code=404, detail="The timetable entry no longer exists.")
+        resolve_term_for_write(db, change.term_id, allow_planning=True)
         if (
             entry.day != change.new_day
             or entry.start_time != change.new_start_time
@@ -171,15 +181,15 @@ def undo_manual_time_change(db: Session, *, change_id: int) -> dict[str, Any]:
         old_day = entry.day
         old_start = entry.start_time
         old_end = entry.end_time
-        clashes_before = detect_clashes(_all_entries(db))
-        risks_before = analyze_student_conflicts(_all_entries(db))
+        clashes_before = detect_clashes(_all_entries(db, change.term_id))
+        risks_before = analyze_student_conflicts(_all_entries(db, change.term_id))
         entry.day = change.old_day or entry.day
         entry.start_time = change.old_start_time or entry.start_time
         entry.end_time = change.old_end_time or entry.end_time
         change.undone = True
         db.flush()
-        clashes_after = detect_clashes(_all_entries(db))
-        risks_after = analyze_student_conflicts(_all_entries(db))
+        clashes_after = detect_clashes(_all_entries(db, change.term_id))
+        risks_after = analyze_student_conflicts(_all_entries(db, change.term_id))
         add_time_change_notifications(
             db,
             entry=entry,
@@ -218,6 +228,7 @@ def redo_manual_time_change(db: Session, *, change_id: int) -> dict[str, Any]:
         entry = db.get(TimetableEntry, change.entry_id)
         if entry is None:
             raise HTTPException(status_code=404, detail="The timetable entry no longer exists.")
+        resolve_term_for_write(db, change.term_id, allow_planning=True)
         if (
             entry.day != change.old_day
             or entry.start_time != change.old_start_time

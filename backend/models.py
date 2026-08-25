@@ -1,7 +1,7 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.database import Base
@@ -14,6 +14,13 @@ class TimetableEntry(Base):
         Integer,
         primary_key=True,
         autoincrement=True,
+    )
+
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
+        index=True,
     )
 
     entry_kind: Mapped[str] = mapped_column(
@@ -95,6 +102,13 @@ class TimetableChange(Base):
         Integer,
         primary_key=True,
         autoincrement=True,
+    )
+
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
+        index=True,
     )
 
     entry_id: Mapped[int] = mapped_column(
@@ -238,11 +252,63 @@ class User(Base):
         onupdate=_auth_utc_now,
     )
 
+
+class AcademicTerm(Base):
+    __tablename__ = "academic_terms"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('planning','active','archived')",
+            name="ck_academic_terms_status",
+        ),
+        CheckConstraint(
+            "starts_on IS NULL OR ends_on IS NULL OR starts_on <= ends_on",
+            name="ck_academic_terms_date_order",
+        ),
+        Index(
+            "uq_academic_terms_single_active",
+            "status",
+            unique=True,
+            sqlite_where=text("status = 'active'"),
+            postgresql_where=text("status = 'active'"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(40), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="planning",
+        index=True,
+    )
+    starts_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    ends_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    activated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+        onupdate=_auth_utc_now,
+    )
+
+
 class StudentEnrollment(Base):
     __tablename__ = "student_enrollments"
     __table_args__ = (
         UniqueConstraint(
             "user_id",
+            "term_id",
             "course_code",
             "section",
             "semester",
@@ -251,6 +317,12 @@ class StudentEnrollment(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
+        index=True,
+    )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
@@ -271,6 +343,7 @@ class FacultyClassAssignment(Base):
     __table_args__ = (
         UniqueConstraint(
             "faculty_user_id",
+            "term_id",
             "course_code",
             "section",
             "semester",
@@ -279,6 +352,12 @@ class FacultyClassAssignment(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
+        index=True,
+    )
     faculty_user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
@@ -354,6 +433,12 @@ class Notification(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
+        index=True,
+    )
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
@@ -386,6 +471,12 @@ class StudentClashReport(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
+        index=True,
+    )
     student_user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,

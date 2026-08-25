@@ -170,8 +170,11 @@ def read_timetable_file(
 def entry_exists(
     db: Session,
     entry: TimetableEntryCreate,
+    *,
+    term_id: int,
 ) -> bool:
     statement = select(TimetableEntry).where(
+        TimetableEntry.term_id == term_id,
         TimetableEntry.course_code == entry.course_code,
         TimetableEntry.course_name == entry.course_name,
         TimetableEntry.semester == entry.semester,
@@ -232,6 +235,8 @@ def normalize_dataframe_columns(
 async def import_timetable_file(
     file: UploadFile,
     db: Session,
+    *,
+    term_id: int,
 ) -> dict:
     filename, content = await read_timetable_upload(file)
 
@@ -305,11 +310,12 @@ async def import_timetable_file(
 
             continue
 
-        if entry_exists(db, validated_entry):
+        if entry_exists(db, validated_entry, term_id=term_id):
             duplicates += 1
             continue
 
         db_entry = TimetableEntry(
+            term_id=term_id,
             **validated_entry.model_dump()
         )
 

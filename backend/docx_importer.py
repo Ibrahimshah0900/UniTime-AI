@@ -9,6 +9,7 @@ from backend.database import SessionLocal
 from backend.docx_parser import extract_raw_timetable_records
 from backend.models import TimetableEntry
 from backend.schemas import TimetableEntryCreate
+from backend.term_service import get_active_term
 
 
 FILE_PATH = (
@@ -593,11 +594,16 @@ def build_normalized_entries() -> tuple[
 def database_entry_exists(
     db,
     entry: TimetableEntryCreate,
+    *,
+    term_id: int,
 ) -> bool:
 
     statement = select(
         TimetableEntry
     ).where(
+
+        TimetableEntry.term_id
+        == term_id,
 
         TimetableEntry.entry_kind
         == entry.entry_kind,
@@ -685,11 +691,14 @@ def import_docx_into_database() -> dict:
 
     try:
 
+        active_term = get_active_term(db)
+
         for entry in entries:
 
             if database_entry_exists(
                 db,
                 entry,
+                term_id=active_term.id,
             ):
 
                 duplicates += 1
@@ -697,6 +706,7 @@ def import_docx_into_database() -> dict:
                 continue
 
             db_entry = TimetableEntry(
+                term_id=active_term.id,
                 **entry.model_dump()
             )
 

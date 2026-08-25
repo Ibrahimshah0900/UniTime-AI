@@ -5,6 +5,7 @@ import type { TimetableEntry } from '../src/types/api'
 function entry(id: number, day: TimetableEntry['day'], start_time: string): TimetableEntry {
   return {
     id,
+    term_id: 1,
     entry_kind: 'course',
     course_code: `CS${id}`,
     course_name: null,

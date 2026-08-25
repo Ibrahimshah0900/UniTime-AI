@@ -1,5 +1,27 @@
 export type UserRole = 'student' | 'faculty' | 'coordinator' | 'admin'
 
+export type AcademicTermStatus = 'planning' | 'active' | 'archived'
+
+export interface AcademicTerm {
+  id: number
+  code: string
+  name: string
+  status: AcademicTermStatus
+  starts_on: string | null
+  ends_on: string | null
+  created_by_user_id: number | null
+  activated_at: string | null
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AcademicTermListResponse {
+  terms: AcademicTerm[]
+  total: number
+  active_term_id: number | null
+}
+
 export interface User {
   id: number
   email: string
@@ -25,6 +47,7 @@ export interface DashboardResponse {
 
 export interface TimetableEntry {
   id: number
+  term_id: number
   entry_kind: 'course' | 'special_event'
   course_code: string | null
   course_name: string | null
@@ -45,6 +68,7 @@ export type ClassType = 'lecture' | 'lab' | 'tutorial' | 'online' | 'hybrid' | '
 
 export interface Enrollment {
   id: number
+  term_id: number
   user_id: number
   course_code: string
   section: string
@@ -77,6 +101,7 @@ export interface ClashReportEvent {
 
 export interface ClashReportSummary {
   id: number
+  term_id: number
   student_user_id: number
   student_name: string
   student_email: string
@@ -103,6 +128,7 @@ export interface ClashReportListResponse {
 
 export interface FacultyAssignment {
   id: number
+  term_id: number
   faculty_user_id: number
   faculty_name: string
   faculty_email: string
@@ -148,6 +174,7 @@ export type NotificationType =
 
 export interface NotificationItem {
   id: number
+  term_id: number
   user_id: number
   type: NotificationType
   title: string

@@ -43,6 +43,7 @@ class NotificationPreferenceResponse(NotificationPreferenceUpdate):
 
 class NotificationResponse(BaseModel):
     id: int
+    term_id: int
     user_id: int
     type: NotificationType
     title: str

@@ -262,6 +262,7 @@ def create_global_change_record(
     ]
 
     change = StudentScheduleChange(
+        term_id=entry.term_id,
         entry_id=entry.id,
         group_id=best_move[
             "source_group_id"

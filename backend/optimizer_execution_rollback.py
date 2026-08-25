@@ -11,6 +11,7 @@ from backend.optimizer_execution_history import (
     get_execution,
     get_execution_steps,
 )
+from backend.term_service import resolve_term_for_write
 from backend.student_resolution_applier import (
     StudentScheduleChange,
     redo_student_resolution,
@@ -73,6 +74,7 @@ def undo_optimizer_execution(
         db,
         execution_id,
     )
+    resolve_term_for_write(db, execution.term_id, allow_planning=True)
 
     links = get_execution_steps(
         db,
@@ -168,6 +170,7 @@ def redo_optimizer_execution(
         db,
         execution_id,
     )
+    resolve_term_for_write(db, execution.term_id, allow_planning=True)
 
     links = get_execution_steps(
         db,

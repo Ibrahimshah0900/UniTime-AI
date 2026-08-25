@@ -16,6 +16,7 @@ from backend.models import (
     User,
 )
 from backend.notification_service import add_clash_report_status_notification
+from backend.term_service import get_active_term, require_active_term_id
 
 
 ALLOWED_STATUS_TRANSITIONS = {
@@ -67,6 +68,7 @@ def _serialize_report(
 
     result = {
         "id": report.id,
+        "term_id": report.term_id,
         "student_user_id": report.student_user_id,
         "student_name": student.full_name,
         "student_email": student.email,
@@ -90,6 +92,7 @@ def create_clash_report(
     student_user_id: int,
     request: ClashReportCreate,
 ) -> dict:
+    active_term = get_active_term(db)
     personal_entries = {
         entry.id: entry for entry in get_student_timetable(db, student_user_id)
     }
@@ -113,6 +116,7 @@ def create_clash_report(
         )
 
     report = StudentClashReport(
+        term_id=active_term.id,
         student_user_id=student_user_id,
         status="submitted",
         notes=request.notes,
@@ -173,6 +177,7 @@ def list_clash_reports(
     *,
     student_user_id: int | None = None,
     status: str | None = None,
+    term_id: int | None = None,
     offset: int = 0,
     limit: int = 50,
 ) -> dict:
@@ -181,6 +186,8 @@ def list_clash_reports(
         filters.append(StudentClashReport.student_user_id == student_user_id)
     if status is not None:
         filters.append(StudentClashReport.status == status)
+    if term_id is not None:
+        filters.append(StudentClashReport.term_id == term_id)
 
     count_statement = select(func.count(StudentClashReport.id)).where(*filters)
     total = db.scalar(count_statement) or 0
@@ -217,6 +224,8 @@ def update_clash_report(
     if report is None:
         raise HTTPException(status_code=404, detail="Clash report not found.")
 
+    require_active_term_id(db, report.term_id)
+
     allowed = ALLOWED_STATUS_TRANSITIONS.get(report.status, frozenset())
     if request.status not in allowed:
         raise HTTPException(
@@ -234,6 +243,11 @@ def update_clash_report(
             raise HTTPException(
                 status_code=422,
                 detail="Duplicate target report does not exist.",
+            )
+        if duplicate_target.term_id != report.term_id:
+            raise HTTPException(
+                status_code=422,
+                detail="Duplicate reports must belong to the same academic term.",
             )
         if duplicate_target.id == report.id:
             raise HTTPException(
@@ -272,6 +286,7 @@ def update_clash_report(
             status=request.status,
             resolution_note=request.resolution_note,
             event_key=str(event.id),
+            term_id=report.term_id,
         )
         db.commit()
         db.refresh(report)

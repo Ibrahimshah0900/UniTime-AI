@@ -3,6 +3,7 @@ from fastapi import (
     FastAPI,
     File,
     HTTPException,
+    Query,
     UploadFile,
 )
 from uuid import uuid4
@@ -34,6 +35,7 @@ from backend.faculty_routes import faculty_router
 from backend.faculty_routes import directory_router as faculty_directory_router
 from backend.faculty_routes import management_router as faculty_management_router
 from backend.student_routes import router as student_router
+from backend.term_routes import router as academic_term_router
 from backend.clash_detector import detect_clashes
 from backend.course_parser import normalize_room
 from backend.concurrency import acquire_timetable_write_lock
@@ -113,6 +115,11 @@ from backend.timetable_time_service import (
     redo_manual_time_change,
     undo_manual_time_change,
 )
+from backend.term_service import (
+    get_active_term,
+    get_term,
+    resolve_term_for_write,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +142,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.7.0",
+    version="0.8.0",
 )
 
 app.add_middleware(
@@ -166,6 +173,7 @@ app.include_router(notification_job_router)
 app.include_router(account_router)
 app.include_router(admin_router)
 app.include_router(dashboard_router)
+app.include_router(academic_term_router)
 
 
 # ---------------------------------------------------------------------------
@@ -175,9 +183,12 @@ app.include_router(dashboard_router)
 
 def get_all_entries(
     db: Session,
+    term_id: int | None = None,
 ) -> list[TimetableEntry]:
+    selected_term_id = term_id or get_active_term(db).id
     statement = (
         select(TimetableEntry)
+        .where(TimetableEntry.term_id == selected_term_id)
         .order_by(TimetableEntry.id)
     )
 
@@ -206,7 +217,9 @@ def create_change_record(
     reason: str | None = None,
     score: float | None = None,
 ) -> TimetableChange:
+    entry = db.get(TimetableEntry, entry_id)
     change = TimetableChange(
+        term_id=entry.term_id if entry is not None else get_active_term(db).id,
         entry_id=entry_id,
         change_type=change_type,
         old_room=old_room,
@@ -218,7 +231,6 @@ def create_change_record(
     db.add(change)
     db.flush()
 
-    entry = db.get(TimetableEntry, entry_id)
     if entry is not None:
         add_schedule_change_notifications(
             db,
@@ -243,8 +255,8 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.7.0",
-        "phase": "frontend_integration",
+        "version": "0.8.0",
+        "phase": "academic_term_foundation",
     }
 
 
@@ -269,12 +281,15 @@ def health_check():
 )
 def create_timetable_entry(
     entry: TimetableEntryCreate,
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
     acquire_timetable_write_lock(db)
+    term = resolve_term_for_write(db, term_id, allow_planning=True)
     duplicate_statement = (
         select(TimetableEntry)
         .where(
+            TimetableEntry.term_id == term.id,
             TimetableEntry.entry_kind == entry.entry_kind,
             TimetableEntry.course_code == entry.course_code,
             TimetableEntry.course_name == entry.course_name,
@@ -302,6 +317,7 @@ def create_timetable_entry(
         )
 
     db_entry = TimetableEntry(
+        term_id=term.id,
         **entry.model_dump()
     )
 
@@ -318,9 +334,15 @@ def create_timetable_entry(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_timetable(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
-    entries = list(db.scalars(select(TimetableEntry)).all())
+    selected_term = get_active_term(db) if term_id is None else get_term(db, term_id)
+    entries = list(
+        db.scalars(
+            select(TimetableEntry).where(TimetableEntry.term_id == selected_term.id)
+        ).all()
+    )
     return sorted(entries, key=timetable_sort_key)
 
 
@@ -368,6 +390,8 @@ def delete_timetable_entry(
             detail="Timetable entry not found.",
         )
 
+    resolve_term_for_write(db, entry.term_id, allow_planning=True)
+
     add_schedule_change_notifications(
         db,
         entry=entry,
@@ -392,12 +416,15 @@ def delete_timetable_entry(
 )
 async def import_timetable(
     file: UploadFile = File(...),
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
     acquire_timetable_write_lock(db)
+    term = resolve_term_for_write(db, term_id, allow_planning=True)
     return await import_timetable_file(
         file=file,
         db=db,
+        term_id=term.id,
     )
 
 
@@ -794,10 +821,13 @@ def apply_student_conflict_best_fix(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_student_schedule_changes(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    selected_term = get_active_term(db) if term_id is None else get_term(db, term_id)
     statement = (
         select(StudentScheduleChange)
+        .where(StudentScheduleChange.term_id == selected_term.id)
         .order_by(
             StudentScheduleChange.id.desc()
         )
@@ -812,6 +842,7 @@ def get_student_schedule_changes(
         "changes": [
             {
                 "id": change.id,
+                "term_id": change.term_id,
                 "entry_id": change.entry_id,
                 "group_id": change.group_id,
                 "change_type": (
@@ -939,12 +970,15 @@ def change_timetable_room(
             detail="Timetable entry not found.",
         )
 
+    resolve_term_for_write(db, entry.term_id, allow_planning=True)
+
     requested_room = normalize_room(
         request.room
     )
 
     entries = get_all_entries(
-        db
+        db,
+        term_id=entry.term_id,
     )
 
     known_rooms = get_known_rooms(
@@ -1029,7 +1063,8 @@ def change_timetable_room(
     db.flush()
 
     refreshed_entries = get_all_entries(
-        db
+        db,
+        term_id=entry.term_id,
     )
 
     new_room_clashes = [
@@ -1360,10 +1395,13 @@ def apply_best_room_fix(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_changes(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    selected_term = get_active_term(db) if term_id is None else get_term(db, term_id)
     statement = (
         select(TimetableChange)
+        .where(TimetableChange.term_id == selected_term.id)
         .order_by(
             TimetableChange.id.desc()
         )
@@ -1378,6 +1416,7 @@ def get_changes(
         "changes": [
             {
                 "id": change.id,
+                "term_id": change.term_id,
                 "entry_id": change.entry_id,
                 "change_type": change.change_type,
                 "old_room": change.old_room,
@@ -1427,6 +1466,8 @@ def undo_change(
             status_code=404,
             detail="Change record not found.",
         )
+
+    resolve_term_for_write(db, change.term_id, allow_planning=True)
 
     if change.change_type == "manual_time_change":
         return undo_manual_time_change(db, change_id=change.id)
@@ -1481,7 +1522,7 @@ def undo_change(
         )
 
     room_clashes_before = get_room_clashes(
-        get_all_entries(db)
+        get_all_entries(db, term_id=change.term_id)
     )
 
     before_count = len(
@@ -1495,7 +1536,8 @@ def undo_change(
     db.flush()
 
     entries_after_undo = get_all_entries(
-        db
+        db,
+        term_id=change.term_id,
     )
 
     room_clashes_after = get_room_clashes(
@@ -1595,6 +1637,8 @@ def redo_change(
             detail="Change record not found.",
         )
 
+    resolve_term_for_write(db, change.term_id, allow_planning=True)
+
     if change.change_type == "manual_time_change":
         return redo_manual_time_change(db, change_id=change.id)
 
@@ -1661,7 +1705,8 @@ def redo_change(
     )
 
     entries_before = get_all_entries(
-        db
+        db,
+        term_id=change.term_id,
     )
 
     before_count = len(
@@ -1716,7 +1761,8 @@ def redo_change(
     db.flush()
 
     entries_after = get_all_entries(
-        db
+        db,
+        term_id=change.term_id,
     )
 
     room_clashes_after = get_room_clashes(
@@ -1799,15 +1845,19 @@ def redo_change(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_audit_trail(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    selected_term = get_active_term(db) if term_id is None else get_term(db, term_id)
     room_statement = (
         select(TimetableChange)
+        .where(TimetableChange.term_id == selected_term.id)
         .order_by(TimetableChange.id)
     )
 
     student_statement = (
         select(StudentScheduleChange)
+        .where(StudentScheduleChange.term_id == selected_term.id)
         .order_by(StudentScheduleChange.id)
     )
 
@@ -1834,6 +1884,7 @@ def get_audit_trail(
                     if change.change_type == "manual_time_change"
                     else "room_change"
                 ),
+                "term_id": change.term_id,
                 "history_id": change.id,
                 "entry_id": change.entry_id,
                 "course_code": (
@@ -1889,6 +1940,7 @@ def get_audit_trail(
                 "audit_type": (
                     "student_schedule_change"
                 ),
+                "term_id": change.term_id,
                 "history_id": (
                     change.id
                 ),
@@ -2068,10 +2120,12 @@ def redo_optimizer_execution_endpoint(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def list_optimizer_executions_endpoint(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    selected_term = get_active_term(db) if term_id is None else get_term(db, term_id)
     return {
-        "executions": list_optimizer_executions(db),
+        "executions": list_optimizer_executions(db, term_id=selected_term.id),
     }
 
 

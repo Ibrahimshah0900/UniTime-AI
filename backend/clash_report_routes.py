@@ -21,6 +21,7 @@ from backend.clash_report_service import (
 )
 from backend.database import get_db
 from backend.models import User
+from backend.term_service import get_active_term
 
 
 student_router = APIRouter(
@@ -49,12 +50,14 @@ def list_my_clash_reports(
     db: Session = Depends(get_db),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
+    term_id: int | None = Query(default=None, gt=0),
 ):
     return list_clash_reports(
         db,
         student_user_id=current_user.id,
         offset=offset,
         limit=limit,
+        term_id=term_id,
     )
 
 
@@ -78,12 +81,15 @@ def get_clash_report_review_queue(
     status: ClashReportStatus | None = None,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
+    term_id: int | None = Query(default=None, gt=0),
 ):
+    selected_term_id = term_id or get_active_term(db).id
     return list_clash_reports(
         db,
         status=status,
         offset=offset,
         limit=limit,
+        term_id=selected_term_id,
     )
 
 

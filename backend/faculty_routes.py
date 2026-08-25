@@ -71,8 +71,13 @@ def get_managed_faculty_assignments(
     current_user: Annotated[User, Depends(require_coordinator_or_admin)],
     db: Session = Depends(get_db),
     faculty_user_id: int | None = None,
+    term_id: int | None = Query(default=None, gt=0),
 ):
-    return list_faculty_assignments(db, faculty_user_id=faculty_user_id)
+    return list_faculty_assignments(
+        db,
+        faculty_user_id=faculty_user_id,
+        term_id=term_id,
+    )
 
 
 @management_router.post("", response_model=FacultyAssignmentResponse, status_code=201)

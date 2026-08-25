@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from sqlalchemy import (
     DateTime,
+    ForeignKey,
     Integer,
     String,
     Text,
@@ -18,6 +19,7 @@ from sqlalchemy.orm import (
 )
 
 from backend.database import Base
+from backend.term_service import get_active_term
 
 
 class OptimizerExecution(Base):
@@ -34,6 +36,13 @@ class OptimizerExecution(Base):
         Integer,
         primary_key=True,
         autoincrement=True,
+    )
+
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
+        index=True,
     )
 
     execution_id: Mapped[str] = mapped_column(
@@ -272,6 +281,7 @@ def create_execution(
     )
 
     execution = OptimizerExecution(
+        term_id=get_active_term(db).id,
         execution_id=execution_id,
         requested_steps=requested_steps,
         applied_steps=0,

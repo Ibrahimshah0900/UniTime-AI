@@ -342,6 +342,7 @@ class OptimizerExecutionMetricsResponse(BaseModel):
 
 
 class OptimizerExecutionResponse(OperationModel):
+    term_id: int
     execution_id: str
     status: str
     requested_steps: int
@@ -369,6 +370,7 @@ class OptimizerExecutionCollectionResponse(BaseModel):
 
 class TimetableChangeResponse(BaseModel):
     id: int
+    term_id: int
     entry_id: int
     change_type: str
     old_room: str | None
@@ -392,6 +394,7 @@ class ChangeCollectionResponse(BaseModel):
 
 class StudentScheduleChangeResponse(BaseModel):
     id: int
+    term_id: int
     entry_id: int
     group_id: int
     change_type: str
@@ -424,6 +427,7 @@ class AuditStateResponse(OperationModel):
 
 class AuditItemResponse(OperationModel):
     audit_type: str
+    term_id: int
     history_id: int
     entry_id: int
     course_code: str | None

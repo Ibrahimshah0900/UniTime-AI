@@ -35,6 +35,7 @@ from backend.student_conflict_resolver import (
     get_room_status_for_candidate,
     resolve_student_conflict_group,
 )
+from backend.term_service import get_active_term, resolve_term_for_write
 
 
 # ---------------------------------------------------------------------------
@@ -48,6 +49,13 @@ class StudentScheduleChange(Base):
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
+        index=True,
+    )
+
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=1,
         index=True,
     )
 
@@ -164,9 +172,12 @@ RISK_WEIGHT = {
 
 def get_all_entries(
     db: Session,
+    term_id: int | None = None,
 ) -> list[TimetableEntry]:
+    selected_term_id = term_id or get_active_term(db).id
     statement = (
         select(TimetableEntry)
+        .where(TimetableEntry.term_id == selected_term_id)
         .order_by(TimetableEntry.id)
     )
 
@@ -632,6 +643,7 @@ def create_student_change_record(
     total_risks_after: int,
 ) -> StudentScheduleChange:
     change = StudentScheduleChange(
+        term_id=entry.term_id,
         entry_id=entry.id,
         group_id=group_id,
         change_type=(
@@ -712,6 +724,8 @@ def apply_student_resolution(
                 "The timetable entry selected "
                 "for this resolution no longer exists."
             )
+
+        resolve_term_for_write(db, entry.term_id, allow_planning=True)
 
         validate_entry_state(
             entry,
@@ -1020,6 +1034,8 @@ def undo_student_resolution(
                 "no longer exists."
             )
 
+        resolve_term_for_write(db, change.term_id, allow_planning=True)
+
         if (
             entry.day
             != change.new_day
@@ -1261,6 +1277,8 @@ def redo_student_resolution(
                 "with this student schedule change "
                 "no longer exists."
             )
+
+        resolve_term_for_write(db, change.term_id, allow_planning=True)
 
         if (
             entry.day

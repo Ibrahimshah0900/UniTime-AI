@@ -10,12 +10,14 @@ from backend.optimizer_execution_history import (
     get_execution,
     get_execution_steps,
 )
+from backend.term_service import get_active_term
 
 
 def serialize_execution(
     execution: OptimizerExecution,
 ) -> dict[str, Any]:
     return {
+        "term_id": execution.term_id,
         "execution_id": execution.execution_id,
         "status": execution.status,
         "requested_steps": execution.requested_steps,
@@ -65,16 +67,20 @@ def serialize_execution(
 
 def list_optimizer_executions(
     db: Session,
+    *,
+    term_id: int | None = None,
 ) -> list[dict[str, Any]]:
     """
     Return all grouped optimizer executions,
     newest first.
     """
 
+    selected_term_id = term_id or get_active_term(db).id
     statement = (
         select(
             OptimizerExecution
         )
+        .where(OptimizerExecution.term_id == selected_term_id)
         .order_by(
             OptimizerExecution.id.desc()
         )

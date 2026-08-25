@@ -22,6 +22,8 @@ The repository also includes `frontend/Dockerfile`, an unprivileged Nginx SPA co
 
 Use one migration-running instance during deployments if the hosting platform starts multiple replicas simultaneously. After migrations complete, scale application replicas normally.
 
+The current migration head is `8ff39f7b22e6`. It introduces explicit academic-term lifecycle data and backfills existing operational and history rows into `LEGACY-IMPORTED` without deleting the prior timetable.
+
 ## Release checks
 
 1. `python -m pytest tests -q`

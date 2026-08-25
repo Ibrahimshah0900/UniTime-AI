@@ -15,6 +15,7 @@ class FacultyAssignmentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     faculty_user_id: int = Field(gt=0)
+    term_id: int | None = Field(default=None, gt=0)
     course_code: str = Field(min_length=1, max_length=50)
     section: str = Field(min_length=1, max_length=50)
     semester: str = Field(min_length=1, max_length=50)
@@ -46,6 +47,7 @@ class FacultyAssignmentCreate(BaseModel):
 
 class FacultyAssignmentResponse(BaseModel):
     id: int
+    term_id: int
     faculty_user_id: int
     faculty_name: str
     faculty_email: str

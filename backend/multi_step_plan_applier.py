@@ -304,6 +304,7 @@ def create_multi_step_change_record(
     ]
 
     change = StudentScheduleChange(
+        term_id=entry.term_id,
         entry_id=entry.id,
         group_id=move.get(
             "source_group_id",

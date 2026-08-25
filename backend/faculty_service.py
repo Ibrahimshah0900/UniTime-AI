@@ -12,6 +12,7 @@ from backend.schedule_matching import (
     semester_matches,
     timetable_sort_key,
 )
+from backend.term_service import get_active_term, resolve_term_for_write
 
 
 def list_faculty_directory(
@@ -61,6 +62,7 @@ def _serialize_assignment(
         raise HTTPException(status_code=500, detail="Assigned faculty user could not be loaded.")
     return {
         "id": assignment.id,
+        "term_id": assignment.term_id,
         "faculty_user_id": assignment.faculty_user_id,
         "faculty_name": faculty.full_name,
         "faculty_email": faculty.email,
@@ -76,8 +78,12 @@ def list_faculty_assignments(
     db: Session,
     *,
     faculty_user_id: int | None = None,
+    term_id: int | None = None,
 ) -> list[dict]:
-    statement = select(FacultyClassAssignment)
+    selected_term_id = term_id or get_active_term(db).id
+    statement = select(FacultyClassAssignment).where(
+        FacultyClassAssignment.term_id == selected_term_id
+    )
     if faculty_user_id is not None:
         statement = statement.where(
             FacultyClassAssignment.faculty_user_id == faculty_user_id
@@ -98,6 +104,7 @@ def create_faculty_assignment(
     created_by_user_id: int,
     request: FacultyAssignmentCreate,
 ) -> dict:
+    term = resolve_term_for_write(db, request.term_id, allow_planning=True)
     faculty = db.get(User, request.faculty_user_id)
     if faculty is None or faculty.role != "faculty" or not faculty.is_active:
         raise HTTPException(
@@ -108,6 +115,7 @@ def create_faculty_assignment(
     existing = db.scalar(
         select(FacultyClassAssignment.id).where(
             FacultyClassAssignment.faculty_user_id == faculty.id,
+            FacultyClassAssignment.term_id == term.id,
             func.upper(FacultyClassAssignment.course_code) == request.course_code,
             func.upper(FacultyClassAssignment.section) == request.section,
             func.upper(FacultyClassAssignment.semester) == request.semester.upper(),
@@ -120,6 +128,7 @@ def create_faculty_assignment(
         )
 
     assignment = FacultyClassAssignment(
+        term_id=term.id,
         faculty_user_id=faculty.id,
         course_code=request.course_code,
         section=request.section,
@@ -146,15 +155,23 @@ def delete_faculty_assignment(db: Session, assignment_id: int) -> None:
     assignment = db.get(FacultyClassAssignment, assignment_id)
     if assignment is None:
         raise HTTPException(status_code=404, detail="Faculty assignment not found.")
+    resolve_term_for_write(db, assignment.term_id, allow_planning=True)
     db.delete(assignment)
     db.commit()
 
 
-def get_faculty_timetable(db: Session, faculty_user_id: int) -> list[TimetableEntry]:
+def get_faculty_timetable(
+    db: Session,
+    faculty_user_id: int,
+    *,
+    term_id: int | None = None,
+) -> list[TimetableEntry]:
+    selected_term_id = term_id or get_active_term(db).id
     assignments = list(
         db.scalars(
             select(FacultyClassAssignment).where(
-                FacultyClassAssignment.faculty_user_id == faculty_user_id
+                FacultyClassAssignment.faculty_user_id == faculty_user_id,
+                FacultyClassAssignment.term_id == selected_term_id,
             )
         ).all()
     )
@@ -167,6 +184,7 @@ def get_faculty_timetable(db: Session, faculty_user_id: int) -> list[TimetableEn
     entries = list(
         db.scalars(
             select(TimetableEntry).where(
+                TimetableEntry.term_id == selected_term_id,
                 TimetableEntry.course_code.is_not(None),
                 func.upper(TimetableEntry.course_code).in_(course_codes),
             )

@@ -47,6 +47,7 @@ class EnrollmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    term_id: int
     user_id: int
     course_code: str
     section: str

@@ -261,6 +261,7 @@ export interface OptimizerPlan {
 }
 
 export interface OptimizerExecution {
+  term_id: number
   execution_id: string
   status: string
   requested_steps: number
@@ -290,6 +291,7 @@ export interface OptimizerExecutionCollection {
 
 export interface TimetableChange {
   id: number
+  term_id: number
   entry_id: number
   change_type: string
   old_room: string | null
@@ -313,6 +315,7 @@ export interface TimetableChangeCollection {
 
 export interface StudentScheduleChange {
   id: number
+  term_id: number
   entry_id: number
   group_id: number
   change_type: string
@@ -338,6 +341,7 @@ export interface StudentScheduleChangeCollection {
 
 export interface AuditItem {
   audit_type: string
+  term_id: number
   history_id: number
   entry_id: number
   course_code: string | null

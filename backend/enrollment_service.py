@@ -12,12 +12,22 @@ from backend.schedule_matching import (
     semester_matches,
     timetable_sort_key,
 )
+from backend.term_service import get_active_term, require_active_term_id
 
 
-def list_student_enrollments(db: Session, user_id: int) -> list[StudentEnrollment]:
+def list_student_enrollments(
+    db: Session,
+    user_id: int,
+    *,
+    term_id: int | None = None,
+) -> list[StudentEnrollment]:
+    selected_term_id = term_id or get_active_term(db).id
     statement = (
         select(StudentEnrollment)
-        .where(StudentEnrollment.user_id == user_id)
+        .where(
+            StudentEnrollment.user_id == user_id,
+            StudentEnrollment.term_id == selected_term_id,
+        )
         .order_by(
             StudentEnrollment.semester,
             StudentEnrollment.course_code,
@@ -33,9 +43,11 @@ def create_student_enrollment(
     user_id: int,
     request: EnrollmentCreate,
 ) -> StudentEnrollment:
+    active_term = get_active_term(db)
     existing = db.scalar(
         select(StudentEnrollment.id).where(
             StudentEnrollment.user_id == user_id,
+            StudentEnrollment.term_id == active_term.id,
             func.upper(StudentEnrollment.course_code) == request.course_code,
             func.upper(StudentEnrollment.section) == request.section,
             func.upper(StudentEnrollment.semester) == request.semester.upper(),
@@ -48,6 +60,7 @@ def create_student_enrollment(
         )
 
     enrollment = StudentEnrollment(
+        term_id=active_term.id,
         user_id=user_id,
         course_code=request.course_code,
         section=request.section,
@@ -81,11 +94,14 @@ def delete_student_enrollment(
     if enrollment is None or enrollment.user_id != user_id:
         raise HTTPException(status_code=404, detail="Enrollment not found.")
 
+    require_active_term_id(db, enrollment.term_id)
+
     db.delete(enrollment)
     db.commit()
 
 def get_student_timetable(db: Session, user_id: int):
-    enrollments = list_student_enrollments(db, user_id)
+    active_term = get_active_term(db)
+    enrollments = list_student_enrollments(db, user_id, term_id=active_term.id)
     if not enrollments:
         return []
 
@@ -93,6 +109,7 @@ def get_student_timetable(db: Session, user_id: int):
 
     course_codes = {enrollment.course_code.strip().upper() for enrollment in enrollments}
     statement = select(TimetableEntry).where(
+        TimetableEntry.term_id == active_term.id,
         TimetableEntry.course_code.is_not(None),
         func.upper(TimetableEntry.course_code).in_(course_codes),
     )

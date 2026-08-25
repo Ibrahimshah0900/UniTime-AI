@@ -20,6 +20,7 @@ from backend.models import (
     TimetableEntry,
     User,
 )
+from backend.term_service import get_active_term
 from backend.notification_schemas import NotificationPreferenceUpdate
 from backend.schedule_matching import section_matches, semester_matches
 
@@ -91,6 +92,7 @@ def add_notification(
     message: str,
     payload: dict | None = None,
     dedup_key: str | None = None,
+    term_id: int | None = None,
 ) -> Notification | None:
     if dedup_key is not None:
         existing = db.scalar(
@@ -99,6 +101,7 @@ def add_notification(
         if existing is not None:
             return None
     notification = Notification(
+        term_id=term_id or get_active_term(db).id,
         user_id=user_id,
         type=notification_type,
         title=title,
@@ -127,6 +130,7 @@ def add_clash_report_status_notification(
     status: str,
     resolution_note: str | None,
     event_key: str,
+    term_id: int | None = None,
 ) -> Notification | None:
     preference = db.get(NotificationPreference, user_id)
     if not _preference_values(preference)["clash_report_updates_enabled"]:
@@ -142,6 +146,7 @@ def add_clash_report_status_notification(
         message=message,
         payload={"report_id": report_id, "status": status},
         dedup_key=f"clash-report:{report_id}:{event_key}",
+        term_id=term_id,
     )
 
 
@@ -152,6 +157,7 @@ def _affected_user_ids(db: Session, entry: TimetableEntry) -> set[int]:
     students = list(
         db.scalars(
             select(StudentEnrollment).where(
+                StudentEnrollment.term_id == entry.term_id,
                 func.upper(StudentEnrollment.course_code) == course_code
             )
         ).all()
@@ -159,6 +165,7 @@ def _affected_user_ids(db: Session, entry: TimetableEntry) -> set[int]:
     faculty_assignments = list(
         db.scalars(
             select(FacultyClassAssignment).where(
+                FacultyClassAssignment.term_id == entry.term_id,
                 func.upper(FacultyClassAssignment.course_code) == course_code
             )
         ).all()
@@ -215,6 +222,7 @@ def add_schedule_change_notifications(
             message=message,
             payload=payload,
             dedup_key=f"schedule-change:{user_id}:{event_key}",
+            term_id=entry.term_id,
         )
         created_count += int(created is not None)
     return created_count
@@ -257,6 +265,7 @@ def _serialize_notification(notification: Notification) -> dict:
         payload = {}
     return {
         "id": notification.id,
+        "term_id": notification.term_id,
         "user_id": notification.user_id,
         "type": notification.type,
         "title": notification.title,

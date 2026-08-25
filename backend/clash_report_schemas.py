@@ -106,6 +106,7 @@ class ClashReportEventResponse(BaseModel):
 
 class ClashReportSummaryResponse(BaseModel):
     id: int
+    term_id: int
     student_user_id: int
     student_name: str
     student_email: str
