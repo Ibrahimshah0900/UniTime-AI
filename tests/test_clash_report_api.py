@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -22,6 +23,7 @@ from backend.models import (
     User,
 )
 from backend.student_resolution_applier import (
+    ResolutionLearningEvent,
     StudentScheduleChange,
     redo_student_resolution,
     undo_student_resolution,
@@ -450,6 +452,21 @@ def test_conditional_resolution_requires_confirmation_and_applies_atomically():
             ).all()
         )
         assert {"time_change", "clash_report_status"}.issubset(notification_types)
+        learning_event = db.scalar(
+            select(ResolutionLearningEvent).where(
+                ResolutionLearningEvent.change_id == history.id
+            )
+        )
+        assert learning_event.event_type == "candidate_applied"
+        assert learning_event.outcome_label == "accepted"
+        assert learning_event.ranker_id == candidate["ranker"]["ranker_id"]
+        assert learning_event.features_json == json.dumps(
+            candidate["features"],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        assert "student_name" not in learning_event.features_json
+        assert "registration_number" not in learning_event.features_json
 
     with Session() as db:
         listed_history = list(
@@ -531,6 +548,13 @@ def test_report_resolution_undo_and_redo_keep_report_history_synchronized():
                 .order_by(StudentClashReportEvent.id)
             ).all()
         )
+        learning_outcomes = list(
+            db.scalars(
+                select(ResolutionLearningEvent.outcome_label)
+                .where(ResolutionLearningEvent.change_id == change_id)
+                .order_by(ResolutionLearningEvent.id)
+            ).all()
+        )
         assert {
             "day": moved.day,
             "start_time": moved.start_time,
@@ -545,6 +569,7 @@ def test_report_resolution_undo_and_redo_keep_report_history_synchronized():
             "resolution_redone",
         ]
         assert actors == [coordinator.id, coordinator.id, coordinator.id]
+        assert learning_outcomes == ["accepted", "undone", "redone"]
 
 
 def test_resolution_apply_rejects_stale_candidate_without_partial_writes():
@@ -630,6 +655,7 @@ def test_resolution_apply_rolls_back_everything_if_notification_creation_fails(
                 StudentClashReportEvent.action == "resolution_applied"
             )
         ) == 0
+        assert db.scalar(select(func.count(ResolutionLearningEvent.id))) == 0
 
 
 def test_insufficient_data_candidate_cannot_be_applied_even_with_confirmation():

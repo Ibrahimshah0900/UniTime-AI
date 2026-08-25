@@ -176,6 +176,28 @@ class CandidateScoreComponentResponse(BaseModel):
     explanation: str
 
 
+class CandidateRankerResponse(BaseModel):
+    ranker_id: str
+    ranker_version: str
+
+
+class CandidateFeaturesResponse(BaseModel):
+    feature_schema_version: Literal["1.0"]
+    hard_constraints_passed: Literal[True]
+    safety_status: Literal["SAFE", "CONDITIONALLY_SAFE", "INSUFFICIENT_DATA"]
+    duration_minutes: int
+    affected_students: int
+    confirmed_conflicts_removed: int
+    inferred_conflicts_removed: int
+    structural_clashes_removed: int
+    conflict_groups_removed: int
+    weighted_risk_reduction: int
+    day_distance: int
+    time_shift_minutes: int
+    late_slot: bool
+    missing_metadata_count: int
+
+
 class CandidateImpactResponse(BaseModel):
     affected_students: int
     confirmed_conflicts_before: int
@@ -206,6 +228,8 @@ class SafeResolutionCandidateResponse(BaseModel):
     duration_minutes: int
     rank_score: int
     score_components: list[CandidateScoreComponentResponse]
+    ranker: CandidateRankerResponse
+    features: CandidateFeaturesResponse
     checks: list[CandidateCheckResponse]
     missing_data: list[str]
     rejection_reasons: list[str]

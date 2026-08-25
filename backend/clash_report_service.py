@@ -33,7 +33,10 @@ from backend.safe_candidate_service import (
     calculate_weighted_risk_cost,
     generate_safe_candidates,
 )
-from backend.student_resolution_applier import StudentScheduleChange
+from backend.student_resolution_applier import (
+    StudentScheduleChange,
+    create_resolution_learning_event,
+)
 from backend.term_service import get_active_term, require_active_term_id
 
 
@@ -579,6 +582,14 @@ def apply_clash_report_resolution_candidate(
         )
         db.add(event)
         db.flush()
+        create_resolution_learning_event(
+            db,
+            change=history,
+            event_type="candidate_applied",
+            outcome_label="accepted",
+            actor_user_id=actor_user_id,
+            candidate=candidate,
+        )
         add_time_change_notifications(
             db,
             entry=entry,

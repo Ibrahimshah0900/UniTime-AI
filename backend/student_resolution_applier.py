@@ -737,6 +737,113 @@ def create_student_change_record(
         event_key=f"student-change:{change.id}",
     )
 
+
+class ResolutionLearningEvent(Base):
+    __tablename__ = "resolution_learning_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('candidate_applied','resolution_undone','resolution_redone')",
+            name="ck_resolution_learning_events_event_type",
+        ),
+        CheckConstraint(
+            "outcome_label IN ('accepted','undone','redone')",
+            name="ck_resolution_learning_events_outcome_label",
+        ),
+        CheckConstraint(
+            "safety_status IN ('SAFE','CONDITIONALLY_SAFE')",
+            name="ck_resolution_learning_events_safety_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    report_id: Mapped[int | None] = mapped_column(
+        ForeignKey("student_clash_reports.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    change_id: Mapped[int] = mapped_column(
+        ForeignKey("student_schedule_changes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    candidate_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    outcome_label: Mapped[str] = mapped_column(String(20), nullable=False)
+    ranker_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    ranker_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    feature_schema_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    safety_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    features_json: Mapped[str] = mapped_column(Text, nullable=False)
+    rank_score: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        index=True,
+    )
+
+
+def create_resolution_learning_event(
+    db: Session,
+    *,
+    change: StudentScheduleChange,
+    event_type: str,
+    outcome_label: str,
+    actor_user_id: int | None,
+    candidate: dict | None = None,
+) -> ResolutionLearningEvent:
+    if candidate is not None:
+        ranker = candidate["ranker"]
+        features = candidate["features"]
+        event_values = {
+            "candidate_id": candidate["candidate_id"],
+            "ranker_id": ranker["ranker_id"],
+            "ranker_version": ranker["ranker_version"],
+            "feature_schema_version": features["feature_schema_version"],
+            "safety_status": candidate["status"],
+            "features_json": json.dumps(features, sort_keys=True, separators=(",", ":")),
+            "rank_score": float(candidate["rank_score"]),
+        }
+    else:
+        previous = db.scalar(
+            select(ResolutionLearningEvent)
+            .where(ResolutionLearningEvent.change_id == change.id)
+            .order_by(ResolutionLearningEvent.id.desc())
+        )
+        if previous is None:
+            raise ValueError("The original resolution learning event was not found.")
+        event_values = {
+            "candidate_id": previous.candidate_id,
+            "ranker_id": previous.ranker_id,
+            "ranker_version": previous.ranker_version,
+            "feature_schema_version": previous.feature_schema_version,
+            "safety_status": previous.safety_status,
+            "features_json": previous.features_json,
+            "rank_score": previous.rank_score,
+        }
+
+    event = ResolutionLearningEvent(
+        term_id=change.term_id,
+        report_id=change.report_id,
+        change_id=change.id,
+        actor_user_id=actor_user_id,
+        event_type=event_type,
+        outcome_label=outcome_label,
+        **event_values,
+    )
+    db.add(event)
+    db.flush()
+    return event
+
     return change
 
 
@@ -1326,6 +1433,14 @@ def undo_student_resolution(
             change=change,
             actor_user_id=actor_user_id,
         )
+        if change.report_id is not None:
+            create_resolution_learning_event(
+                db,
+                change=change,
+                event_type="resolution_undone",
+                outcome_label="undone",
+                actor_user_id=actor_user_id,
+            )
 
         add_time_change_notifications(
             db,
@@ -1584,6 +1699,14 @@ def redo_student_resolution(
             linked=linked_report_candidate,
             actor_user_id=actor_user_id,
         )
+        if change.report_id is not None:
+            create_resolution_learning_event(
+                db,
+                change=change,
+                event_type="resolution_redone",
+                outcome_label="redone",
+                actor_user_id=actor_user_id,
+            )
 
         add_time_change_notifications(
             db,

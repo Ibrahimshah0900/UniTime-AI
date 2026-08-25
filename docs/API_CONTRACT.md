@@ -1,6 +1,6 @@
 # UniTime-AI backend API contract
 
-Contract version: `0.12.0`
+Contract version: `0.13.0`
 
 The exact OpenAPI snapshot is committed as `docs/openapi.json`. JSON requests reject unknown fields where request models use `extra="forbid"`. Authenticated requests send `Authorization: Bearer <access_token>`.
 
@@ -80,6 +80,7 @@ Validation failures use status 422 and add `details`, containing safe `location`
 - Student clash-report detail includes immutable server-attached registration number, name, email, department, program, batch, semester, section, term, conflict fingerprint, class-item snapshots, and ordered event history. Later edits to the live profile do not rewrite report evidence.
 - `/clashes/student-risk` uses active verified `StudentEnrollment` rows to create confirmed weighted edges. `affected_student_count` is the real edge weight. Timetable-only fallback is labeled `timetable_inference` and can only be probable/possible; it is suppressed when complete enrollment coverage disproves the heuristic pair. The summary reports unmapped enrollment rows as data-quality issues.
 - `/clash-reports/{id}/resolution-candidates` preserves actual class duration, evaluates current room/faculty/section clashes and enrollment-backed student conflicts, applies the published institutional policy, and hard-rejects unsafe moves before ranking. Accepted planning states are `SAFE`, `CONDITIONALLY_SAFE`, and `INSUFFICIENT_DATA`; missing enrollment, room assignment, or faculty assignment is never presented as safe. Scores include explicit components and are deterministic planning scores, not ML predictions. Candidate IDs include timetable, enrollment-evidence, and policy state so later execution can reject stale selections.
+- Each accepted candidate includes `ranker` identity/version and a versioned, PII-free `features` object. The feature contract always has `hard_constraints_passed=true`; rejected candidates are excluded before the ranker interface is invoked. Unknown ranker output fields and scores outside 0–100 are rejected. The active ranker is the transparent deterministic baseline documented in `docs/RANKER_CONTRACT.md`; no ML model is selected, trained, hosted, or deployed.
 - Successful candidate execution moves exactly one timetable entry, rechecks the live result, resolves the report, records the actor/candidate/safety status and resolution note in `student_schedule_changes`, appends a report event, and creates schedule/report notifications in one transaction. Any failure rolls everything back. Linked undo reopens the report as `under_review`; redo revalidates the original candidate before resolving it again. Both append actor-attributed report events and notify the reporting student.
 - Student schedule-change history exposes nullable `report_id`, `actor_user_id`, `candidate_id`, `safety_status`, and `report_resolution_note`. Legacy optimizer group changes keep `group_id`; report resolutions use `group_id=null`.
 - Notifications contain parsed `payload`, `read_at`, and `created_at`; clients must use `type` for presentation behavior.
@@ -88,4 +89,4 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 ## Token handling
 
-Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.12.0; clients return to login after expiry.
+Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.13.0; clients return to login after expiry.

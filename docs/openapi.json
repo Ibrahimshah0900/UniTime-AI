@@ -828,6 +828,91 @@
         "title": "CandidateCheckResponse",
         "type": "object"
       },
+      "CandidateFeaturesResponse": {
+        "properties": {
+          "affected_students": {
+            "title": "Affected Students",
+            "type": "integer"
+          },
+          "confirmed_conflicts_removed": {
+            "title": "Confirmed Conflicts Removed",
+            "type": "integer"
+          },
+          "conflict_groups_removed": {
+            "title": "Conflict Groups Removed",
+            "type": "integer"
+          },
+          "day_distance": {
+            "title": "Day Distance",
+            "type": "integer"
+          },
+          "duration_minutes": {
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "feature_schema_version": {
+            "const": "1.0",
+            "title": "Feature Schema Version",
+            "type": "string"
+          },
+          "hard_constraints_passed": {
+            "const": true,
+            "title": "Hard Constraints Passed",
+            "type": "boolean"
+          },
+          "inferred_conflicts_removed": {
+            "title": "Inferred Conflicts Removed",
+            "type": "integer"
+          },
+          "late_slot": {
+            "title": "Late Slot",
+            "type": "boolean"
+          },
+          "missing_metadata_count": {
+            "title": "Missing Metadata Count",
+            "type": "integer"
+          },
+          "safety_status": {
+            "enum": [
+              "SAFE",
+              "CONDITIONALLY_SAFE",
+              "INSUFFICIENT_DATA"
+            ],
+            "title": "Safety Status",
+            "type": "string"
+          },
+          "structural_clashes_removed": {
+            "title": "Structural Clashes Removed",
+            "type": "integer"
+          },
+          "time_shift_minutes": {
+            "title": "Time Shift Minutes",
+            "type": "integer"
+          },
+          "weighted_risk_reduction": {
+            "title": "Weighted Risk Reduction",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "feature_schema_version",
+          "hard_constraints_passed",
+          "safety_status",
+          "duration_minutes",
+          "affected_students",
+          "confirmed_conflicts_removed",
+          "inferred_conflicts_removed",
+          "structural_clashes_removed",
+          "conflict_groups_removed",
+          "weighted_risk_reduction",
+          "day_distance",
+          "time_shift_minutes",
+          "late_slot",
+          "missing_metadata_count"
+        ],
+        "title": "CandidateFeaturesResponse",
+        "type": "object"
+      },
       "CandidateImpactResponse": {
         "properties": {
           "affected_students": {
@@ -943,6 +1028,24 @@
           "blocked_periods"
         ],
         "title": "CandidatePolicyResponse",
+        "type": "object"
+      },
+      "CandidateRankerResponse": {
+        "properties": {
+          "ranker_id": {
+            "title": "Ranker Id",
+            "type": "string"
+          },
+          "ranker_version": {
+            "title": "Ranker Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ranker_id",
+          "ranker_version"
+        ],
+        "title": "CandidateRankerResponse",
         "type": "object"
       },
       "CandidateScoreComponentResponse": {
@@ -3963,6 +4066,9 @@
             "title": "Entry Id",
             "type": "integer"
           },
+          "features": {
+            "$ref": "#/components/schemas/CandidateFeaturesResponse"
+          },
           "impact": {
             "$ref": "#/components/schemas/CandidateImpactResponse"
           },
@@ -3982,6 +4088,9 @@
           "rank_score": {
             "title": "Rank Score",
             "type": "integer"
+          },
+          "ranker": {
+            "$ref": "#/components/schemas/CandidateRankerResponse"
           },
           "rejection_reasons": {
             "items": {
@@ -4032,6 +4141,8 @@
           "duration_minutes",
           "rank_score",
           "score_components",
+          "ranker",
+          "features",
           "checks",
           "missing_data",
           "rejection_reasons",
@@ -6176,7 +6287,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.12.0"
+    "version": "0.13.0"
   },
   "openapi": "3.1.0",
   "paths": {

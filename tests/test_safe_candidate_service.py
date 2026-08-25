@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.database import Base
+from backend.candidate_ranker import CandidateFeatures, RankerOutput
 from backend.models import (
     AcademicTerm,
     StudentEnrollment,
@@ -299,3 +302,95 @@ def test_candidate_identity_changes_when_enrollment_safety_state_changes():
         shared_moves = first_ids.keys() & second_ids.keys()
         assert shared_moves
         assert all(first_ids[move] != second_ids[move] for move in shared_moves)
+
+
+def test_ranker_only_receives_hard_filtered_pii_free_features():
+    class RecordingRanker:
+        ranker_id = "test_recording"
+        ranker_version = "1"
+
+        def __init__(self):
+            self.seen: list[CandidateFeatures] = []
+
+        def rank(self, features: CandidateFeatures) -> RankerOutput:
+            self.seen.append(features)
+            return RankerOutput(score=100, components=())
+
+    Session = create_session()
+    with Session() as db:
+        target, peer, _ = seed_candidate_scenario(db)
+        ranker = RecordingRanker()
+        result = generate_safe_candidates(
+            db,
+            entries=load_entries(db),
+            target_entry_ids=[target.id],
+            report_entry_ids=[target.id, peer.id],
+            policy=candidate_policy(),
+            ranker=ranker,
+            limit=100,
+            include_rejected_limit=100,
+        )
+
+        accepted_count = (
+            result["summary"]["safe"]
+            + result["summary"]["conditionally_safe"]
+            + result["summary"]["insufficient_data"]
+        )
+        assert result["summary"]["rejected"] > 0
+        assert len(ranker.seen) == accepted_count
+        assert all(features.hard_constraints_passed is True for features in ranker.seen)
+        assert all(features.safety_status != "REJECTED" for features in ranker.seen)
+        feature_keys = set(ranker.seen[0].model_dump())
+        assert feature_keys.isdisjoint(
+            {
+                "student_user_id",
+                "registration_number",
+                "student_name",
+                "email",
+                "course_code",
+                "course_name",
+                "section",
+                "faculty",
+            }
+        )
+        assert all(candidate["rank_score"] == 100 for candidate in result["candidates"])
+        assert all(
+            candidate["ranker"]
+            == {"ranker_id": "test_recording", "ranker_version": "1"}
+            for candidate in result["candidates"]
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid_output",
+    [
+        {"score": 101, "components": []},
+        {"score": 100, "components": [], "status": "SAFE"},
+        {
+            "score": 100,
+            "components": [],
+            "actionable_without_confirmation": True,
+        },
+    ],
+)
+def test_ranker_contract_rejects_score_or_safety_field_injection(invalid_output):
+    class InvalidRanker:
+        ranker_id = "invalid"
+        ranker_version = "1"
+
+        def rank(self, features):
+            return invalid_output
+
+    Session = create_session()
+    with Session() as db:
+        target, peer, _ = seed_candidate_scenario(db)
+        with pytest.raises(ValidationError):
+            generate_safe_candidates(
+                db,
+                entries=load_entries(db),
+                target_entry_ids=[target.id],
+                report_entry_ids=[target.id, peer.id],
+                policy=candidate_policy(),
+                ranker=InvalidRanker(),
+                limit=100,
+            )

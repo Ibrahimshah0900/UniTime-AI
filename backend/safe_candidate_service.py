@@ -6,6 +6,12 @@ import json
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from backend.candidate_ranker import (
+    CandidateRanker,
+    DeterministicWeightedRanker,
+    extract_candidate_features,
+    validate_ranker_output,
+)
 from backend.clash_detector import detect_clashes
 from backend.enrollment_conflict_graph import (
     build_enrollment_conflict_analysis,
@@ -162,88 +168,6 @@ def _check(name: str, status: str, detail: str) -> dict[str, str]:
     return {"name": name, "status": status, "detail": detail}
 
 
-def _score_candidate(
-    *,
-    target: TimetableEntry,
-    slot: dict[str, str],
-    status: str,
-    affected_students: int,
-    confirmed_removed: int,
-    inferred_removed: int,
-    clashes_removed: int,
-    groups_removed: int,
-    policy: SchedulingPolicy,
-    weights: RankingWeights,
-) -> tuple[int, list[dict]]:
-    components: list[dict] = []
-
-    def add(signal: str, value: int, explanation: str) -> None:
-        components.append(
-            {"signal": signal, "value": value, "explanation": explanation}
-        )
-
-    add(
-        "confirmed_conflicts_removed",
-        confirmed_removed * weights.confirmed_conflict_removed,
-        f"Removes {confirmed_removed} confirmed enrollment-backed conflict(s).",
-    )
-    add(
-        "inferred_conflicts_removed",
-        inferred_removed * weights.inferred_conflict_removed,
-        f"Removes {inferred_removed} inferred conflict signal(s).",
-    )
-    add(
-        "structural_clashes_removed",
-        clashes_removed * weights.structural_clash_removed,
-        f"Removes {clashes_removed} structural clash(es).",
-    )
-    add(
-        "conflict_groups_removed",
-        groups_removed * weights.conflict_group_removed,
-        f"Reduces conflict groups by {groups_removed}.",
-    )
-    add(
-        "affected_students",
-        -affected_students * weights.affected_student_penalty,
-        f"Moving the offering affects {affected_students} enrolled student(s).",
-    )
-    day_order = {day: index for index, day in enumerate(policy.operating_days)}
-    day_distance = abs(day_order.get(target.day, 0) - day_order.get(slot["day"], 0))
-    add(
-        "day_distance",
-        -day_distance * weights.day_distance_penalty,
-        f"Moves the class {day_distance} operating day step(s).",
-    )
-    shift_units = abs(
-        time_to_minutes(target.start_time) - time_to_minutes(slot["start_time"])
-    ) // 30
-    add(
-        "time_shift",
-        -shift_units * weights.half_hour_shift_penalty,
-        f"Shifts the start time by {shift_units * 30} minute(s).",
-    )
-    if time_to_minutes(slot["start_time"]) >= 17 * 60:
-        add(
-            "late_slot",
-            -weights.late_slot_penalty,
-            "Destination begins at or after 17:00.",
-        )
-    if status == "CONDITIONALLY_SAFE":
-        add(
-            "missing_optional_metadata",
-            -weights.conditional_data_penalty,
-            "Important scheduling metadata still requires coordinator confirmation.",
-        )
-    elif status == "INSUFFICIENT_DATA":
-        add(
-            "insufficient_data",
-            -weights.insufficient_data_penalty,
-            "Required assignment data is missing.",
-        )
-    raw_score = 50 + sum(component["value"] for component in components)
-    return max(0, min(raw_score, 100)), components
-
-
 def generate_safe_candidates(
     db: Session,
     *,
@@ -252,6 +176,7 @@ def generate_safe_candidates(
     report_entry_ids: list[int] | None = None,
     policy: SchedulingPolicy = DEFAULT_SCHEDULING_POLICY,
     weights: RankingWeights = DEFAULT_RANKING_WEIGHTS,
+    ranker: CandidateRanker | None = None,
     limit: int = 20,
     include_rejected_limit: int = 20,
 ) -> dict:
@@ -271,6 +196,11 @@ def generate_safe_candidates(
         targets.append(entry)
     if not targets:
         raise HTTPException(status_code=422, detail="At least one target entry is required.")
+    selected_ranker = ranker or DeterministicWeightedRanker(weights)
+    ranker_id = str(getattr(selected_ranker, "ranker_id", "")).strip()
+    ranker_version = str(getattr(selected_ranker, "ranker_version", "")).strip()
+    if not ranker_id or not ranker_version:
+        raise ValueError("Rankers must declare non-empty ranker_id and ranker_version values.")
 
     enrollment_evidence = build_enrollment_conflict_evidence(db, entries)
     baseline_analysis = build_enrollment_conflict_analysis(
@@ -467,18 +397,23 @@ def generate_safe_candidates(
             confirmed_removed = len(baseline_confirmed - after_confirmed)
             inferred_before = sum(1 for risk in baseline_risks if risk["risk_level"] != "confirmed")
             inferred_after = sum(1 for risk in after_risks if risk["risk_level"] != "confirmed")
-            score, score_components = _score_candidate(
+            weighted_risk_after = calculate_weighted_risk_cost(after_risks)
+            features = extract_candidate_features(
                 target=target,
                 slot=slot,
                 status=status,
+                duration_minutes=duration,
                 affected_students=int(entry_counts.get(target.id, 0)),
                 confirmed_removed=confirmed_removed,
                 inferred_removed=max(inferred_before - inferred_after, 0),
                 clashes_removed=max(len(baseline_clashes) - len(after_clashes), 0),
                 groups_removed=max(len(baseline_groups) - len(after_groups), 0),
+                weighted_risk_before=baseline_risk_cost,
+                weighted_risk_after=weighted_risk_after,
+                missing_metadata_count=len(missing_data),
                 policy=policy,
-                weights=weights,
             )
+            ranker_output = validate_ranker_output(selected_ranker.rank(features))
             accepted.append(
                 {
                     "candidate_id": candidate_id,
@@ -495,8 +430,15 @@ def generate_safe_candidates(
                     },
                     "move_to": slot,
                     "duration_minutes": duration,
-                    "rank_score": score,
-                    "score_components": score_components,
+                    "rank_score": ranker_output.score,
+                    "score_components": [
+                        component.model_dump() for component in ranker_output.components
+                    ],
+                    "ranker": {
+                        "ranker_id": ranker_id,
+                        "ranker_version": ranker_version,
+                    },
+                    "features": features.model_dump(),
                     "checks": checks,
                     "missing_data": missing_data,
                     "rejection_reasons": [],
@@ -513,7 +455,7 @@ def generate_safe_candidates(
                         "conflict_groups_before": len(baseline_groups),
                         "conflict_groups_after": len(after_groups),
                         "weighted_risk_before": baseline_risk_cost,
-                        "weighted_risk_after": calculate_weighted_risk_cost(after_risks),
+                        "weighted_risk_after": weighted_risk_after,
                         "timetable_entries_changed": 1,
                     },
                 }
