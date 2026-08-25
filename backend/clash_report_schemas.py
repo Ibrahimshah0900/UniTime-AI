@@ -13,6 +13,12 @@ ClashReportStatus = Literal[
     "rejected",
     "duplicate",
 ]
+ClashReportResolutionReason = Literal[
+    "timetable_changed",
+    "enrollment_corrected",
+    "course_dropped",
+    "other_verified_correction",
+]
 
 
 def _clean_optional_text(value: str | None) -> str | None:
@@ -49,6 +55,7 @@ class ClashReportReviewUpdate(BaseModel):
 
     status: ClashReportStatus
     resolution_note: str | None = Field(default=None, max_length=2000)
+    resolution_reason: ClashReportResolutionReason | None = None
     duplicate_of_report_id: int | None = Field(default=None, gt=0)
 
     @field_validator("resolution_note")
@@ -75,6 +82,12 @@ class ClashReportReviewUpdate(BaseModel):
         if self.status not in terminal_statuses and self.resolution_note is not None:
             raise ValueError(
                 "resolution_note is only valid for a terminal report status."
+            )
+        if self.status == "resolved" and self.resolution_reason is None:
+            raise ValueError("resolution_reason is required for resolved reports.")
+        if self.status != "resolved" and self.resolution_reason is not None:
+            raise ValueError(
+                "resolution_reason is only valid when resolving a report."
             )
         return self
 
@@ -122,6 +135,7 @@ class ClashReportSummaryResponse(BaseModel):
     evidence_reference: str | None
     duplicate_of_report_id: int | None
     resolution_note: str | None
+    resolution_reason: ClashReportResolutionReason | None
     created_at: datetime
     updated_at: datetime
     items: list[ClashReportItemResponse]
@@ -133,6 +147,49 @@ class ClashReportDetailResponse(ClashReportSummaryResponse):
 
 class ClashReportListResponse(BaseModel):
     reports: list[ClashReportSummaryResponse]
+    total: int
+    offset: int
+    limit: int
+
+
+class ClashReportClusterClassResponse(BaseModel):
+    timetable_entry_id: int | None
+    course_code: str
+    section: str | None
+    semester: str | None
+    day: str | None
+    start_time: str | None
+    end_time: str | None
+
+
+class ClashReportClusterStatusCountsResponse(BaseModel):
+    submitted: int = 0
+    under_review: int = 0
+    resolved: int = 0
+    rejected: int = 0
+    duplicate: int = 0
+
+
+class ClashReportClusterResponse(BaseModel):
+    term_id: int
+    conflict_fingerprint: str
+    report_ids: list[int]
+    open_report_ids: list[int]
+    timetable_entry_ids: list[int]
+    reported_classes: list[ClashReportClusterClassResponse]
+    report_count: int
+    open_report_count: int
+    reporting_student_count: int
+    verified_affected_student_count: int
+    enrollment_coverage: Literal["complete", "partial", "none"]
+    current_timetable_overlap: bool
+    status_counts: ClashReportClusterStatusCountsResponse
+    first_reported_at: datetime
+    latest_reported_at: datetime
+
+
+class ClashReportClusterListResponse(BaseModel):
+    clusters: list[ClashReportClusterResponse]
     total: int
     offset: int
     limit: int
@@ -290,5 +347,7 @@ class ClashReportResolutionApplyResponse(BaseModel):
     candidate_id: str
     safety_status: Literal["SAFE", "CONDITIONALLY_SAFE"]
     conditional_confirmation_recorded: bool
+    resolved_report_ids: list[int]
+    resolved_report_count: int
     applied_candidate: SafeResolutionCandidateResponse
     report: ClashReportDetailResponse

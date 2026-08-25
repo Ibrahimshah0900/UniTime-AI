@@ -77,6 +77,7 @@ export interface Enrollment {
 }
 
 export type ClashReportStatus = 'submitted' | 'under_review' | 'resolved' | 'rejected' | 'duplicate'
+export type ClashReportResolutionReason = 'timetable_changed' | 'enrollment_corrected' | 'course_dropped' | 'other_verified_correction'
 
 export interface ClashReportItem {
   id: number
@@ -117,6 +118,7 @@ export interface ClashReportSummary {
   evidence_reference: string | null
   duplicate_of_report_id: number | null
   resolution_note: string | null
+  resolution_reason: ClashReportResolutionReason | null
   created_at: string
   updated_at: string
   items: ClashReportItem[]
@@ -128,6 +130,41 @@ export interface ClashReportDetail extends ClashReportSummary {
 
 export interface ClashReportListResponse {
   reports: ClashReportSummary[]
+  total: number
+  offset: number
+  limit: number
+}
+
+export interface ClashReportClusterClass {
+  timetable_entry_id: number | null
+  course_code: string
+  section: string | null
+  semester: string | null
+  day: string | null
+  start_time: string | null
+  end_time: string | null
+}
+
+export interface ClashReportCluster {
+  term_id: number
+  conflict_fingerprint: string
+  report_ids: number[]
+  open_report_ids: number[]
+  timetable_entry_ids: number[]
+  reported_classes: ClashReportClusterClass[]
+  report_count: number
+  open_report_count: number
+  reporting_student_count: number
+  verified_affected_student_count: number
+  enrollment_coverage: 'complete' | 'partial' | 'none'
+  current_timetable_overlap: boolean
+  status_counts: Record<ClashReportStatus, number>
+  first_reported_at: string
+  latest_reported_at: string
+}
+
+export interface ClashReportClusterListResponse {
+  clusters: ClashReportCluster[]
   total: number
   offset: number
   limit: number

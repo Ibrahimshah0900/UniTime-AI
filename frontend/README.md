@@ -22,7 +22,7 @@ The interface follows the approved **role-adaptive hybrid** direction:
 
 ## Backend contract
 
-The frontend targets UniTime-AI API contract `0.13.0` and the committed OpenAPI snapshot in `../docs/openapi.json`.
+The frontend targets UniTime-AI API contract `0.14.0` and the committed OpenAPI snapshot in `../docs/openapi.json`.
 
 Key rules preserved:
 

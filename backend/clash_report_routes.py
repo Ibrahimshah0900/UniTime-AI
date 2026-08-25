@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from backend.auth_dependencies import require_coordinator_or_admin, require_verified_student
 from backend.clash_report_schemas import (
     ClashReportCreate,
+    ClashReportClusterListResponse,
     ClashReportDetailResponse,
     ClashReportListResponse,
     ClashReportResolutionApplyRequest,
@@ -21,6 +22,7 @@ from backend.clash_report_service import (
     create_clash_report,
     get_clash_report,
     generate_clash_report_resolution_candidates,
+    list_clash_report_clusters,
     list_clash_reports,
     update_clash_report,
 )
@@ -96,6 +98,25 @@ def get_clash_report_review_queue(
         offset=offset,
         limit=limit,
         term_id=selected_term_id,
+    )
+
+
+@review_router.get("/clusters", response_model=ClashReportClusterListResponse)
+def get_clash_report_clusters(
+    current_user: Annotated[User, Depends(require_coordinator_or_admin)],
+    db: Session = Depends(get_db),
+    open_only: bool = Query(default=True),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    term_id: int | None = Query(default=None, gt=0),
+):
+    selected_term_id = term_id or get_active_term(db).id
+    return list_clash_report_clusters(
+        db,
+        term_id=selected_term_id,
+        open_only=open_only,
+        offset=offset,
+        limit=limit,
     )
 
 

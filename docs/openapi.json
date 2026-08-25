@@ -1136,6 +1136,254 @@
         "title": "ClashCollectionResponse",
         "type": "object"
       },
+      "ClashReportClusterClassResponse": {
+        "properties": {
+          "course_code": {
+            "title": "Course Code",
+            "type": "string"
+          },
+          "day": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "semester": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semester"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "timetable_entry_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timetable Entry Id"
+          }
+        },
+        "required": [
+          "timetable_entry_id",
+          "course_code",
+          "section",
+          "semester",
+          "day",
+          "start_time",
+          "end_time"
+        ],
+        "title": "ClashReportClusterClassResponse",
+        "type": "object"
+      },
+      "ClashReportClusterListResponse": {
+        "properties": {
+          "clusters": {
+            "items": {
+              "$ref": "#/components/schemas/ClashReportClusterResponse"
+            },
+            "title": "Clusters",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "clusters",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "ClashReportClusterListResponse",
+        "type": "object"
+      },
+      "ClashReportClusterResponse": {
+        "properties": {
+          "conflict_fingerprint": {
+            "title": "Conflict Fingerprint",
+            "type": "string"
+          },
+          "current_timetable_overlap": {
+            "title": "Current Timetable Overlap",
+            "type": "boolean"
+          },
+          "enrollment_coverage": {
+            "enum": [
+              "complete",
+              "partial",
+              "none"
+            ],
+            "title": "Enrollment Coverage",
+            "type": "string"
+          },
+          "first_reported_at": {
+            "format": "date-time",
+            "title": "First Reported At",
+            "type": "string"
+          },
+          "latest_reported_at": {
+            "format": "date-time",
+            "title": "Latest Reported At",
+            "type": "string"
+          },
+          "open_report_count": {
+            "title": "Open Report Count",
+            "type": "integer"
+          },
+          "open_report_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Open Report Ids",
+            "type": "array"
+          },
+          "report_count": {
+            "title": "Report Count",
+            "type": "integer"
+          },
+          "report_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Report Ids",
+            "type": "array"
+          },
+          "reported_classes": {
+            "items": {
+              "$ref": "#/components/schemas/ClashReportClusterClassResponse"
+            },
+            "title": "Reported Classes",
+            "type": "array"
+          },
+          "reporting_student_count": {
+            "title": "Reporting Student Count",
+            "type": "integer"
+          },
+          "status_counts": {
+            "$ref": "#/components/schemas/ClashReportClusterStatusCountsResponse"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
+          "timetable_entry_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Timetable Entry Ids",
+            "type": "array"
+          },
+          "verified_affected_student_count": {
+            "title": "Verified Affected Student Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term_id",
+          "conflict_fingerprint",
+          "report_ids",
+          "open_report_ids",
+          "timetable_entry_ids",
+          "reported_classes",
+          "report_count",
+          "open_report_count",
+          "reporting_student_count",
+          "verified_affected_student_count",
+          "enrollment_coverage",
+          "current_timetable_overlap",
+          "status_counts",
+          "first_reported_at",
+          "latest_reported_at"
+        ],
+        "title": "ClashReportClusterResponse",
+        "type": "object"
+      },
+      "ClashReportClusterStatusCountsResponse": {
+        "properties": {
+          "duplicate": {
+            "default": 0,
+            "title": "Duplicate",
+            "type": "integer"
+          },
+          "rejected": {
+            "default": 0,
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "resolved": {
+            "default": 0,
+            "title": "Resolved",
+            "type": "integer"
+          },
+          "submitted": {
+            "default": 0,
+            "title": "Submitted",
+            "type": "integer"
+          },
+          "under_review": {
+            "default": 0,
+            "title": "Under Review",
+            "type": "integer"
+          }
+        },
+        "title": "ClashReportClusterStatusCountsResponse",
+        "type": "object"
+      },
       "ClashReportCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1252,6 +1500,23 @@
             ],
             "title": "Resolution Note"
           },
+          "resolution_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "timetable_changed",
+                  "enrollment_corrected",
+                  "course_dropped",
+                  "other_verified_correction"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Reason"
+          },
           "status": {
             "enum": [
               "submitted",
@@ -1334,6 +1599,7 @@
           "evidence_reference",
           "duplicate_of_report_id",
           "resolution_note",
+          "resolution_reason",
           "created_at",
           "updated_at",
           "items",
@@ -1595,6 +1861,17 @@
             "title": "Report Status",
             "type": "string"
           },
+          "resolved_report_count": {
+            "title": "Resolved Report Count",
+            "type": "integer"
+          },
+          "resolved_report_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Resolved Report Ids",
+            "type": "array"
+          },
           "safety_status": {
             "enum": [
               "SAFE",
@@ -1618,6 +1895,8 @@
           "candidate_id",
           "safety_status",
           "conditional_confirmation_recorded",
+          "resolved_report_ids",
+          "resolved_report_count",
           "applied_candidate",
           "report"
         ],
@@ -1721,6 +2000,23 @@
             ],
             "title": "Resolution Note"
           },
+          "resolution_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "timetable_changed",
+                  "enrollment_corrected",
+                  "course_dropped",
+                  "other_verified_correction"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Reason"
+          },
           "status": {
             "enum": [
               "submitted",
@@ -1805,6 +2101,23 @@
             ],
             "title": "Resolution Note"
           },
+          "resolution_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "timetable_changed",
+                  "enrollment_corrected",
+                  "course_dropped",
+                  "other_verified_correction"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Reason"
+          },
           "status": {
             "enum": [
               "submitted",
@@ -1887,6 +2200,7 @@
           "evidence_reference",
           "duplicate_of_report_id",
           "resolution_note",
+          "resolution_reason",
           "created_at",
           "updated_at",
           "items"
@@ -6287,7 +6601,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.13.0"
+    "version": "0.14.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -7261,6 +7575,94 @@
           }
         ],
         "summary": "Get Clash Report Review Queue",
+        "tags": [
+          "Clash Report Review"
+        ]
+      }
+    },
+    "/clash-reports/clusters": {
+      "get": {
+        "operationId": "get_clash_report_clusters_clash_reports_clusters_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "open_only",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Open Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClashReportClusterListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Clash Report Clusters",
         "tags": [
           "Clash Report Review"
         ]

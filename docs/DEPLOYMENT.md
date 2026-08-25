@@ -23,7 +23,7 @@ The repository also includes `frontend/Dockerfile`, an unprivileged Nginx SPA co
 
 Use one migration-running instance during deployments if the hosting platform starts multiple replicas simultaneously. After migrations complete, scale application replicas normally.
 
-The current migration head is `36bb9325c02a`. It adds immutable server-attached student identity/academic snapshots and a deterministic conflict fingerprint to clash reports. Existing reports are backfilled without deleting their class items or event history.
+The current migration head is `b8438f7b555a`. It adds a constrained, nullable structured resolution reason to clash reports. Existing reports remain intact with a null reason; all new API-driven resolutions require a live-state-verified reason.
 
 ## Release checks
 

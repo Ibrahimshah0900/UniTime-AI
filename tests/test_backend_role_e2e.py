@@ -186,12 +186,23 @@ def test_complete_backend_role_journey_with_real_tokens():
             headers=coordinator_headers,
             json={"status": "under_review"},
         ).status_code == 200
+        time_change = client.patch(
+            f"/timetable/{second.json()['id']}/time",
+            headers=coordinator_headers,
+            json={
+                "day": "Tuesday",
+                "start_time": "10:30",
+                "end_time": "11:30",
+            },
+        )
+        assert time_change.status_code == 200
         assert client.patch(
             f"/clash-reports/{report_id}",
             headers=coordinator_headers,
             json={
                 "status": "resolved",
                 "resolution_note": "Coordinator rescheduled the conflicting class.",
+                "resolution_reason": "timetable_changed",
             },
         ).status_code == 200
 
@@ -215,9 +226,11 @@ def test_complete_backend_role_journey_with_real_tokens():
 
         notifications = client.get("/notifications", headers=student_headers)
         assert notifications.status_code == 200
-        assert notifications.json()["total"] == 2
+        assert notifications.json()["total"] == 3
         assert {
-            item["payload"]["status"] for item in notifications.json()["notifications"]
+            item["payload"]["status"]
+            for item in notifications.json()["notifications"]
+            if item["type"] == "clash_report_status"
         } == {"under_review", "resolved"}
 
         for headers, expected_role in (

@@ -550,6 +550,12 @@ class StudentClashReport(Base):
             "status IN ('submitted','under_review','resolved','rejected','duplicate')",
             name="ck_student_clash_reports_status",
         ),
+        CheckConstraint(
+            "resolution_reason IS NULL OR resolution_reason IN "
+            "('timetable_changed','enrollment_corrected','course_dropped',"
+            "'other_verified_correction')",
+            name="ck_student_clash_reports_resolution_reason",
+        ),
         UniqueConstraint(
             "student_user_id",
             "term_id",
@@ -604,6 +610,10 @@ class StudentClashReport(Base):
         index=True,
     )
     resolution_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    resolution_reason: Mapped[Optional[str]] = mapped_column(
+        String(40),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_auth_utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_auth_utc_now, onupdate=_auth_utc_now)
 

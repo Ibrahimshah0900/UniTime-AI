@@ -278,6 +278,22 @@ def test_review_lifecycle_is_enforced_and_fully_audited():
             actor_user_id=coordinator.id,
             request=ClashReportReviewUpdate(status="under_review"),
         )
+        with pytest.raises(HTTPException) as exc_info:
+            update_clash_report(
+                db,
+                report_id=report["id"],
+                actor_user_id=coordinator.id,
+                request=ClashReportReviewUpdate(
+                    status="resolved",
+                    resolution_note="The CS class was moved to Tuesday.",
+                    resolution_reason="timetable_changed",
+                ),
+            )
+        assert exc_info.value.status_code == 409
+        assert "still exists" in exc_info.value.detail
+
+        second.day = "Tuesday"
+        db.commit()
         resolved = update_clash_report(
             db,
             report_id=report["id"],
@@ -285,12 +301,14 @@ def test_review_lifecycle_is_enforced_and_fully_audited():
             request=ClashReportReviewUpdate(
                 status="resolved",
                 resolution_note="The CS class was moved to Tuesday.",
+                resolution_reason="timetable_changed",
             ),
         )
 
         assert under_review["status"] == "under_review"
         assert resolved["status"] == "resolved"
         assert resolved["resolution_note"] == "The CS class was moved to Tuesday."
+        assert resolved["resolution_reason"] == "timetable_changed"
         assert [event.to_status for event in resolved["events"]] == [
             "submitted",
             "under_review",

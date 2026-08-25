@@ -177,6 +177,7 @@ def test_clash_report_routes_require_authentication():
     _, client, _ = create_context()
     assert client.get("/student/clash-reports").status_code == 401
     assert client.get("/clash-reports").status_code == 401
+    assert client.get("/clash-reports/clusters").status_code == 401
     assert client.get("/clash-reports/1/resolution-candidates").status_code == 401
     assert client.post(
         "/clash-reports/1/resolution-candidates/000000000000000000000000/apply",
@@ -195,6 +196,7 @@ def test_clash_report_routes_enforce_student_and_reviewer_roles():
 
     app.dependency_overrides[get_current_user] = lambda: student
     assert client.get("/clash-reports").status_code == 403
+    assert client.get("/clash-reports/clusters").status_code == 403
     assert client.get("/clash-reports/1/resolution-candidates").status_code == 403
     assert client.post(
         "/clash-reports/1/resolution-candidates/000000000000000000000000/apply",
@@ -203,10 +205,12 @@ def test_clash_report_routes_enforce_student_and_reviewer_roles():
 
     app.dependency_overrides[get_current_user] = lambda: faculty
     assert client.get("/clash-reports").status_code == 403
+    assert client.get("/clash-reports/clusters").status_code == 403
     assert client.get("/clash-reports/1/resolution-candidates").status_code == 403
 
     app.dependency_overrides[get_current_user] = lambda: coordinator
     assert client.get("/clash-reports").status_code == 200
+    assert client.get("/clash-reports/clusters").status_code == 200
 
 
 def test_student_can_submit_list_and_view_own_report():
@@ -270,15 +274,32 @@ def test_reviewer_can_filter_queue_and_complete_lifecycle():
     assert started.status_code == 200
     assert started.json()["status"] == "under_review"
 
+    unverified = client.patch(
+        f"/clash-reports/{report_id}",
+        json={
+            "status": "resolved",
+            "resolution_note": "The second class was rescheduled.",
+            "resolution_reason": "timetable_changed",
+        },
+    )
+    assert unverified.status_code == 409
+    assert "still exists" in unverified.json()["error"]
+    with Session() as db:
+        second = db.get(TimetableEntry, entry_ids[1])
+        second.day = "Tuesday"
+        db.commit()
+
     resolved = client.patch(
         f"/clash-reports/{report_id}",
         json={
             "status": "resolved",
             "resolution_note": "The second class was rescheduled.",
+            "resolution_reason": "timetable_changed",
         },
     )
     assert resolved.status_code == 200
     assert resolved.json()["status"] == "resolved"
+    assert resolved.json()["resolution_reason"] == "timetable_changed"
     assert len(resolved.json()["events"]) == 3
     assert client.get("/clash-reports?status=submitted").json()["total"] == 0
     assert client.get("/clash-reports?status=resolved").json()["total"] == 1
@@ -303,9 +324,61 @@ def test_review_update_requires_resolution_note_and_valid_transition():
 
     direct_resolution = client.patch(
         f"/clash-reports/{report_id}",
-        json={"status": "resolved", "resolution_note": "Resolved."},
+        json={
+            "status": "resolved",
+            "resolution_note": "Resolved.",
+            "resolution_reason": "timetable_changed",
+        },
     )
     assert direct_resolution.status_code == 409
+
+
+def test_enrollment_resolution_reason_must_match_verified_current_state():
+    app, client, Session = create_context()
+    student = create_user(Session, "student@example.edu", "student")
+    coordinator = create_user(Session, "coordinator@example.edu", "coordinator")
+    entry_ids = seed_student_schedule(Session, student)
+
+    app.dependency_overrides[get_current_user] = lambda: student
+    report_id = client.post(
+        "/student/clash-reports", json=payload(entry_ids)
+    ).json()["id"]
+    app.dependency_overrides[get_current_user] = lambda: coordinator
+    assert client.patch(
+        f"/clash-reports/{report_id}", json={"status": "under_review"}
+    ).status_code == 200
+
+    with Session() as db:
+        dropped = db.scalar(
+            select(StudentEnrollment).where(
+                StudentEnrollment.user_id == student.id,
+                StudentEnrollment.course_code == "CS-210",
+            )
+        )
+        db.delete(dropped)
+        db.commit()
+
+    wrong_reason = client.patch(
+        f"/clash-reports/{report_id}",
+        json={
+            "status": "resolved",
+            "resolution_note": "The student dropped CS-210.",
+            "resolution_reason": "timetable_changed",
+        },
+    )
+    assert wrong_reason.status_code == 409
+    assert "still overlap" in wrong_reason.json()["error"]
+
+    resolved = client.patch(
+        f"/clash-reports/{report_id}",
+        json={
+            "status": "resolved",
+            "resolution_note": "The student dropped CS-210.",
+            "resolution_reason": "course_dropped",
+        },
+    )
+    assert resolved.status_code == 200
+    assert resolved.json()["resolution_reason"] == "course_dropped"
 
 
 def test_reviewer_gets_deterministic_report_scoped_resolution_candidates():
@@ -430,8 +503,11 @@ def test_conditional_resolution_requires_confirmation_and_applies_atomically():
     assert body["report_status"] == "resolved"
     assert body["safety_status"] == "CONDITIONALLY_SAFE"
     assert body["conditional_confirmation_recorded"] is True
+    assert body["resolved_report_ids"] == [report_id]
+    assert body["resolved_report_count"] == 1
     assert body["applied_candidate"]["candidate_id"] == candidate["candidate_id"]
     assert body["report"]["events"][-1]["action"] == "resolution_applied"
+    assert body["report"]["resolution_reason"] == "timetable_changed"
 
     with Session() as db:
         moved = db.get(TimetableEntry, entry_ids[0])
@@ -477,6 +553,181 @@ def test_conditional_resolution_requires_confirmation_and_applies_atomically():
         assert listed_history[0].report_id == report_id
 
 
+def test_duplicate_cluster_is_aggregated_and_one_safe_fix_resolves_all_open_reports():
+    app, client, Session = create_context()
+    first_student = create_user(Session, "first.student@example.edu", "student")
+    second_student = create_user(Session, "second.student@example.edu", "student")
+    unrelated_student = create_user(Session, "other.student@example.edu", "student")
+    coordinator = create_user(Session, "coordinator@example.edu", "coordinator")
+    shared_entry_ids = seed_student_schedule(Session, first_student)
+
+    with Session() as db:
+        db.add_all(
+            [
+                StudentEnrollment(
+                    user_id=second_student.id,
+                    course_code="AI-301",
+                    section="A",
+                    semester="Fall 2026",
+                ),
+                StudentEnrollment(
+                    user_id=second_student.id,
+                    course_code="CS-210",
+                    section="B",
+                    semester="Fall 2026",
+                ),
+                StudentEnrollment(
+                    user_id=unrelated_student.id,
+                    course_code="MTH-201",
+                    section="A",
+                    semester="Fall 2026",
+                ),
+                StudentEnrollment(
+                    user_id=unrelated_student.id,
+                    course_code="PHY-201",
+                    section="A",
+                    semester="Fall 2026",
+                ),
+            ]
+        )
+        first = db.get(TimetableEntry, shared_entry_ids[0])
+        second = db.get(TimetableEntry, shared_entry_ids[1])
+        first.room = "R-101"
+        first.faculty = "Dr Ada"
+        second.room = "R-102"
+        second.faculty = "Dr Turing"
+        unrelated_first = TimetableEntry(
+            course_code="MTH-201",
+            section="A",
+            semester="Fall 2026",
+            day="Wednesday",
+            start_time="09:00",
+            end_time="10:00",
+        )
+        unrelated_second = TimetableEntry(
+            course_code="PHY-201",
+            section="A",
+            semester="Fall 2026",
+            day="Wednesday",
+            start_time="09:30",
+            end_time="10:30",
+        )
+        db.add_all([unrelated_first, unrelated_second])
+        db.commit()
+        unrelated_entry_ids = (unrelated_first.id, unrelated_second.id)
+
+    report_ids = []
+    for student in (first_student, second_student):
+        app.dependency_overrides[get_current_user] = lambda student=student: student
+        created = client.post(
+            "/student/clash-reports", json=payload(shared_entry_ids)
+        )
+        assert created.status_code == 201
+        report_ids.append(created.json()["id"])
+    app.dependency_overrides[get_current_user] = lambda: unrelated_student
+    unrelated_report_id = client.post(
+        "/student/clash-reports", json=payload(unrelated_entry_ids)
+    ).json()["id"]
+
+    app.dependency_overrides[get_current_user] = lambda: coordinator
+    clusters = client.get("/clash-reports/clusters")
+    assert clusters.status_code == 200
+    assert clusters.json()["total"] == 2
+    shared_cluster = next(
+        cluster
+        for cluster in clusters.json()["clusters"]
+        if set(cluster["report_ids"]) == set(report_ids)
+    )
+    assert shared_cluster["report_count"] == 2
+    assert shared_cluster["open_report_count"] == 2
+    assert shared_cluster["reporting_student_count"] == 2
+    assert shared_cluster["verified_affected_student_count"] == 2
+    assert shared_cluster["enrollment_coverage"] == "complete"
+    assert shared_cluster["current_timetable_overlap"] is True
+    serialized_cluster = json.dumps(shared_cluster)
+    assert "first.student@example.edu" not in serialized_cluster
+    assert "second.student@example.edu" not in serialized_cluster
+
+    assert client.patch(
+        f"/clash-reports/{report_ids[0]}",
+        json={"status": "under_review"},
+    ).status_code == 200
+    candidates = client.get(
+        f"/clash-reports/{report_ids[0]}/resolution-candidates",
+        params={
+            "target_entry_id": shared_entry_ids[0],
+            "limit": 100,
+            "include_rejected_limit": 0,
+        },
+    ).json()["candidates"]
+    candidate = next(
+        item for item in candidates if item["status"] == "CONDITIONALLY_SAFE"
+    )
+    applied = client.post(
+        (
+            f"/clash-reports/{report_ids[0]}/resolution-candidates/"
+            f"{candidate['candidate_id']}/apply"
+        ),
+        json={
+            "target_entry_id": shared_entry_ids[0],
+            "resolution_note": "Moved the shared AI class for every affected student.",
+            "confirm_conditional": True,
+        },
+    )
+    assert applied.status_code == 200
+    assert set(applied.json()["resolved_report_ids"]) == set(report_ids)
+    assert applied.json()["resolved_report_count"] == 2
+    change_id = applied.json()["change_id"]
+
+    with Session() as db:
+        reports = [db.get(StudentClashReport, report_id) for report_id in report_ids]
+        assert {report.status for report in reports} == {"resolved"}
+        assert {report.resolution_reason for report in reports} == {
+            "timetable_changed"
+        }
+        assert db.get(StudentClashReport, unrelated_report_id).status == "submitted"
+        related_actions = list(
+            db.scalars(
+                select(StudentClashReportEvent.action).where(
+                    StudentClashReportEvent.report_id == report_ids[1]
+                )
+            ).all()
+        )
+        assert "resolved_by_shared_timetable_change" in related_actions
+
+    remaining = client.get("/clash-reports/clusters")
+    assert remaining.json()["total"] == 1
+    assert remaining.json()["clusters"][0]["report_ids"] == [
+        unrelated_report_id
+    ]
+
+    with Session() as db:
+        undone = undo_student_resolution(
+            db,
+            change_id=change_id,
+            actor_user_id=coordinator.id,
+        )
+    assert set(undone["reopened_report_ids"]) == set(report_ids)
+    assert undone["reopened_report_count"] == 2
+    with Session() as db:
+        assert {
+            db.get(StudentClashReport, report_id).status for report_id in report_ids
+        } == {"under_review"}
+
+    with Session() as db:
+        redone = redo_student_resolution(
+            db,
+            change_id=change_id,
+            actor_user_id=coordinator.id,
+        )
+    assert set(redone["resolved_report_ids"]) == set(report_ids)
+    assert redone["resolved_report_count"] == 2
+    with Session() as db:
+        assert {
+            db.get(StudentClashReport, report_id).status for report_id in report_ids
+        } == {"resolved"}
+
+
 def test_report_resolution_undo_and_redo_keep_report_history_synchronized():
     app, client, Session = create_context()
     _student, coordinator, entry_ids, report_id, candidate = prepare_applicable_resolution(
@@ -516,6 +767,7 @@ def test_report_resolution_undo_and_redo_keep_report_history_synchronized():
         )
         assert report.status == "under_review"
         assert report.resolution_note is None
+        assert report.resolution_reason is None
         assert change.undone is True
 
     with Session() as db:
@@ -562,6 +814,7 @@ def test_report_resolution_undo_and_redo_keep_report_history_synchronized():
         } == candidate["move_to"]
         assert report.status == "resolved"
         assert report.resolution_note == "Moved the first class."
+        assert report.resolution_reason == "timetable_changed"
         assert change.undone is False
         assert actions[-3:] == [
             "resolution_applied",

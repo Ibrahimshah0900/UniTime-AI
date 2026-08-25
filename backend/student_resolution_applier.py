@@ -30,6 +30,7 @@ from backend.models import (
     TimetableEntry,
 )
 from backend.enrollment_conflict_graph import build_enrollment_conflict_analysis
+from backend.enrollment_service import get_student_timetable
 from backend.notification_service import (
     add_clash_report_status_notification,
     add_time_change_notifications,
@@ -37,6 +38,7 @@ from backend.notification_service import (
 from backend.safe_candidate_service import generate_safe_candidates
 from backend.student_conflict_analyzer import (
     analyze_student_conflicts,
+    times_overlap,
 )
 from backend.student_conflict_groups import (
     build_student_conflict_groups,
@@ -1173,28 +1175,77 @@ def _transition_linked_report_after_undo(
         raise ValueError(
             "Undo rejected because the linked clash report is no longer resolved."
         )
-    report.status = "under_review"
-    report.resolution_note = None
-    event = StudentClashReportEvent(
-        report_id=report.id,
-        actor_user_id=actor_user_id,
-        action="resolution_undone",
-        from_status="resolved",
-        to_status="under_review",
-        note="The applied timetable resolution was undone.",
+    related_reports = list(
+        db.scalars(
+            select(StudentClashReport)
+            .where(
+                StudentClashReport.term_id == report.term_id,
+                StudentClashReport.conflict_fingerprint
+                == report.conflict_fingerprint,
+                StudentClashReport.status == "resolved",
+                StudentClashReport.resolution_reason == "timetable_changed",
+            )
+            .order_by(StudentClashReport.id)
+            .with_for_update()
+        ).all()
     )
-    db.add(event)
+    report_events: list[tuple[StudentClashReport, StudentClashReportEvent]] = []
+    for related_report in related_reports:
+        report_entry_ids = set(
+            db.scalars(
+                select(StudentClashReportItem.timetable_entry_id).where(
+                    StudentClashReportItem.report_id == related_report.id,
+                    StudentClashReportItem.timetable_entry_id.is_not(None),
+                )
+            ).all()
+        )
+        personal_entries = [
+            entry
+            for entry in get_student_timetable(db, related_report.student_user_id)
+            if entry.id in report_entry_ids
+        ]
+        conflict_exists = any(
+            times_overlap(first, second)
+            for index, first in enumerate(personal_entries)
+            for second in personal_entries[index + 1 :]
+        )
+        if not conflict_exists:
+            continue
+        related_report.status = "under_review"
+        related_report.resolution_note = None
+        related_report.resolution_reason = None
+        event = StudentClashReportEvent(
+            report_id=related_report.id,
+            actor_user_id=actor_user_id,
+            action=(
+                "resolution_undone"
+                if related_report.id == report.id
+                else "shared_resolution_undone"
+            ),
+            from_status="resolved",
+            to_status="under_review",
+            note="The applied shared timetable resolution was undone.",
+        )
+        db.add(event)
+        report_events.append((related_report, event))
     db.flush()
-    add_clash_report_status_notification(
-        db,
-        user_id=report.student_user_id,
-        report_id=report.id,
-        status="under_review",
-        resolution_note="The previous resolution was undone for further review.",
-        event_key=str(event.id),
-        term_id=report.term_id,
-    )
-    return {"report_id": report.id, "report_status": report.status}
+    for reopened_report, event in report_events:
+        add_clash_report_status_notification(
+            db,
+            user_id=reopened_report.student_user_id,
+            report_id=reopened_report.id,
+            status="under_review",
+            resolution_note="The previous resolution was undone for further review.",
+            event_key=str(event.id),
+            term_id=reopened_report.term_id,
+        )
+    reopened_report_ids = [item.id for item, _event in report_events]
+    return {
+        "report_id": report.id,
+        "report_status": report.status,
+        "reopened_report_ids": reopened_report_ids,
+        "reopened_report_count": len(reopened_report_ids),
+    }
 
 
 def _get_linked_report_redo_candidate(
@@ -1275,28 +1326,77 @@ def _transition_linked_report_after_redo(
     report, _candidate = linked
     if not change.report_resolution_note:
         raise ValueError("Redo rejected because the original resolution note is missing.")
-    report.status = "resolved"
-    report.resolution_note = change.report_resolution_note
-    event = StudentClashReportEvent(
-        report_id=report.id,
-        actor_user_id=actor_user_id,
-        action="resolution_redone",
-        from_status="under_review",
-        to_status="resolved",
-        note=change.report_resolution_note,
+    related_reports = list(
+        db.scalars(
+            select(StudentClashReport)
+            .where(
+                StudentClashReport.term_id == report.term_id,
+                StudentClashReport.conflict_fingerprint
+                == report.conflict_fingerprint,
+                StudentClashReport.status.in_(("submitted", "under_review")),
+            )
+            .order_by(StudentClashReport.id)
+            .with_for_update()
+        ).all()
     )
-    db.add(event)
+    report_events: list[tuple[StudentClashReport, StudentClashReportEvent]] = []
+    for related_report in related_reports:
+        report_entry_ids = set(
+            db.scalars(
+                select(StudentClashReportItem.timetable_entry_id).where(
+                    StudentClashReportItem.report_id == related_report.id,
+                    StudentClashReportItem.timetable_entry_id.is_not(None),
+                )
+            ).all()
+        )
+        personal_entries = [
+            entry
+            for entry in get_student_timetable(db, related_report.student_user_id)
+            if entry.id in report_entry_ids
+        ]
+        conflict_exists = any(
+            times_overlap(first, second)
+            for index, first in enumerate(personal_entries)
+            for second in personal_entries[index + 1 :]
+        )
+        if conflict_exists:
+            continue
+        previous_status = related_report.status
+        related_report.status = "resolved"
+        related_report.resolution_note = change.report_resolution_note
+        related_report.resolution_reason = "timetable_changed"
+        event = StudentClashReportEvent(
+            report_id=related_report.id,
+            actor_user_id=actor_user_id,
+            action=(
+                "resolution_redone"
+                if related_report.id == report.id
+                else "shared_resolution_redone"
+            ),
+            from_status=previous_status,
+            to_status="resolved",
+            note=change.report_resolution_note,
+        )
+        db.add(event)
+        report_events.append((related_report, event))
     db.flush()
-    add_clash_report_status_notification(
-        db,
-        user_id=report.student_user_id,
-        report_id=report.id,
-        status="resolved",
-        resolution_note=change.report_resolution_note,
-        event_key=str(event.id),
-        term_id=report.term_id,
-    )
-    return {"report_id": report.id, "report_status": report.status}
+    for resolved_report, event in report_events:
+        add_clash_report_status_notification(
+            db,
+            user_id=resolved_report.student_user_id,
+            report_id=resolved_report.id,
+            status="resolved",
+            resolution_note=change.report_resolution_note,
+            event_key=str(event.id),
+            term_id=resolved_report.term_id,
+        )
+    resolved_report_ids = [item.id for item, _event in report_events]
+    return {
+        "report_id": report.id,
+        "report_status": report.status,
+        "resolved_report_ids": resolved_report_ids,
+        "resolved_report_count": len(resolved_report_ids),
+    }
 
 
 def undo_student_resolution(

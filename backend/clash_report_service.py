@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 from collections.abc import Sequence
 import hashlib
 import json
@@ -15,7 +16,10 @@ from backend.clash_report_schemas import (
     ClashReportResolutionApplyRequest,
     ClashReportReviewUpdate,
 )
-from backend.enrollment_conflict_graph import build_enrollment_conflict_analysis
+from backend.enrollment_conflict_graph import (
+    build_enrollment_conflict_analysis,
+    build_enrollment_conflict_evidence,
+)
 from backend.enrollment_service import get_student_timetable
 from backend.models import (
     StudentClashReport,
@@ -144,6 +148,7 @@ def _serialize_report(
         "evidence_reference": report.evidence_reference,
         "duplicate_of_report_id": report.duplicate_of_report_id,
         "resolution_note": report.resolution_note,
+        "resolution_reason": report.resolution_reason,
         "created_at": report.created_at,
         "updated_at": report.updated_at,
         "items": _get_items(db, report.id),
@@ -308,6 +313,160 @@ def list_clash_reports(
         "reports": [
             _serialize_report(db, report, include_events=False) for report in reports
         ],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+def list_clash_report_clusters(
+    db: Session,
+    *,
+    term_id: int,
+    open_only: bool = True,
+    offset: int = 0,
+    limit: int = 50,
+) -> dict:
+    reports = list(
+        db.scalars(
+            select(StudentClashReport)
+            .where(StudentClashReport.term_id == term_id)
+            .order_by(StudentClashReport.created_at, StudentClashReport.id)
+        ).all()
+    )
+    if not reports:
+        return {"clusters": [], "total": 0, "offset": offset, "limit": limit}
+
+    report_ids = [report.id for report in reports]
+    items = list(
+        db.scalars(
+            select(StudentClashReportItem)
+            .where(StudentClashReportItem.report_id.in_(report_ids))
+            .order_by(StudentClashReportItem.report_id, StudentClashReportItem.id)
+        ).all()
+    )
+    items_by_report: dict[int, list[StudentClashReportItem]] = defaultdict(list)
+    for item in items:
+        items_by_report[item.report_id].append(item)
+
+    entries = list(
+        db.scalars(
+            select(TimetableEntry)
+            .where(TimetableEntry.term_id == term_id)
+            .order_by(TimetableEntry.id)
+        ).all()
+    )
+    entry_lookup = {entry.id: entry for entry in entries}
+    evidence = build_enrollment_conflict_evidence(db, entries, term_id=term_id)
+
+    reports_by_fingerprint: dict[str, list[StudentClashReport]] = defaultdict(list)
+    for report in reports:
+        reports_by_fingerprint[report.conflict_fingerprint].append(report)
+
+    open_statuses = {"submitted", "under_review"}
+    clusters: list[dict] = []
+    for fingerprint, grouped_reports in reports_by_fingerprint.items():
+        open_reports = [
+            report for report in grouped_reports if report.status in open_statuses
+        ]
+        if open_only and not open_reports:
+            continue
+
+        canonical_items = items_by_report[grouped_reports[0].id]
+        timetable_entry_ids = list(
+            dict.fromkeys(
+                item.timetable_entry_id
+                for item in canonical_items
+                if item.timetable_entry_id is not None
+            )
+        )
+        current_entries = [
+            entry_lookup[entry_id]
+            for entry_id in timetable_entry_ids
+            if entry_id in entry_lookup
+        ]
+        covered_ids = [
+            entry_id
+            for entry_id in timetable_entry_ids
+            if entry_id in evidence.entry_students
+        ]
+        if timetable_entry_ids and len(covered_ids) == len(timetable_entry_ids):
+            enrollment_coverage = "complete"
+        elif covered_ids:
+            enrollment_coverage = "partial"
+        else:
+            enrollment_coverage = "none"
+
+        affected_students: set[int] = set()
+        if timetable_entry_ids:
+            affected_students = set(
+                evidence.entry_students.get(timetable_entry_ids[0], frozenset())
+            )
+            for entry_id in timetable_entry_ids[1:]:
+                affected_students.intersection_update(
+                    evidence.entry_students.get(entry_id, frozenset())
+                )
+
+        status_counts = Counter(report.status for report in grouped_reports)
+        clusters.append(
+            {
+                "term_id": term_id,
+                "conflict_fingerprint": fingerprint,
+                "report_ids": sorted(report.id for report in grouped_reports),
+                "open_report_ids": sorted(report.id for report in open_reports),
+                "timetable_entry_ids": timetable_entry_ids,
+                "reported_classes": [
+                    {
+                        "timetable_entry_id": item.timetable_entry_id,
+                        "course_code": item.course_code,
+                        "section": item.section,
+                        "semester": item.semester,
+                        "day": item.day,
+                        "start_time": item.start_time,
+                        "end_time": item.end_time,
+                    }
+                    for item in canonical_items
+                ],
+                "report_count": len(grouped_reports),
+                "open_report_count": len(open_reports),
+                "reporting_student_count": len(
+                    {report.student_user_id for report in grouped_reports}
+                ),
+                "verified_affected_student_count": len(affected_students),
+                "enrollment_coverage": enrollment_coverage,
+                "current_timetable_overlap": (
+                    len(current_entries) == len(timetable_entry_ids)
+                    and _reports_overlap(current_entries)
+                ),
+                "status_counts": {
+                    status: status_counts.get(status, 0)
+                    for status in (
+                        "submitted",
+                        "under_review",
+                        "resolved",
+                        "rejected",
+                        "duplicate",
+                    )
+                },
+                "first_reported_at": min(
+                    report.created_at for report in grouped_reports
+                ),
+                "latest_reported_at": max(
+                    report.created_at for report in grouped_reports
+                ),
+            }
+        )
+
+    clusters.sort(
+        key=lambda cluster: (
+            cluster["latest_reported_at"],
+            cluster["conflict_fingerprint"],
+        ),
+        reverse=True,
+    )
+    total = len(clusters)
+    return {
+        "clusters": clusters[offset : offset + limit],
         "total": total,
         "offset": offset,
         "limit": limit,
@@ -570,17 +729,41 @@ def apply_clash_report_resolution_candidate(
             undone=False,
         )
         db.add(history)
-        report.status = "resolved"
-        report.resolution_note = request.resolution_note
-        event = StudentClashReportEvent(
-            report_id=report.id,
-            actor_user_id=actor_user_id,
-            action="resolution_applied",
-            from_status="under_review",
-            to_status="resolved",
-            note=request.resolution_note,
+        related_reports = list(
+            db.scalars(
+                select(StudentClashReport)
+                .where(
+                    StudentClashReport.term_id == report.term_id,
+                    StudentClashReport.conflict_fingerprint
+                    == report.conflict_fingerprint,
+                    StudentClashReport.status.in_(("submitted", "under_review")),
+                )
+                .order_by(StudentClashReport.id)
+                .with_for_update()
+            ).all()
         )
-        db.add(event)
+        report_events: list[
+            tuple[StudentClashReport, StudentClashReportEvent]
+        ] = []
+        for related_report in related_reports:
+            previous_status = related_report.status
+            related_report.status = "resolved"
+            related_report.resolution_note = request.resolution_note
+            related_report.resolution_reason = "timetable_changed"
+            event = StudentClashReportEvent(
+                report_id=related_report.id,
+                actor_user_id=actor_user_id,
+                action=(
+                    "resolution_applied"
+                    if related_report.id == report.id
+                    else "resolved_by_shared_timetable_change"
+                ),
+                from_status=previous_status,
+                to_status="resolved",
+                note=request.resolution_note,
+            )
+            db.add(event)
+            report_events.append((related_report, event))
         db.flush()
         create_resolution_learning_event(
             db,
@@ -598,18 +781,22 @@ def apply_clash_report_resolution_candidate(
             old_end_time=old_end_time,
             event_key=f"clash-report-resolution:{history.id}",
         )
-        add_clash_report_status_notification(
-            db,
-            user_id=report.student_user_id,
-            report_id=report.id,
-            status="resolved",
-            resolution_note=request.resolution_note,
-            event_key=str(event.id),
-            term_id=report.term_id,
-        )
+        for resolved_report, event in report_events:
+            add_clash_report_status_notification(
+                db,
+                user_id=resolved_report.student_user_id,
+                report_id=resolved_report.id,
+                status="resolved",
+                resolution_note=request.resolution_note,
+                event_key=str(event.id),
+                term_id=resolved_report.term_id,
+            )
         db.commit()
         db.refresh(report)
         db.refresh(history)
+        resolved_report_ids = [
+            resolved_report.id for resolved_report, _event in report_events
+        ]
         return {
             "success": True,
             "message": "Clash-report resolution applied successfully.",
@@ -622,12 +809,73 @@ def apply_clash_report_resolution_candidate(
                 candidate["status"] == "CONDITIONALLY_SAFE"
                 and request.confirm_conditional
             ),
+            "resolved_report_ids": resolved_report_ids,
+            "resolved_report_count": len(resolved_report_ids),
             "applied_candidate": candidate,
             "report": _serialize_report(db, report, include_events=True),
         }
     except Exception:
         db.rollback()
         raise
+
+
+def _validate_verified_resolution(
+    db: Session,
+    *,
+    report: StudentClashReport,
+    resolution_reason: str,
+) -> None:
+    report_entry_ids = {
+        item.timetable_entry_id
+        for item in _get_items(db, report.id)
+        if item.timetable_entry_id is not None
+    }
+    current_entries = list(
+        db.scalars(
+            select(TimetableEntry)
+            .where(
+                TimetableEntry.term_id == report.term_id,
+                TimetableEntry.id.in_(report_entry_ids),
+            )
+            .order_by(TimetableEntry.id)
+        ).all()
+    )
+    personal_entries = [
+        entry
+        for entry in get_student_timetable(db, report.student_user_id)
+        if entry.id in report_entry_ids
+    ]
+
+    if _reports_overlap(personal_entries):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This verified student's reported personal timetable conflict still "
+                "exists. Apply a safe timetable resolution or correct the student's "
+                "enrollment before resolving the report."
+            ),
+        )
+    if resolution_reason == "timetable_changed" and _reports_overlap(
+        current_entries
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "resolution_reason timetable_changed is not verified because the "
+                "reported institutional timetable entries still overlap."
+            ),
+        )
+    if resolution_reason in {"enrollment_corrected", "course_dropped"} and len(
+        personal_entries
+    ) >= 2:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"resolution_reason {resolution_reason} is not verified because the "
+                "student still has at least two reported classes in the personal "
+                "timetable."
+            ),
+        )
 
 
 def update_clash_report(
@@ -681,9 +929,17 @@ def update_clash_report(
                 detail="Duplicate target must be a canonical report.",
             )
 
+    if request.status == "resolved":
+        _validate_verified_resolution(
+            db,
+            report=report,
+            resolution_reason=request.resolution_reason,
+        )
+
     previous_status = report.status
     report.status = request.status
     report.resolution_note = request.resolution_note
+    report.resolution_reason = request.resolution_reason
     report.duplicate_of_report_id = (
         duplicate_target.id if duplicate_target is not None else None
     )
