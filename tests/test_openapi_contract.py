@@ -15,8 +15,8 @@ def test_committed_openapi_contract_matches_application():
 
 
 def test_api_contract_version_is_stable_for_frontend_handoff():
-    assert app.version == "0.10.0"
-    assert len(app.openapi()["paths"]) == 64
+    assert app.version == "0.11.0"
+    assert len(app.openapi()["paths"]) == 65
 
 
 def test_successful_json_operations_publish_response_schemas():

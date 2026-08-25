@@ -136,3 +136,104 @@ class ClashReportListResponse(BaseModel):
     total: int
     offset: int
     limit: int
+
+
+CandidateSafetyStatus = Literal[
+    "SAFE",
+    "CONDITIONALLY_SAFE",
+    "INSUFFICIENT_DATA",
+    "REJECTED",
+]
+
+
+class CandidateTimeSlotResponse(BaseModel):
+    day: str
+    start_time: str
+    end_time: str
+
+
+class CandidateBlockedPeriodResponse(CandidateTimeSlotResponse):
+    reason: str
+
+
+class CandidatePolicyResponse(BaseModel):
+    operating_days: list[str]
+    opens_at: str
+    closes_at: str
+    slot_interval_minutes: int
+    blocked_periods: list[CandidateBlockedPeriodResponse]
+
+
+class CandidateCheckResponse(BaseModel):
+    name: str
+    status: Literal["PASS", "WARN", "FAIL"]
+    detail: str
+
+
+class CandidateScoreComponentResponse(BaseModel):
+    signal: str
+    value: int
+    explanation: str
+
+
+class CandidateImpactResponse(BaseModel):
+    affected_students: int
+    confirmed_conflicts_before: int
+    confirmed_conflicts_after: int
+    confirmed_conflicts_removed: int
+    new_confirmed_conflicts: int
+    structural_clashes_before: int
+    structural_clashes_after: int
+    conflict_groups_before: int
+    conflict_groups_after: int
+    weighted_risk_before: int
+    weighted_risk_after: int
+    timetable_entries_changed: int
+
+
+class SafeResolutionCandidateResponse(BaseModel):
+    candidate_id: str
+    status: CandidateSafetyStatus
+    actionable_without_confirmation: bool
+    entry_id: int
+    course_code: str | None
+    course_name: str | None
+    section: str | None
+    move_from: CandidateTimeSlotResponse
+    move_to: CandidateTimeSlotResponse
+    duration_minutes: int
+    rank_score: int
+    score_components: list[CandidateScoreComponentResponse]
+    checks: list[CandidateCheckResponse]
+    missing_data: list[str]
+    rejection_reasons: list[str]
+    impact: CandidateImpactResponse
+
+
+class RejectedResolutionCandidateResponse(BaseModel):
+    candidate_id: str
+    entry_id: int
+    move_to: CandidateTimeSlotResponse
+    status: Literal["REJECTED"]
+    rejection_reasons: list[str]
+    checks: list[CandidateCheckResponse] = Field(default_factory=list)
+
+
+class ResolutionCandidateSummaryResponse(BaseModel):
+    generated: int
+    safe: int
+    conditionally_safe: int
+    insufficient_data: int
+    rejected: int
+
+
+class ClashReportResolutionCandidatesResponse(BaseModel):
+    report_id: int
+    report_status: ClashReportStatus
+    report_entry_ids: list[int]
+    target_entry_ids: list[int]
+    policy: CandidatePolicyResponse
+    summary: ResolutionCandidateSummaryResponse
+    candidates: list[SafeResolutionCandidateResponse]
+    rejected_candidates: list[RejectedResolutionCandidateResponse]
+    important_note: str

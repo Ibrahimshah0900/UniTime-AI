@@ -146,7 +146,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.10.0",
+    version="0.11.0",
 )
 
 app.add_middleware(
@@ -261,8 +261,8 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.10.0",
-        "phase": "authentic_enrollment_conflicts",
+        "version": "0.11.0",
+        "phase": "deterministic_safe_resolution_candidates",
     }
 
 

@@ -772,6 +772,215 @@
         "title": "Body_import_timetable_timetable_import_post",
         "type": "object"
       },
+      "CandidateBlockedPeriodResponse": {
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "start_time",
+          "end_time",
+          "reason"
+        ],
+        "title": "CandidateBlockedPeriodResponse",
+        "type": "object"
+      },
+      "CandidateCheckResponse": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "WARN",
+              "FAIL"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "detail"
+        ],
+        "title": "CandidateCheckResponse",
+        "type": "object"
+      },
+      "CandidateImpactResponse": {
+        "properties": {
+          "affected_students": {
+            "title": "Affected Students",
+            "type": "integer"
+          },
+          "confirmed_conflicts_after": {
+            "title": "Confirmed Conflicts After",
+            "type": "integer"
+          },
+          "confirmed_conflicts_before": {
+            "title": "Confirmed Conflicts Before",
+            "type": "integer"
+          },
+          "confirmed_conflicts_removed": {
+            "title": "Confirmed Conflicts Removed",
+            "type": "integer"
+          },
+          "conflict_groups_after": {
+            "title": "Conflict Groups After",
+            "type": "integer"
+          },
+          "conflict_groups_before": {
+            "title": "Conflict Groups Before",
+            "type": "integer"
+          },
+          "new_confirmed_conflicts": {
+            "title": "New Confirmed Conflicts",
+            "type": "integer"
+          },
+          "structural_clashes_after": {
+            "title": "Structural Clashes After",
+            "type": "integer"
+          },
+          "structural_clashes_before": {
+            "title": "Structural Clashes Before",
+            "type": "integer"
+          },
+          "timetable_entries_changed": {
+            "title": "Timetable Entries Changed",
+            "type": "integer"
+          },
+          "weighted_risk_after": {
+            "title": "Weighted Risk After",
+            "type": "integer"
+          },
+          "weighted_risk_before": {
+            "title": "Weighted Risk Before",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "affected_students",
+          "confirmed_conflicts_before",
+          "confirmed_conflicts_after",
+          "confirmed_conflicts_removed",
+          "new_confirmed_conflicts",
+          "structural_clashes_before",
+          "structural_clashes_after",
+          "conflict_groups_before",
+          "conflict_groups_after",
+          "weighted_risk_before",
+          "weighted_risk_after",
+          "timetable_entries_changed"
+        ],
+        "title": "CandidateImpactResponse",
+        "type": "object"
+      },
+      "CandidatePolicyResponse": {
+        "properties": {
+          "blocked_periods": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateBlockedPeriodResponse"
+            },
+            "title": "Blocked Periods",
+            "type": "array"
+          },
+          "closes_at": {
+            "title": "Closes At",
+            "type": "string"
+          },
+          "opens_at": {
+            "title": "Opens At",
+            "type": "string"
+          },
+          "operating_days": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Operating Days",
+            "type": "array"
+          },
+          "slot_interval_minutes": {
+            "title": "Slot Interval Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operating_days",
+          "opens_at",
+          "closes_at",
+          "slot_interval_minutes",
+          "blocked_periods"
+        ],
+        "title": "CandidatePolicyResponse",
+        "type": "object"
+      },
+      "CandidateScoreComponentResponse": {
+        "properties": {
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "signal": {
+            "title": "Signal",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "signal",
+          "value",
+          "explanation"
+        ],
+        "title": "CandidateScoreComponentResponse",
+        "type": "object"
+      },
+      "CandidateTimeSlotResponse": {
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "start_time",
+          "end_time"
+        ],
+        "title": "CandidateTimeSlotResponse",
+        "type": "object"
+      },
       "ChangeCollectionResponse": {
         "properties": {
           "changes": {
@@ -1211,6 +1420,76 @@
           "limit"
         ],
         "title": "ClashReportListResponse",
+        "type": "object"
+      },
+      "ClashReportResolutionCandidatesResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/SafeResolutionCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "important_note": {
+            "title": "Important Note",
+            "type": "string"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/CandidatePolicyResponse"
+          },
+          "rejected_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/RejectedResolutionCandidateResponse"
+            },
+            "title": "Rejected Candidates",
+            "type": "array"
+          },
+          "report_entry_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Report Entry Ids",
+            "type": "array"
+          },
+          "report_id": {
+            "title": "Report Id",
+            "type": "integer"
+          },
+          "report_status": {
+            "enum": [
+              "submitted",
+              "under_review",
+              "resolved",
+              "rejected",
+              "duplicate"
+            ],
+            "title": "Report Status",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ResolutionCandidateSummaryResponse"
+          },
+          "target_entry_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Target Entry Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "report_id",
+          "report_status",
+          "report_entry_ids",
+          "target_entry_ids",
+          "policy",
+          "summary",
+          "candidates",
+          "rejected_candidates",
+          "important_note"
+        ],
+        "title": "ClashReportResolutionCandidatesResponse",
         "type": "object"
       },
       "ClashReportReviewUpdate": {
@@ -3117,6 +3396,82 @@
         "title": "RegisterRequest",
         "type": "object"
       },
+      "RejectedResolutionCandidateResponse": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateCheckResponse"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "move_to": {
+            "$ref": "#/components/schemas/CandidateTimeSlotResponse"
+          },
+          "rejection_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rejection Reasons",
+            "type": "array"
+          },
+          "status": {
+            "const": "REJECTED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "entry_id",
+          "move_to",
+          "status",
+          "rejection_reasons"
+        ],
+        "title": "RejectedResolutionCandidateResponse",
+        "type": "object"
+      },
+      "ResolutionCandidateSummaryResponse": {
+        "properties": {
+          "conditionally_safe": {
+            "title": "Conditionally Safe",
+            "type": "integer"
+          },
+          "generated": {
+            "title": "Generated",
+            "type": "integer"
+          },
+          "insufficient_data": {
+            "title": "Insufficient Data",
+            "type": "integer"
+          },
+          "rejected": {
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "safe": {
+            "title": "Safe",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "generated",
+          "safe",
+          "conditionally_safe",
+          "insufficient_data",
+          "rejected"
+        ],
+        "title": "ResolutionCandidateSummaryResponse",
+        "type": "object"
+      },
       "RoomChangeRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3460,6 +3815,130 @@
           "errors"
         ],
         "title": "RosterImportResponse",
+        "type": "object"
+      },
+      "SafeResolutionCandidateResponse": {
+        "properties": {
+          "actionable_without_confirmation": {
+            "title": "Actionable Without Confirmation",
+            "type": "boolean"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateCheckResponse"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "duration_minutes": {
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "entry_id": {
+            "title": "Entry Id",
+            "type": "integer"
+          },
+          "impact": {
+            "$ref": "#/components/schemas/CandidateImpactResponse"
+          },
+          "missing_data": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Data",
+            "type": "array"
+          },
+          "move_from": {
+            "$ref": "#/components/schemas/CandidateTimeSlotResponse"
+          },
+          "move_to": {
+            "$ref": "#/components/schemas/CandidateTimeSlotResponse"
+          },
+          "rank_score": {
+            "title": "Rank Score",
+            "type": "integer"
+          },
+          "rejection_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rejection Reasons",
+            "type": "array"
+          },
+          "score_components": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateScoreComponentResponse"
+            },
+            "title": "Score Components",
+            "type": "array"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "status": {
+            "enum": [
+              "SAFE",
+              "CONDITIONALLY_SAFE",
+              "INSUFFICIENT_DATA",
+              "REJECTED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "status",
+          "actionable_without_confirmation",
+          "entry_id",
+          "course_code",
+          "course_name",
+          "section",
+          "move_from",
+          "move_to",
+          "duration_minutes",
+          "rank_score",
+          "score_components",
+          "checks",
+          "missing_data",
+          "rejection_reasons",
+          "impact"
+        ],
+        "title": "SafeResolutionCandidateResponse",
         "type": "object"
       },
       "StructuralClashResponse": {
@@ -5524,7 +6003,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.10.0"
+    "version": "0.11.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -6600,6 +7079,94 @@
           }
         ],
         "summary": "Review Clash Report",
+        "tags": [
+          "Clash Report Review"
+        ]
+      }
+    },
+    "/clash-reports/{report_id}/resolution-candidates": {
+      "get": {
+        "operationId": "get_clash_report_resolution_candidates_clash_reports__report_id__resolution_candidates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "title": "Report Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_entry_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Entry Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_rejected_limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Include Rejected Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClashReportResolutionCandidatesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Clash Report Resolution Candidates",
         "tags": [
           "Clash Report Review"
         ]

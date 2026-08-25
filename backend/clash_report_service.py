@@ -20,6 +20,7 @@ from backend.models import (
     User,
 )
 from backend.notification_service import add_clash_report_status_notification
+from backend.safe_candidate_service import generate_safe_candidates
 from backend.term_service import get_active_term, require_active_term_id
 
 
@@ -294,6 +295,86 @@ def list_clash_reports(
         "total": total,
         "offset": offset,
         "limit": limit,
+    }
+
+
+def generate_clash_report_resolution_candidates(
+    db: Session,
+    *,
+    report_id: int,
+    target_entry_id: int | None = None,
+    limit: int = 20,
+    include_rejected_limit: int = 20,
+) -> dict:
+    report = db.get(StudentClashReport, report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Clash report not found.")
+    require_active_term_id(db, report.term_id)
+    if report.status not in {"submitted", "under_review"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Resolution candidates are only available for open clash reports.",
+        )
+
+    report_entry_ids = [
+        item.timetable_entry_id
+        for item in _get_items(db, report.id)
+        if item.timetable_entry_id is not None
+    ]
+    if len(set(report_entry_ids)) < 2:
+        raise HTTPException(
+            status_code=409,
+            detail="The report no longer has enough current timetable references to resolve safely.",
+        )
+
+    entries = list(
+        db.scalars(
+            select(TimetableEntry)
+            .where(TimetableEntry.term_id == report.term_id)
+            .order_by(TimetableEntry.id)
+        ).all()
+    )
+    entry_lookup = {entry.id: entry for entry in entries}
+    missing_entry_ids = set(report_entry_ids) - entry_lookup.keys()
+    if missing_entry_ids:
+        raise HTTPException(
+            status_code=409,
+            detail="One or more reported timetable entries no longer exist.",
+        )
+    current_report_entries = [entry_lookup[entry_id] for entry_id in report_entry_ids]
+    if not _reports_overlap(current_report_entries):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "The reported classes no longer overlap in the current timetable. "
+                "Review the current state before closing the report."
+            ),
+        )
+
+    if target_entry_id is not None and target_entry_id not in report_entry_ids:
+        raise HTTPException(
+            status_code=422,
+            detail="The target entry must be one of the classes attached to this report.",
+        )
+    target_entry_ids = (
+        [target_entry_id]
+        if target_entry_id is not None
+        else list(dict.fromkeys(report_entry_ids))
+    )
+    result = generate_safe_candidates(
+        db,
+        entries=entries,
+        target_entry_ids=target_entry_ids,
+        report_entry_ids=report_entry_ids,
+        limit=limit,
+        include_rejected_limit=include_rejected_limit,
+    )
+    return {
+        "report_id": report.id,
+        "report_status": report.status,
+        "report_entry_ids": report_entry_ids,
+        "target_entry_ids": target_entry_ids,
+        **result,
     }
 
 

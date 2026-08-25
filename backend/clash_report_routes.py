@@ -10,12 +10,14 @@ from backend.clash_report_schemas import (
     ClashReportCreate,
     ClashReportDetailResponse,
     ClashReportListResponse,
+    ClashReportResolutionCandidatesResponse,
     ClashReportReviewUpdate,
     ClashReportStatus,
 )
 from backend.clash_report_service import (
     create_clash_report,
     get_clash_report,
+    generate_clash_report_resolution_candidates,
     list_clash_reports,
     update_clash_report,
 )
@@ -100,6 +102,27 @@ def get_clash_report_for_review(
     db: Session = Depends(get_db),
 ):
     return get_clash_report(db, report_id)
+
+
+@review_router.get(
+    "/{report_id}/resolution-candidates",
+    response_model=ClashReportResolutionCandidatesResponse,
+)
+def get_clash_report_resolution_candidates(
+    report_id: int,
+    current_user: Annotated[User, Depends(require_coordinator_or_admin)],
+    db: Session = Depends(get_db),
+    target_entry_id: int | None = Query(default=None, gt=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    include_rejected_limit: int = Query(default=20, ge=0, le=100),
+):
+    return generate_clash_report_resolution_candidates(
+        db,
+        report_id=report_id,
+        target_entry_id=target_entry_id,
+        limit=limit,
+        include_rejected_limit=include_rejected_limit,
+    )
 
 
 @review_router.patch("/{report_id}", response_model=ClashReportDetailResponse)

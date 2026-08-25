@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Mapping
+from dataclasses import dataclass
 from itertools import combinations
+from types import MappingProxyType
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -15,6 +18,17 @@ from backend.student_conflict_analyzer import (
     times_overlap,
 )
 from backend.term_service import get_active_term
+
+
+@dataclass(frozen=True)
+class EnrollmentConflictEvidence:
+    term_id: int
+    total_enrollment_records: int
+    eligible_enrollment_records: int
+    mapped_enrollment_records: int
+    unmapped_enrollment_ids: tuple[int, ...]
+    verified_student_ids: frozenset[int]
+    entry_students: Mapping[int, frozenset[int]]
 
 
 def _entry_pair(first_id: int, second_id: int) -> tuple[int, int]:
@@ -90,12 +104,12 @@ def _inferred_risk(
     return inferred
 
 
-def build_enrollment_conflict_analysis(
+def build_enrollment_conflict_evidence(
     db: Session,
     entries: list[TimetableEntry],
     *,
     term_id: int | None = None,
-) -> dict:
+) -> EnrollmentConflictEvidence:
     selected_term_id = term_id or get_active_term(db).id
     course_entries = [
         entry
@@ -142,12 +156,53 @@ def build_enrollment_conflict_analysis(
         for entry in matches:
             entry_students[entry.id].add(enrollment.user_id)
 
+    return EnrollmentConflictEvidence(
+        term_id=selected_term_id,
+        total_enrollment_records=total_enrollment_records,
+        eligible_enrollment_records=len(eligible_enrollments),
+        mapped_enrollment_records=mapped_enrollments,
+        unmapped_enrollment_ids=tuple(unmapped_enrollment_ids),
+        verified_student_ids=frozenset(verified_student_ids),
+        entry_students=MappingProxyType(
+            {
+                entry_id: frozenset(student_ids)
+                for entry_id, student_ids in entry_students.items()
+            }
+        ),
+    )
+
+
+def build_enrollment_conflict_analysis(
+    db: Session,
+    entries: list[TimetableEntry],
+    *,
+    term_id: int | None = None,
+    evidence: EnrollmentConflictEvidence | None = None,
+) -> dict:
+    selected_evidence = evidence or build_enrollment_conflict_evidence(
+        db,
+        entries,
+        term_id=term_id,
+    )
+    selected_term_id = term_id or selected_evidence.term_id
+    if selected_term_id != selected_evidence.term_id:
+        raise ValueError("Enrollment evidence belongs to a different academic term.")
+    course_entries = [
+        entry
+        for entry in entries
+        if getattr(entry, "entry_kind", "course") == "course"
+    ]
+    entry_students = selected_evidence.entry_students
+
     confirmed: list[dict] = []
     confirmed_pairs: set[tuple[int, int]] = set()
     for first, second in combinations(course_entries, 2):
         if not times_overlap(first, second):
             continue
-        shared_students = entry_students[first.id] & entry_students[second.id]
+        shared_students = entry_students.get(first.id, frozenset()) & entry_students.get(
+            second.id,
+            frozenset(),
+        )
         if not shared_students:
             continue
         confirmed_pairs.add(_entry_pair(first.id, second.id))
@@ -196,15 +251,19 @@ def build_enrollment_conflict_analysis(
         "risks": risks,
         "coverage": {
             "term_id": selected_term_id,
-            "enrollment_records": total_enrollment_records,
-            "eligible_enrollment_records": len(eligible_enrollments),
-            "mapped_enrollment_records": mapped_enrollments,
-            "unmapped_enrollment_records": len(unmapped_enrollment_ids),
-            "verified_students": len(verified_student_ids),
+            "enrollment_records": selected_evidence.total_enrollment_records,
+            "eligible_enrollment_records": selected_evidence.eligible_enrollment_records,
+            "mapped_enrollment_records": selected_evidence.mapped_enrollment_records,
+            "unmapped_enrollment_records": len(selected_evidence.unmapped_enrollment_ids),
+            "verified_students": len(selected_evidence.verified_student_ids),
             "entries_with_enrollment_data": len(entry_students),
+            "entry_enrollment_counts": {
+                entry_id: len(student_ids)
+                for entry_id, student_ids in entry_students.items()
+            },
             "enrollment_backed_edges": len(confirmed),
             "inferred_edges": len(inferred),
-            "unmapped_enrollment_ids": unmapped_enrollment_ids,
+            "unmapped_enrollment_ids": list(selected_evidence.unmapped_enrollment_ids),
         },
     }
 
@@ -230,4 +289,3 @@ def summarize_enrollment_conflicts(analysis: dict) -> dict:
             "Probable and possible conflicts are explicitly inferred only where enrollment coverage is incomplete."
         ),
     }
-

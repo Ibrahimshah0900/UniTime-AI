@@ -120,6 +120,7 @@ def test_clash_report_routes_require_authentication():
     _, client, _ = create_context()
     assert client.get("/student/clash-reports").status_code == 401
     assert client.get("/clash-reports").status_code == 401
+    assert client.get("/clash-reports/1/resolution-candidates").status_code == 401
 
 
 def test_clash_report_routes_enforce_student_and_reviewer_roles():
@@ -133,9 +134,11 @@ def test_clash_report_routes_enforce_student_and_reviewer_roles():
 
     app.dependency_overrides[get_current_user] = lambda: student
     assert client.get("/clash-reports").status_code == 403
+    assert client.get("/clash-reports/1/resolution-candidates").status_code == 403
 
     app.dependency_overrides[get_current_user] = lambda: faculty
     assert client.get("/clash-reports").status_code == 403
+    assert client.get("/clash-reports/1/resolution-candidates").status_code == 403
 
     app.dependency_overrides[get_current_user] = lambda: coordinator
     assert client.get("/clash-reports").status_code == 200
@@ -238,3 +241,87 @@ def test_review_update_requires_resolution_note_and_valid_transition():
         json={"status": "resolved", "resolution_note": "Resolved."},
     )
     assert direct_resolution.status_code == 409
+
+
+def test_reviewer_gets_deterministic_report_scoped_resolution_candidates():
+    app, client, Session = create_context()
+    student = create_user(Session, "student@example.edu", "student")
+    coordinator = create_user(Session, "coordinator@example.edu", "coordinator")
+    entry_ids = seed_student_schedule(Session, student)
+
+    app.dependency_overrides[get_current_user] = lambda: student
+    report_id = client.post(
+        "/student/clash-reports",
+        json=payload(entry_ids),
+    ).json()["id"]
+
+    app.dependency_overrides[get_current_user] = lambda: coordinator
+    first = client.get(
+        f"/clash-reports/{report_id}/resolution-candidates",
+        params={
+            "target_entry_id": entry_ids[0],
+            "limit": 5,
+            "include_rejected_limit": 5,
+        },
+    )
+    second = client.get(
+        f"/clash-reports/{report_id}/resolution-candidates",
+        params={
+            "target_entry_id": entry_ids[0],
+            "limit": 5,
+            "include_rejected_limit": 5,
+        },
+    )
+
+    assert first.status_code == 200
+    assert first.json() == second.json()
+    body = first.json()
+    assert body["report_id"] == report_id
+    assert body["report_entry_ids"] == list(entry_ids)
+    assert body["target_entry_ids"] == [entry_ids[0]]
+    assert body["summary"]["generated"] > 0
+    assert len(body["candidates"]) <= 5
+    assert all(candidate["entry_id"] == entry_ids[0] for candidate in body["candidates"])
+    assert all(candidate["status"] != "REJECTED" for candidate in body["candidates"])
+    assert "not ML predictions" in body["important_note"]
+
+
+def test_resolution_candidates_reject_unrelated_target_and_stale_report_state():
+    app, client, Session = create_context()
+    student = create_user(Session, "student@example.edu", "student")
+    coordinator = create_user(Session, "coordinator@example.edu", "coordinator")
+    entry_ids = seed_student_schedule(Session, student)
+    with Session() as db:
+        unrelated = TimetableEntry(
+            course_code="MTH-101",
+            section="C",
+            semester="Fall 2026",
+            day="Friday",
+            start_time="08:00",
+            end_time="09:00",
+        )
+        db.add(unrelated)
+        db.commit()
+        unrelated_id = unrelated.id
+
+    app.dependency_overrides[get_current_user] = lambda: student
+    report_id = client.post(
+        "/student/clash-reports",
+        json=payload(entry_ids),
+    ).json()["id"]
+
+    app.dependency_overrides[get_current_user] = lambda: coordinator
+    unrelated_response = client.get(
+        f"/clash-reports/{report_id}/resolution-candidates",
+        params={"target_entry_id": unrelated_id},
+    )
+    assert unrelated_response.status_code == 422
+
+    with Session() as db:
+        moved = db.get(TimetableEntry, entry_ids[1])
+        moved.day = "Tuesday"
+        db.commit()
+
+    stale = client.get(f"/clash-reports/{report_id}/resolution-candidates")
+    assert stale.status_code == 409
+    assert "no longer overlap" in stale.json()["error"]
