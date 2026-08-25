@@ -1,6 +1,6 @@
 # UniTime-AI backend API contract
 
-Contract version: `0.14.0`
+Contract version: `0.15.0`
 
 The exact OpenAPI snapshot is committed as `docs/openapi.json`. JSON requests reject unknown fields where request models use `extra="forbid"`. Authenticated requests send `Authorization: Bearer <access_token>`.
 
@@ -40,7 +40,7 @@ Validation failures use status 422 and add `details`, containing safe `location`
 | Admin users | `GET/POST /admin/users`, `PATCH /admin/users/{user_id}` | Search/create/update roles and activation |
 | Student provisioning | `GET/POST /students`, `GET/PATCH /students/{user_id}`, `POST /students/{user_id}/temporary-password`, `POST /students/import` | Coordinator/admin institutional identity, verification, activation, one-time credential reset, and transactional CSV/XLSX roster import |
 | Dashboard | `GET /dashboard` | Role-specific operational summary |
-| Student enrollments | `GET/POST /student/enrollments`, `DELETE /student/enrollments/{id}` | Stable course/section/semester enrollment identity |
+| Student enrollments | `GET/POST /student/enrollments`, `POST /student/enrollments/validate`, `DELETE /student/enrollments/{id}` | Stable course/section/semester identity with live add-conflict preview |
 | Student timetable | `GET /student/timetable` | Personal classes derived from enrollments |
 | Clash reports | `GET/POST /student/clash-reports`, `GET /student/clash-reports/{id}` | Submit and track owned reports |
 | Clash review | `GET /clash-reports`, `GET /clash-reports/clusters`, `GET/PATCH /clash-reports/{id}`, `GET /clash-reports/{id}/resolution-candidates`, `POST /clash-reports/{id}/resolution-candidates/{candidate_id}/apply` | Queue, PII-free duplicate clustering, verified lifecycle, deterministic report-scoped planning, and transactional shared resolution |
@@ -63,7 +63,7 @@ Validation failures use status 422 and add `details`, containing safe `location`
 - Student provision requires `registration_number`, `full_name`, `department`, `program`, `batch`, `current_semester`, and `section`; `email` is optional. A caller may provide a temporary password or receive a cryptographically generated value once in the creation response. Plaintext credentials are never persisted or logged.
 - Student roster import accepts multipart CSV/XLSX. `dry_run=true` previews the all-row validation summary; any invalid/duplicate-in-file row prevents application. `update_existing=true` updates institutional academic fields by registration number without implicitly changing verification or activation state. Existing rows are duplicates by default.
 - Provisioned users must change their temporary password, which invalidates the first token. A verified student must then complete `/account/student-profile` onboarding before enrollment, personal timetable, or clash-report operations.
-- Enrollment create: `course_code`, `section`, `semester` (non-empty strings). Course and section identities are stored uppercase; semester casing is normalized consistently. Case-only variants are duplicates.
+- Enrollment create/validate: `course_code`, `section`, `semester` (non-empty strings). Course and section identities are stored uppercase; semester casing is normalized consistently. Case-only variants are duplicates. `POST /student/enrollments/validate` is read-only and reports the proposed mapping, exact current personal timetable overlaps, and timetable-only alternate sections. Creation repeats the validation against live state and returns it as `conflict_validation`; the current institutional policy allows the authentic enrollment mapping while surfacing the conflict immediately. Alternatives explicitly do not verify capacity, eligibility, or approval and are never applied automatically. Dropping an enrollment immediately removes its enrollment-backed edges from the personal conflict graph.
 - Clash-report create: 2–10 unique positive `timetable_entry_ids`, optional `notes`, optional `evidence_reference`. The service independently rechecks active/verified/onboarded identity, active-term enrollment, personal-timetable ownership, current entry state, and real overlap. Exact repeat submissions return 409.
 - Clash review: `status` plus terminal `resolution_note`; duplicate status also requires `duplicate_of_report_id`. Resolving requires `resolution_reason` (`timetable_changed`, `enrollment_corrected`, `course_dropped`, or `other_verified_correction`). The service verifies the stated reason against the reporting student's current personal timetable, current enrollment mapping, and current institutional timetable; an unresolved personal conflict returns 409. Allowed transitions are `submitted -> under_review|rejected|duplicate` and `under_review -> resolved|rejected|duplicate`.
 - Clash-report clusters: `GET /clash-reports/clusters` accepts `open_only`, `offset`, `limit`, and optional `term_id`. Results group exact term/fingerprint matches, retain individual report IDs and ownership, expose counts and reported class snapshots without student PII, and include enrollment-backed affected-student counts plus current-overlap and coverage indicators.
@@ -90,4 +90,4 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 ## Token handling
 
-Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.14.0; clients return to login after expiry.
+Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.15.0; clients return to login after expiry.

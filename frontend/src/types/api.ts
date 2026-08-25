@@ -76,6 +76,46 @@ export interface Enrollment {
   created_at: string
 }
 
+export interface EnrollmentTimetableClass {
+  id: number
+  course_code: string | null
+  course_name: string | null
+  section: string | null
+  semester: string | null
+  faculty: string | null
+  room: string | null
+  day: DayName
+  start_time: string
+  end_time: string
+}
+
+export interface EnrollmentConflictValidation {
+  course_code: string
+  section: string
+  semester: string
+  mapped_timetable_entry_ids: number[]
+  has_conflicts: boolean
+  conflicts: Array<{
+    proposed_class: EnrollmentTimetableClass
+    conflicts_with: EnrollmentTimetableClass
+    day: DayName
+    overlap_start: string
+    overlap_end: string
+  }>
+  alternate_sections: Array<{
+    section: string
+    timetable_entry_ids: number[]
+    conflict_free: boolean
+    validation_status: 'timetable_only_unverified'
+    limitations: string[]
+  }>
+  limitations: string[]
+}
+
+export interface EnrollmentCreateResult extends Enrollment {
+  conflict_validation: EnrollmentConflictValidation
+}
+
 export type ClashReportStatus = 'submitted' | 'under_review' | 'resolved' | 'rejected' | 'duplicate'
 export type ClashReportResolutionReason = 'timetable_changed' | 'enrollment_corrected' | 'course_dropped' | 'other_verified_correction'
 

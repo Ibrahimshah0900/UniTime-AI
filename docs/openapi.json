@@ -2232,6 +2232,106 @@
         "title": "DashboardResponse",
         "type": "object"
       },
+      "EnrollmentAlternateSectionResponse": {
+        "properties": {
+          "conflict_free": {
+            "title": "Conflict Free",
+            "type": "boolean"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "timetable_entry_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Timetable Entry Ids",
+            "type": "array"
+          },
+          "validation_status": {
+            "const": "timetable_only_unverified",
+            "title": "Validation Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "timetable_entry_ids",
+          "conflict_free",
+          "validation_status",
+          "limitations"
+        ],
+        "title": "EnrollmentAlternateSectionResponse",
+        "type": "object"
+      },
+      "EnrollmentConflictValidationResponse": {
+        "properties": {
+          "alternate_sections": {
+            "items": {
+              "$ref": "#/components/schemas/EnrollmentAlternateSectionResponse"
+            },
+            "title": "Alternate Sections",
+            "type": "array"
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/EnrollmentOverlapResponse"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "course_code": {
+            "title": "Course Code",
+            "type": "string"
+          },
+          "has_conflicts": {
+            "title": "Has Conflicts",
+            "type": "boolean"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "mapped_timetable_entry_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Mapped Timetable Entry Ids",
+            "type": "array"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "semester": {
+            "title": "Semester",
+            "type": "string"
+          }
+        },
+        "required": [
+          "course_code",
+          "section",
+          "semester",
+          "mapped_timetable_entry_ids",
+          "has_conflicts",
+          "conflicts",
+          "alternate_sections",
+          "limitations"
+        ],
+        "title": "EnrollmentConflictValidationResponse",
+        "type": "object"
+      },
       "EnrollmentCreate": {
         "additionalProperties": false,
         "properties": {
@@ -2260,6 +2360,85 @@
           "semester"
         ],
         "title": "EnrollmentCreate",
+        "type": "object"
+      },
+      "EnrollmentCreateResponse": {
+        "properties": {
+          "conflict_validation": {
+            "$ref": "#/components/schemas/EnrollmentConflictValidationResponse"
+          },
+          "course_code": {
+            "title": "Course Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "semester": {
+            "title": "Semester",
+            "type": "string"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "term_id",
+          "user_id",
+          "course_code",
+          "section",
+          "semester",
+          "created_at",
+          "conflict_validation"
+        ],
+        "title": "EnrollmentCreateResponse",
+        "type": "object"
+      },
+      "EnrollmentOverlapResponse": {
+        "properties": {
+          "conflicts_with": {
+            "$ref": "#/components/schemas/EnrollmentTimetableClassResponse"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "overlap_end": {
+            "title": "Overlap End",
+            "type": "string"
+          },
+          "overlap_start": {
+            "title": "Overlap Start",
+            "type": "string"
+          },
+          "proposed_class": {
+            "$ref": "#/components/schemas/EnrollmentTimetableClassResponse"
+          }
+        },
+        "required": [
+          "proposed_class",
+          "conflicts_with",
+          "day",
+          "overlap_start",
+          "overlap_end"
+        ],
+        "title": "EnrollmentOverlapResponse",
         "type": "object"
       },
       "EnrollmentResponse": {
@@ -2304,6 +2483,106 @@
           "created_at"
         ],
         "title": "EnrollmentResponse",
+        "type": "object"
+      },
+      "EnrollmentTimetableClassResponse": {
+        "properties": {
+          "course_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "faculty": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Faculty"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "semester": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semester"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "course_code",
+          "course_name",
+          "section",
+          "semester",
+          "faculty",
+          "room",
+          "day",
+          "start_time",
+          "end_time"
+        ],
+        "title": "EnrollmentTimetableClassResponse",
         "type": "object"
       },
       "FacultyAssignmentCreate": {
@@ -6601,7 +6880,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.14.0"
+    "version": "0.15.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -9503,7 +9782,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EnrollmentResponse"
+                  "$ref": "#/components/schemas/EnrollmentCreateResponse"
                 }
               }
             },
@@ -9526,6 +9805,52 @@
           }
         ],
         "summary": "Add My Enrollment",
+        "tags": [
+          "Student Enrollments"
+        ]
+      }
+    },
+    "/student/enrollments/validate": {
+      "post": {
+        "operationId": "validate_my_enrollment_student_enrollments_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentConflictValidationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Validate My Enrollment",
         "tags": [
           "Student Enrollments"
         ]

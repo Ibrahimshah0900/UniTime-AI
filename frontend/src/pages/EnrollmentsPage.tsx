@@ -15,7 +15,7 @@ export function EnrollmentsPage() {
 
   async function add(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(''); setMessage('')
-    try { await studentApi.addEnrollment({ course_code: courseCode, section, semester }); setCourseCode(''); setSection(''); setSemester(''); setMessage('Enrollment added. Your personal timetable will update from this mapping.'); await enrollments.reload() }
+    try { const payload = { course_code: courseCode, section, semester }; const preview = await studentApi.validateEnrollment(payload); if (preview.has_conflicts) { const conflicts = preview.conflicts.map((item) => `${item.proposed_class.course_code || courseCode} overlaps ${item.conflicts_with.course_code || item.conflicts_with.course_name} on ${item.day} ${item.overlap_start}–${item.overlap_end}`).join('\n'); const alternatives = preview.alternate_sections.filter((item) => item.conflict_free).map((item) => item.section); const alternativeNote = alternatives.length ? `\nTimetable-only conflict-free section(s): ${alternatives.join(', ')}. Capacity and eligibility are not verified.` : ''; if (!window.confirm(`${conflicts}${alternativeNote}\n\nAdd this enrollment anyway?`)) return } const created = await studentApi.addEnrollment(payload); setCourseCode(''); setSection(''); setSemester(''); setMessage(created.conflict_validation.has_conflicts ? 'Enrollment added with a verified timetable conflict. Review your personal timetable and submit a clash report if institutional action is required.' : 'Enrollment added. Your personal timetable has no detected conflict from this mapping.'); await enrollments.reload() }
     catch (err) { setError(err instanceof ApiError ? err.message : 'Unable to add enrollment.') }
     finally { setBusy(false) }
   }

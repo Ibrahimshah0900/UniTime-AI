@@ -1,11 +1,13 @@
 import { apiRequest, queryString } from './client'
-import type { ClashReportDetail, ClashReportListResponse, Enrollment, TimetableEntry } from '../types/api'
+import type { ClashReportDetail, ClashReportListResponse, Enrollment, EnrollmentConflictValidation, EnrollmentCreateResult, TimetableEntry } from '../types/api'
 
 export const studentApi = {
   timetable: () => apiRequest<TimetableEntry[]>('/student/timetable'),
   enrollments: () => apiRequest<Enrollment[]>('/student/enrollments'),
+  validateEnrollment: (payload: { course_code: string; section: string; semester: string }) =>
+    apiRequest<EnrollmentConflictValidation>('/student/enrollments/validate', { method: 'POST', body: payload }),
   addEnrollment: (payload: { course_code: string; section: string; semester: string }) =>
-    apiRequest<Enrollment>('/student/enrollments', { method: 'POST', body: payload }),
+    apiRequest<EnrollmentCreateResult>('/student/enrollments', { method: 'POST', body: payload }),
   removeEnrollment: (id: number) => apiRequest<void>(`/student/enrollments/${id}`, { method: 'DELETE' }),
   clashReports: (offset = 0, limit = 50) => apiRequest<ClashReportListResponse>(`/student/clash-reports${queryString({ offset, limit })}`),
   clashReport: (id: number) => apiRequest<ClashReportDetail>(`/student/clash-reports/${id}`),
