@@ -67,6 +67,7 @@ from backend.importer import import_timetable_file
 from backend.models import (
     TimetableChange,
     TimetableEntry,
+    User,
 )
 from backend.operation_schemas import (
     AuditTrailResponse,
@@ -146,7 +147,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.11.0",
+    version="0.12.0",
 )
 
 app.add_middleware(
@@ -261,8 +262,8 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.11.0",
-        "phase": "deterministic_safe_resolution_candidates",
+        "version": "0.12.0",
+        "phase": "transactional_clash_report_resolution",
     }
 
 
@@ -841,6 +842,11 @@ def get_student_schedule_changes(
                 "term_id": change.term_id,
                 "entry_id": change.entry_id,
                 "group_id": change.group_id,
+                "report_id": change.report_id,
+                "actor_user_id": change.actor_user_id,
+                "candidate_id": change.candidate_id,
+                "safety_status": change.safety_status,
+                "report_resolution_note": change.report_resolution_note,
                 "change_type": (
                     change.change_type
                 ),
@@ -891,10 +897,10 @@ def get_student_schedule_changes(
 @app.post(
     "/student-schedule-changes/{change_id}/undo",
     response_model=FlexibleOperationResponse,
-    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def undo_student_schedule_change(
     change_id: int,
+    current_user: User = Depends(require_coordinator_or_admin),
     db: Session = Depends(get_db),
 ):
     acquire_timetable_write_lock(db)
@@ -902,6 +908,7 @@ def undo_student_schedule_change(
         return undo_student_resolution(
             db,
             change_id=change_id,
+            actor_user_id=current_user.id,
         )
 
     except ValueError as exc:
@@ -919,10 +926,10 @@ def undo_student_schedule_change(
 @app.post(
     "/student-schedule-changes/{change_id}/redo",
     response_model=FlexibleOperationResponse,
-    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def redo_student_schedule_change(
     change_id: int,
+    current_user: User = Depends(require_coordinator_or_admin),
     db: Session = Depends(get_db),
 ):
     acquire_timetable_write_lock(db)
@@ -930,6 +937,7 @@ def redo_student_schedule_change(
         return redo_student_resolution(
             db,
             change_id=change_id,
+            actor_user_id=current_user.id,
         )
 
     except ValueError as exc:

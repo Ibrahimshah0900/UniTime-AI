@@ -1,6 +1,6 @@
 # UniTime-AI backend API contract
 
-Contract version: `0.11.0`
+Contract version: `0.12.0`
 
 The exact OpenAPI snapshot is committed as `docs/openapi.json`. JSON requests reject unknown fields where request models use `extra="forbid"`. Authenticated requests send `Authorization: Bearer <access_token>`.
 
@@ -43,7 +43,7 @@ Validation failures use status 422 and add `details`, containing safe `location`
 | Student enrollments | `GET/POST /student/enrollments`, `DELETE /student/enrollments/{id}` | Stable course/section/semester enrollment identity |
 | Student timetable | `GET /student/timetable` | Personal classes derived from enrollments |
 | Clash reports | `GET/POST /student/clash-reports`, `GET /student/clash-reports/{id}` | Submit and track owned reports |
-| Clash review | `GET /clash-reports`, `GET/PATCH /clash-reports/{id}`, `GET /clash-reports/{id}/resolution-candidates` | Queue, detail, lifecycle, duplicate linking, and deterministic report-scoped candidate planning |
+| Clash review | `GET /clash-reports`, `GET/PATCH /clash-reports/{id}`, `GET /clash-reports/{id}/resolution-candidates`, `POST /clash-reports/{id}/resolution-candidates/{candidate_id}/apply` | Queue, detail, lifecycle, duplicate linking, deterministic report-scoped planning, and transactional resolution |
 | Faculty | `GET /faculty/assignments`, `GET /faculty/timetable` | Own stable mappings and schedule |
 | Faculty directory | `GET/POST /faculty-directory` | Paginated active-faculty lookup and coordinator/admin faculty provisioning |
 | Faculty management | `GET/POST /faculty-assignments`, `DELETE /faculty-assignments/{id}` | Coordinator/admin class mapping |
@@ -67,6 +67,7 @@ Validation failures use status 422 and add `details`, containing safe `location`
 - Clash-report create: 2–10 unique positive `timetable_entry_ids`, optional `notes`, optional `evidence_reference`. The service independently rechecks active/verified/onboarded identity, active-term enrollment, personal-timetable ownership, current entry state, and real overlap. Exact repeat submissions return 409.
 - Clash review: `status` plus terminal `resolution_note`; duplicate status also requires `duplicate_of_report_id`. Allowed transitions are `submitted -> under_review|rejected|duplicate` and `under_review -> resolved|rejected|duplicate`.
 - Resolution-candidate query: optional report-owned `target_entry_id`, `limit` (1–100), and `include_rejected_limit` (0–100). The report must be open, belong to the active term, still reference current timetable entries, and still represent an overlap. Candidate generation never mutates the timetable.
+- Resolution apply: `target_entry_id`, non-blank `resolution_note`, and `confirm_conditional`. The report must first be `under_review`. `CONDITIONALLY_SAFE` requires explicit confirmation; `INSUFFICIENT_DATA` and `REJECTED` can never be applied. The 24-character candidate ID is regenerated under the timetable write lock from live timetable, enrollment-evidence, and policy state; stale IDs return 409 without writes.
 - Faculty assignment create: `faculty_user_id`, `course_code`, `section`, `semester`.
 - Timetable time change: `day`, `start_time`, and `end_time`. Day/time values are normalized and the request is rejected if the destination creates a room/faculty clash or increases cohort risk.
 - Notification preferences: nullable reminder minutes (`5|10|15|30`), daily-summary flag/time, schedule-change flag, clash-report-update flag.
@@ -79,10 +80,12 @@ Validation failures use status 422 and add `details`, containing safe `location`
 - Student clash-report detail includes immutable server-attached registration number, name, email, department, program, batch, semester, section, term, conflict fingerprint, class-item snapshots, and ordered event history. Later edits to the live profile do not rewrite report evidence.
 - `/clashes/student-risk` uses active verified `StudentEnrollment` rows to create confirmed weighted edges. `affected_student_count` is the real edge weight. Timetable-only fallback is labeled `timetable_inference` and can only be probable/possible; it is suppressed when complete enrollment coverage disproves the heuristic pair. The summary reports unmapped enrollment rows as data-quality issues.
 - `/clash-reports/{id}/resolution-candidates` preserves actual class duration, evaluates current room/faculty/section clashes and enrollment-backed student conflicts, applies the published institutional policy, and hard-rejects unsafe moves before ranking. Accepted planning states are `SAFE`, `CONDITIONALLY_SAFE`, and `INSUFFICIENT_DATA`; missing enrollment, room assignment, or faculty assignment is never presented as safe. Scores include explicit components and are deterministic planning scores, not ML predictions. Candidate IDs include timetable, enrollment-evidence, and policy state so later execution can reject stale selections.
+- Successful candidate execution moves exactly one timetable entry, rechecks the live result, resolves the report, records the actor/candidate/safety status and resolution note in `student_schedule_changes`, appends a report event, and creates schedule/report notifications in one transaction. Any failure rolls everything back. Linked undo reopens the report as `under_review`; redo revalidates the original candidate before resolving it again. Both append actor-attributed report events and notify the reporting student.
+- Student schedule-change history exposes nullable `report_id`, `actor_user_id`, `candidate_id`, `safety_status`, and `report_resolution_note`. Legacy optimizer group changes keep `group_id`; report resolutions use `group_id=null`.
 - Notifications contain parsed `payload`, `read_at`, and `created_at`; clients must use `type` for presentation behavior.
 - `/dashboard` returns `{role, generated_for_day, data}`; `data` is role-specific and clients must branch on `role`.
 - Clash, optimizer, execution, and history read endpoints publish their nested response schemas in OpenAPI. Mutation responses retain forward-compatible operation details while preserving the stable success/error envelope.
 
 ## Token handling
 
-Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.11.0; clients return to login after expiry.
+Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.12.0; clients return to login after expiry.

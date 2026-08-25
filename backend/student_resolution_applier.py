@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -22,9 +23,18 @@ from sqlalchemy.orm import (
 
 from backend.clash_detector import detect_clashes
 from backend.database import Base
-from backend.models import TimetableEntry
+from backend.models import (
+    StudentClashReport,
+    StudentClashReportEvent,
+    StudentClashReportItem,
+    TimetableEntry,
+)
 from backend.enrollment_conflict_graph import build_enrollment_conflict_analysis
-from backend.notification_service import add_time_change_notifications
+from backend.notification_service import (
+    add_clash_report_status_notification,
+    add_time_change_notifications,
+)
+from backend.safe_candidate_service import generate_safe_candidates
 from backend.student_conflict_analyzer import (
     analyze_student_conflicts,
 )
@@ -46,6 +56,13 @@ from backend.term_service import get_active_term, resolve_term_for_write
 
 class StudentScheduleChange(Base):
     __tablename__ = "student_schedule_changes"
+    __table_args__ = (
+        CheckConstraint(
+            "safety_status IS NULL OR safety_status IN "
+            "('SAFE','CONDITIONALLY_SAFE','INSUFFICIENT_DATA','REJECTED')",
+            name="ck_student_schedule_changes_safety_status",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -66,9 +83,36 @@ class StudentScheduleChange(Base):
         index=True,
     )
 
-    group_id: Mapped[int] = mapped_column(
+    group_id: Mapped[int | None] = mapped_column(
         Integer,
-        nullable=False,
+        nullable=True,
+    )
+
+    report_id: Mapped[int | None] = mapped_column(
+        ForeignKey("student_clash_reports.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    candidate_id: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+
+    safety_status: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+
+    report_resolution_note: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     change_type: Mapped[str] = mapped_column(
@@ -1003,10 +1047,156 @@ def apply_student_resolution(
 # ---------------------------------------------------------------------------
 
 
+def _transition_linked_report_after_undo(
+    db: Session,
+    *,
+    change: StudentScheduleChange,
+    actor_user_id: int | None,
+) -> dict[str, Any] | None:
+    if change.report_id is None:
+        return None
+    report = db.scalar(
+        select(StudentClashReport)
+        .where(StudentClashReport.id == change.report_id)
+        .with_for_update()
+    )
+    if report is None:
+        raise ValueError("The linked clash report no longer exists.")
+    if report.status != "resolved":
+        raise ValueError(
+            "Undo rejected because the linked clash report is no longer resolved."
+        )
+    report.status = "under_review"
+    report.resolution_note = None
+    event = StudentClashReportEvent(
+        report_id=report.id,
+        actor_user_id=actor_user_id,
+        action="resolution_undone",
+        from_status="resolved",
+        to_status="under_review",
+        note="The applied timetable resolution was undone.",
+    )
+    db.add(event)
+    db.flush()
+    add_clash_report_status_notification(
+        db,
+        user_id=report.student_user_id,
+        report_id=report.id,
+        status="under_review",
+        resolution_note="The previous resolution was undone for further review.",
+        event_key=str(event.id),
+        term_id=report.term_id,
+    )
+    return {"report_id": report.id, "report_status": report.status}
+
+
+def _get_linked_report_redo_candidate(
+    db: Session,
+    *,
+    change: StudentScheduleChange,
+    entries: list[TimetableEntry],
+) -> tuple[StudentClashReport, dict] | None:
+    if change.report_id is None:
+        return None
+    report = db.scalar(
+        select(StudentClashReport)
+        .where(StudentClashReport.id == change.report_id)
+        .with_for_update()
+    )
+    if report is None:
+        raise ValueError("The linked clash report no longer exists.")
+    if report.status != "under_review":
+        raise ValueError(
+            "Redo rejected because the linked clash report is not under review."
+        )
+    report_entry_ids = list(
+        db.scalars(
+            select(StudentClashReportItem.timetable_entry_id)
+            .where(
+                StudentClashReportItem.report_id == report.id,
+                StudentClashReportItem.timetable_entry_id.is_not(None),
+            )
+            .order_by(StudentClashReportItem.id)
+        ).all()
+    )
+    if len(set(report_entry_ids)) < 2:
+        raise ValueError(
+            "Redo rejected because the report no longer has enough timetable references."
+        )
+    result = generate_safe_candidates(
+        db,
+        entries=entries,
+        target_entry_ids=[change.entry_id],
+        report_entry_ids=report_entry_ids,
+        limit=100,
+        include_rejected_limit=0,
+    )
+    candidate = next(
+        (
+            item
+            for item in result["candidates"]
+            if item["candidate_id"] == change.candidate_id
+        ),
+        None,
+    )
+    if candidate is None:
+        raise ValueError(
+            "Redo rejected because the original candidate is stale or no longer safe."
+        )
+    if candidate["status"] == "INSUFFICIENT_DATA":
+        raise ValueError(
+            "Redo rejected because required scheduling or enrollment data is missing."
+        )
+    if candidate["move_to"] != {
+        "day": change.new_day,
+        "start_time": change.new_start_time,
+        "end_time": change.new_end_time,
+    }:
+        raise ValueError("Redo rejected because the stored destination no longer matches.")
+    return report, candidate
+
+
+def _transition_linked_report_after_redo(
+    db: Session,
+    *,
+    change: StudentScheduleChange,
+    linked: tuple[StudentClashReport, dict] | None,
+    actor_user_id: int | None,
+) -> dict[str, Any] | None:
+    if linked is None:
+        return None
+    report, _candidate = linked
+    if not change.report_resolution_note:
+        raise ValueError("Redo rejected because the original resolution note is missing.")
+    report.status = "resolved"
+    report.resolution_note = change.report_resolution_note
+    event = StudentClashReportEvent(
+        report_id=report.id,
+        actor_user_id=actor_user_id,
+        action="resolution_redone",
+        from_status="under_review",
+        to_status="resolved",
+        note=change.report_resolution_note,
+    )
+    db.add(event)
+    db.flush()
+    add_clash_report_status_notification(
+        db,
+        user_id=report.student_user_id,
+        report_id=report.id,
+        status="resolved",
+        resolution_note=change.report_resolution_note,
+        event_key=str(event.id),
+        term_id=report.term_id,
+    )
+    return {"report_id": report.id, "report_status": report.status}
+
+
 def undo_student_resolution(
     db: Session,
     *,
     change_id: int,
+    actor_user_id: int | None = None,
 ) -> dict[str, Any]:
     try:
         change = db.get(
@@ -1131,6 +1321,12 @@ def undo_student_resolution(
 
         change.undone = True
 
+        linked_report = _transition_linked_report_after_undo(
+            db,
+            change=change,
+            actor_user_id=actor_user_id,
+        )
+
         add_time_change_notifications(
             db,
             entry=entry,
@@ -1175,7 +1371,7 @@ def undo_student_resolution(
                 "general timetable clashes."
             )
 
-        return {
+        result = {
             "success": True,
             "message": (
                 "Student schedule change "
@@ -1235,6 +1431,9 @@ def undo_student_resolution(
             },
             "warnings": warnings,
         }
+        if linked_report is not None:
+            result.update(linked_report)
+        return result
 
     except Exception:
         db.rollback()
@@ -1250,6 +1449,7 @@ def redo_student_resolution(
     db: Session,
     *,
     change_id: int,
+    actor_user_id: int | None = None,
 ) -> dict[str, Any]:
     try:
         change = db.get(
@@ -1297,6 +1497,12 @@ def redo_student_resolution(
 
         entries_before = get_all_entries(
             db
+        )
+
+        linked_report_candidate = _get_linked_report_redo_candidate(
+            db,
+            change=change,
+            entries=entries_before,
         )
 
         feasibility = (
@@ -1372,6 +1578,13 @@ def redo_student_resolution(
 
         change.undone = False
 
+        linked_report = _transition_linked_report_after_redo(
+            db,
+            change=change,
+            linked=linked_report_candidate,
+            actor_user_id=actor_user_id,
+        )
+
         add_time_change_notifications(
             db,
             entry=entry,
@@ -1386,7 +1599,7 @@ def redo_student_resolution(
         db.refresh(entry)
         db.refresh(change)
 
-        return {
+        result = {
             "success": True,
             "message": (
                 "Student schedule change "
@@ -1471,6 +1684,9 @@ def redo_student_resolution(
                 change
             ),
         }
+        if linked_report is not None:
+            result.update(linked_report)
+        return result
 
     except Exception:
         db.rollback()

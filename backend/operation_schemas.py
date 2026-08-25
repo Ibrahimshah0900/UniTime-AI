@@ -407,7 +407,12 @@ class StudentScheduleChangeResponse(BaseModel):
     id: int
     term_id: int
     entry_id: int
-    group_id: int
+    group_id: int | None
+    report_id: int | None
+    actor_user_id: int | None
+    candidate_id: str | None
+    safety_status: str | None
+    report_resolution_note: str | None
     change_type: str
     old_day: str
     old_start_time: str
@@ -415,7 +420,7 @@ class StudentScheduleChangeResponse(BaseModel):
     new_day: str
     new_start_time: str
     new_end_time: str
-    score: float
+    score: float | None
     risk_cost_before: int
     risk_cost_after: int
     total_risks_before: int

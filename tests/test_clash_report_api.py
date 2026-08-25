@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -11,7 +12,20 @@ from backend.auth_dependencies import get_current_user
 from backend.auth_security import hash_password
 from backend.clash_report_routes import review_router, student_router
 from backend.database import Base, get_db
-from backend.models import StudentEnrollment, StudentProfile, TimetableEntry, User
+from backend.models import (
+    Notification,
+    StudentClashReport,
+    StudentClashReportEvent,
+    StudentEnrollment,
+    StudentProfile,
+    TimetableEntry,
+    User,
+)
+from backend.student_resolution_applier import (
+    StudentScheduleChange,
+    redo_student_resolution,
+    undo_student_resolution,
+)
 
 
 def create_context():
@@ -116,11 +130,56 @@ def payload(entry_ids: tuple[int, int]) -> dict:
     }
 
 
+def prepare_applicable_resolution(app, client, Session):
+    student = create_user(Session, "student@example.edu", "student")
+    coordinator = create_user(Session, "coordinator@example.edu", "coordinator")
+    entry_ids = seed_student_schedule(Session, student)
+    with Session() as db:
+        first = db.get(TimetableEntry, entry_ids[0])
+        second = db.get(TimetableEntry, entry_ids[1])
+        first.room = "R-101"
+        first.faculty = "Dr Ada"
+        second.room = "R-102"
+        second.faculty = "Dr Turing"
+        db.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: student
+    report_id = client.post(
+        "/student/clash-reports",
+        json=payload(entry_ids),
+    ).json()["id"]
+    app.dependency_overrides[get_current_user] = lambda: coordinator
+    started = client.patch(
+        f"/clash-reports/{report_id}",
+        json={"status": "under_review"},
+    )
+    assert started.status_code == 200
+    candidates = client.get(
+        f"/clash-reports/{report_id}/resolution-candidates",
+        params={
+            "target_entry_id": entry_ids[0],
+            "limit": 100,
+            "include_rejected_limit": 0,
+        },
+    )
+    assert candidates.status_code == 200
+    candidate = next(
+        item
+        for item in candidates.json()["candidates"]
+        if item["status"] == "CONDITIONALLY_SAFE"
+    )
+    return student, coordinator, entry_ids, report_id, candidate
+
+
 def test_clash_report_routes_require_authentication():
     _, client, _ = create_context()
     assert client.get("/student/clash-reports").status_code == 401
     assert client.get("/clash-reports").status_code == 401
     assert client.get("/clash-reports/1/resolution-candidates").status_code == 401
+    assert client.post(
+        "/clash-reports/1/resolution-candidates/000000000000000000000000/apply",
+        json={"target_entry_id": 1, "resolution_note": "Resolve."},
+    ).status_code == 401
 
 
 def test_clash_report_routes_enforce_student_and_reviewer_roles():
@@ -135,6 +194,10 @@ def test_clash_report_routes_enforce_student_and_reviewer_roles():
     app.dependency_overrides[get_current_user] = lambda: student
     assert client.get("/clash-reports").status_code == 403
     assert client.get("/clash-reports/1/resolution-candidates").status_code == 403
+    assert client.post(
+        "/clash-reports/1/resolution-candidates/000000000000000000000000/apply",
+        json={"target_entry_id": 1, "resolution_note": "Resolve."},
+    ).status_code == 403
 
     app.dependency_overrides[get_current_user] = lambda: faculty
     assert client.get("/clash-reports").status_code == 403
@@ -325,3 +388,300 @@ def test_resolution_candidates_reject_unrelated_target_and_stale_report_state():
     stale = client.get(f"/clash-reports/{report_id}/resolution-candidates")
     assert stale.status_code == 409
     assert "no longer overlap" in stale.json()["error"]
+
+
+def test_conditional_resolution_requires_confirmation_and_applies_atomically():
+    app, client, Session = create_context()
+    student, coordinator, entry_ids, report_id, candidate = prepare_applicable_resolution(
+        app,
+        client,
+        Session,
+    )
+    apply_url = (
+        f"/clash-reports/{report_id}/resolution-candidates/"
+        f"{candidate['candidate_id']}/apply"
+    )
+    request = {
+        "target_entry_id": entry_ids[0],
+        "resolution_note": "Moved AI-301 to a verified non-overlapping slot.",
+    }
+
+    unconfirmed = client.post(apply_url, json=request)
+    assert unconfirmed.status_code == 409
+    assert "explicit coordinator confirmation" in unconfirmed.json()["error"]
+    with Session() as db:
+        unchanged = db.get(TimetableEntry, entry_ids[0])
+        assert (unchanged.day, unchanged.start_time, unchanged.end_time) == (
+            "Monday",
+            "10:00",
+            "11:00",
+        )
+        assert db.scalar(select(func.count(StudentScheduleChange.id))) == 0
+
+    applied = client.post(
+        apply_url,
+        json={**request, "confirm_conditional": True},
+    )
+    assert applied.status_code == 200
+    body = applied.json()
+    assert body["success"] is True
+    assert body["report_status"] == "resolved"
+    assert body["safety_status"] == "CONDITIONALLY_SAFE"
+    assert body["conditional_confirmation_recorded"] is True
+    assert body["applied_candidate"]["candidate_id"] == candidate["candidate_id"]
+    assert body["report"]["events"][-1]["action"] == "resolution_applied"
+
+    with Session() as db:
+        moved = db.get(TimetableEntry, entry_ids[0])
+        assert {
+            "day": moved.day,
+            "start_time": moved.start_time,
+            "end_time": moved.end_time,
+        } == candidate["move_to"]
+        history = db.get(StudentScheduleChange, body["change_id"])
+        assert history.report_id == report_id
+        assert history.actor_user_id == coordinator.id
+        assert history.candidate_id == candidate["candidate_id"]
+        assert history.safety_status == "CONDITIONALLY_SAFE"
+        assert history.group_id is None
+        notification_types = set(
+            db.scalars(
+                select(Notification.type).where(Notification.user_id == student.id)
+            ).all()
+        )
+        assert {"time_change", "clash_report_status"}.issubset(notification_types)
+
+    with Session() as db:
+        listed_history = list(
+            db.scalars(
+                select(StudentScheduleChange).order_by(StudentScheduleChange.id.desc())
+            ).all()
+        )
+        assert listed_history[0].report_id == report_id
+
+
+def test_report_resolution_undo_and_redo_keep_report_history_synchronized():
+    app, client, Session = create_context()
+    _student, coordinator, entry_ids, report_id, candidate = prepare_applicable_resolution(
+        app,
+        client,
+        Session,
+    )
+    applied = client.post(
+        (
+            f"/clash-reports/{report_id}/resolution-candidates/"
+            f"{candidate['candidate_id']}/apply"
+        ),
+        json={
+            "target_entry_id": entry_ids[0],
+            "resolution_note": "Moved the first class.",
+            "confirm_conditional": True,
+        },
+    )
+    change_id = applied.json()["change_id"]
+
+    with Session() as db:
+        undone = undo_student_resolution(
+            db,
+            change_id=change_id,
+            actor_user_id=coordinator.id,
+        )
+    assert undone["report_id"] == report_id
+    assert undone["report_status"] == "under_review"
+    with Session() as db:
+        restored = db.get(TimetableEntry, entry_ids[0])
+        report = db.get(StudentClashReport, report_id)
+        change = db.get(StudentScheduleChange, change_id)
+        assert (restored.day, restored.start_time, restored.end_time) == (
+            "Monday",
+            "10:00",
+            "11:00",
+        )
+        assert report.status == "under_review"
+        assert report.resolution_note is None
+        assert change.undone is True
+
+    with Session() as db:
+        redone = redo_student_resolution(
+            db,
+            change_id=change_id,
+            actor_user_id=coordinator.id,
+        )
+    assert redone["report_status"] == "resolved"
+    with Session() as db:
+        moved = db.get(TimetableEntry, entry_ids[0])
+        report = db.get(StudentClashReport, report_id)
+        change = db.get(StudentScheduleChange, change_id)
+        actions = list(
+            db.scalars(
+                select(StudentClashReportEvent.action)
+                .where(StudentClashReportEvent.report_id == report_id)
+                .order_by(StudentClashReportEvent.id)
+            ).all()
+        )
+        actors = list(
+            db.scalars(
+                select(StudentClashReportEvent.actor_user_id)
+                .where(
+                    StudentClashReportEvent.report_id == report_id,
+                    StudentClashReportEvent.action.in_(
+                        ("resolution_applied", "resolution_undone", "resolution_redone")
+                    ),
+                )
+                .order_by(StudentClashReportEvent.id)
+            ).all()
+        )
+        assert {
+            "day": moved.day,
+            "start_time": moved.start_time,
+            "end_time": moved.end_time,
+        } == candidate["move_to"]
+        assert report.status == "resolved"
+        assert report.resolution_note == "Moved the first class."
+        assert change.undone is False
+        assert actions[-3:] == [
+            "resolution_applied",
+            "resolution_undone",
+            "resolution_redone",
+        ]
+        assert actors == [coordinator.id, coordinator.id, coordinator.id]
+
+
+def test_resolution_apply_rejects_stale_candidate_without_partial_writes():
+    app, client, Session = create_context()
+    _student, _coordinator, entry_ids, report_id, candidate = prepare_applicable_resolution(
+        app,
+        client,
+        Session,
+    )
+    with Session() as db:
+        changed = db.get(TimetableEntry, entry_ids[1])
+        changed.room = "R-202"
+        db.commit()
+
+    response = client.post(
+        (
+            f"/clash-reports/{report_id}/resolution-candidates/"
+            f"{candidate['candidate_id']}/apply"
+        ),
+        json={
+            "target_entry_id": entry_ids[0],
+            "resolution_note": "Attempt stale move.",
+            "confirm_conditional": True,
+        },
+    )
+    assert response.status_code == 409
+    assert "stale" in response.json()["error"]
+    with Session() as db:
+        target = db.get(TimetableEntry, entry_ids[0])
+        report = db.get(StudentClashReport, report_id)
+        assert (target.day, target.start_time, target.end_time) == (
+            "Monday",
+            "10:00",
+            "11:00",
+        )
+        assert report.status == "under_review"
+        assert db.scalar(select(func.count(StudentScheduleChange.id))) == 0
+
+
+def test_resolution_apply_rolls_back_everything_if_notification_creation_fails(
+    monkeypatch,
+):
+    app, client, Session = create_context()
+    _student, _coordinator, entry_ids, report_id, candidate = prepare_applicable_resolution(
+        app,
+        client,
+        Session,
+    )
+
+    def fail_notification(*args, **kwargs):
+        raise RuntimeError("notification failure")
+
+    monkeypatch.setattr(
+        "backend.clash_report_service.add_time_change_notifications",
+        fail_notification,
+    )
+    with pytest.raises(RuntimeError, match="notification failure"):
+        client.post(
+            (
+                f"/clash-reports/{report_id}/resolution-candidates/"
+                f"{candidate['candidate_id']}/apply"
+            ),
+            json={
+                "target_entry_id": entry_ids[0],
+                "resolution_note": "This must roll back.",
+                "confirm_conditional": True,
+            },
+        )
+
+    with Session() as db:
+        target = db.get(TimetableEntry, entry_ids[0])
+        report = db.get(StudentClashReport, report_id)
+        assert (target.day, target.start_time, target.end_time) == (
+            "Monday",
+            "10:00",
+            "11:00",
+        )
+        assert report.status == "under_review"
+        assert report.resolution_note is None
+        assert db.scalar(select(func.count(StudentScheduleChange.id))) == 0
+        assert db.scalar(
+            select(func.count(StudentClashReportEvent.id)).where(
+                StudentClashReportEvent.action == "resolution_applied"
+            )
+        ) == 0
+
+
+def test_insufficient_data_candidate_cannot_be_applied_even_with_confirmation():
+    app, client, Session = create_context()
+    student = create_user(Session, "student@example.edu", "student")
+    coordinator = create_user(Session, "coordinator@example.edu", "coordinator")
+    entry_ids = seed_student_schedule(Session, student)
+
+    app.dependency_overrides[get_current_user] = lambda: student
+    report_id = client.post(
+        "/student/clash-reports",
+        json=payload(entry_ids),
+    ).json()["id"]
+    app.dependency_overrides[get_current_user] = lambda: coordinator
+    assert client.patch(
+        f"/clash-reports/{report_id}",
+        json={"status": "under_review"},
+    ).status_code == 200
+    candidates = client.get(
+        f"/clash-reports/{report_id}/resolution-candidates",
+        params={"target_entry_id": entry_ids[0], "limit": 100},
+    ).json()["candidates"]
+    candidate = next(
+        item for item in candidates if item["status"] == "INSUFFICIENT_DATA"
+    )
+
+    whitespace_note = client.post(
+        (
+            f"/clash-reports/{report_id}/resolution-candidates/"
+            f"{candidate['candidate_id']}/apply"
+        ),
+        json={
+            "target_entry_id": entry_ids[0],
+            "resolution_note": "   ",
+            "confirm_conditional": True,
+        },
+    )
+    assert whitespace_note.status_code == 422
+
+    response = client.post(
+        (
+            f"/clash-reports/{report_id}/resolution-candidates/"
+            f"{candidate['candidate_id']}/apply"
+        ),
+        json={
+            "target_entry_id": entry_ids[0],
+            "resolution_note": "I acknowledge every limitation.",
+            "confirm_conditional": True,
+        },
+    )
+    assert response.status_code == 409
+    assert "required scheduling or enrollment data is missing" in response.json()["error"]
+    with Session() as db:
+        assert db.get(StudentClashReport, report_id).status == "under_review"
+        assert db.scalar(select(func.count(StudentScheduleChange.id))) == 0

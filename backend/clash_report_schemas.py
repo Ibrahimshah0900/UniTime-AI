@@ -182,6 +182,8 @@ class CandidateImpactResponse(BaseModel):
     confirmed_conflicts_after: int
     confirmed_conflicts_removed: int
     new_confirmed_conflicts: int
+    student_risks_before: int
+    student_risks_after: int
     structural_clashes_before: int
     structural_clashes_after: int
     conflict_groups_before: int
@@ -237,3 +239,32 @@ class ClashReportResolutionCandidatesResponse(BaseModel):
     candidates: list[SafeResolutionCandidateResponse]
     rejected_candidates: list[RejectedResolutionCandidateResponse]
     important_note: str
+
+
+class ClashReportResolutionApplyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_entry_id: int = Field(gt=0)
+    resolution_note: str = Field(min_length=1, max_length=2000)
+    confirm_conditional: bool = False
+
+    @field_validator("resolution_note")
+    @classmethod
+    def clean_resolution_note(cls, value: str) -> str:
+        normalized = " ".join(value.split())
+        if not normalized:
+            raise ValueError("resolution_note must contain non-whitespace text.")
+        return normalized
+
+
+class ClashReportResolutionApplyResponse(BaseModel):
+    success: Literal[True]
+    message: str
+    report_id: int
+    report_status: Literal["resolved"]
+    change_id: int
+    candidate_id: str
+    safety_status: Literal["SAFE", "CONDITIONALLY_SAFE"]
+    conditional_confirmation_recorded: bool
+    applied_candidate: SafeResolutionCandidateResponse
+    report: ClashReportDetailResponse

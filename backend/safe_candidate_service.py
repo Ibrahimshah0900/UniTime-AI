@@ -32,7 +32,7 @@ STATUS_PRIORITY = {
 }
 
 
-def _risk_cost(risks: list[dict]) -> int:
+def calculate_weighted_risk_cost(risks: list[dict]) -> int:
     return sum(
         RISK_WEIGHTS.get(risk["risk_level"], 0)
         * (
@@ -282,7 +282,7 @@ def generate_safe_candidates(
     baseline_clashes = detect_clashes(entries)
     baseline_groups = build_student_conflict_groups(baseline_risks)
     baseline_confirmed = _confirmed_pairs(baseline_risks)
-    baseline_risk_cost = _risk_cost(baseline_risks)
+    baseline_risk_cost = calculate_weighted_risk_cost(baseline_risks)
     entry_counts = baseline_analysis["coverage"].get("entry_enrollment_counts", {})
     required_report_ids = set(report_entry_ids or [])
     missing_report_ids = required_report_ids - entry_lookup.keys()
@@ -363,7 +363,7 @@ def generate_safe_candidates(
                 hard_failures.append("Destination creates a new confirmed student conflict.")
             if len(after_groups) > len(baseline_groups):
                 hard_failures.append("Student conflict group count increases.")
-            if _risk_cost(after_risks) > baseline_risk_cost:
+            if calculate_weighted_risk_cost(after_risks) > baseline_risk_cost:
                 hard_failures.append("Global weighted student-conflict risk increases.")
             if report_overlap_remains:
                 hard_failures.append("The original reported overlap remains.")
@@ -506,12 +506,14 @@ def generate_safe_candidates(
                         "confirmed_conflicts_after": len(after_confirmed),
                         "confirmed_conflicts_removed": confirmed_removed,
                         "new_confirmed_conflicts": len(new_confirmed),
+                        "student_risks_before": len(baseline_risks),
+                        "student_risks_after": len(after_risks),
                         "structural_clashes_before": len(baseline_clashes),
                         "structural_clashes_after": len(after_clashes),
                         "conflict_groups_before": len(baseline_groups),
                         "conflict_groups_after": len(after_groups),
                         "weighted_risk_before": baseline_risk_cost,
-                        "weighted_risk_after": _risk_cost(after_risks),
+                        "weighted_risk_after": calculate_weighted_risk_cost(after_risks),
                         "timetable_entries_changed": 1,
                     },
                 }

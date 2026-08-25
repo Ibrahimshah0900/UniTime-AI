@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.orm import Session
 
 from backend.auth_dependencies import require_coordinator_or_admin, require_verified_student
@@ -10,17 +10,21 @@ from backend.clash_report_schemas import (
     ClashReportCreate,
     ClashReportDetailResponse,
     ClashReportListResponse,
+    ClashReportResolutionApplyRequest,
+    ClashReportResolutionApplyResponse,
     ClashReportResolutionCandidatesResponse,
     ClashReportReviewUpdate,
     ClashReportStatus,
 )
 from backend.clash_report_service import (
+    apply_clash_report_resolution_candidate,
     create_clash_report,
     get_clash_report,
     generate_clash_report_resolution_candidates,
     list_clash_reports,
     update_clash_report,
 )
+from backend.concurrency import acquire_timetable_write_lock
 from backend.database import get_db
 from backend.models import User
 from backend.term_service import get_active_term
@@ -122,6 +126,27 @@ def get_clash_report_resolution_candidates(
         target_entry_id=target_entry_id,
         limit=limit,
         include_rejected_limit=include_rejected_limit,
+    )
+
+
+@review_router.post(
+    "/{report_id}/resolution-candidates/{candidate_id}/apply",
+    response_model=ClashReportResolutionApplyResponse,
+)
+def apply_report_resolution_candidate(
+    report_id: int,
+    request: ClashReportResolutionApplyRequest,
+    current_user: Annotated[User, Depends(require_coordinator_or_admin)],
+    db: Session = Depends(get_db),
+    candidate_id: str = Path(pattern=r"^[0-9a-f]{24}$"),
+):
+    acquire_timetable_write_lock(db)
+    return apply_clash_report_resolution_candidate(
+        db,
+        report_id=report_id,
+        candidate_id=candidate_id,
+        actor_user_id=current_user.id,
+        request=request,
     )
 
 

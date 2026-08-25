@@ -9,7 +9,13 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.clash_report_schemas import ClashReportCreate, ClashReportReviewUpdate
+from backend.clash_detector import detect_clashes
+from backend.clash_report_schemas import (
+    ClashReportCreate,
+    ClashReportResolutionApplyRequest,
+    ClashReportReviewUpdate,
+)
+from backend.enrollment_conflict_graph import build_enrollment_conflict_analysis
 from backend.enrollment_service import get_student_timetable
 from backend.models import (
     StudentClashReport,
@@ -19,8 +25,15 @@ from backend.models import (
     TimetableEntry,
     User,
 )
-from backend.notification_service import add_clash_report_status_notification
-from backend.safe_candidate_service import generate_safe_candidates
+from backend.notification_service import (
+    add_clash_report_status_notification,
+    add_time_change_notifications,
+)
+from backend.safe_candidate_service import (
+    calculate_weighted_risk_cost,
+    generate_safe_candidates,
+)
+from backend.student_resolution_applier import StudentScheduleChange
 from backend.term_service import get_active_term, require_active_term_id
 
 
@@ -376,6 +389,234 @@ def generate_clash_report_resolution_candidates(
         "target_entry_ids": target_entry_ids,
         **result,
     }
+
+
+def apply_clash_report_resolution_candidate(
+    db: Session,
+    *,
+    report_id: int,
+    candidate_id: str,
+    actor_user_id: int,
+    request: ClashReportResolutionApplyRequest,
+) -> dict:
+    try:
+        report = db.scalar(
+            select(StudentClashReport)
+            .where(StudentClashReport.id == report_id)
+            .with_for_update()
+        )
+        if report is None:
+            raise HTTPException(status_code=404, detail="Clash report not found.")
+        require_active_term_id(db, report.term_id)
+        if report.status != "under_review":
+            raise HTTPException(
+                status_code=409,
+                detail="Move the report to under_review before applying a resolution.",
+            )
+
+        entry = db.scalar(
+            select(TimetableEntry)
+            .where(
+                TimetableEntry.id == request.target_entry_id,
+                TimetableEntry.term_id == report.term_id,
+            )
+            .with_for_update()
+        )
+        if entry is None:
+            raise HTTPException(
+                status_code=404,
+                detail="The candidate timetable entry no longer exists.",
+            )
+
+        live_result = generate_clash_report_resolution_candidates(
+            db,
+            report_id=report.id,
+            target_entry_id=request.target_entry_id,
+            limit=100,
+            include_rejected_limit=0,
+        )
+        candidate = next(
+            (
+                item
+                for item in live_result["candidates"]
+                if item["candidate_id"] == candidate_id
+            ),
+            None,
+        )
+        if candidate is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "The selected candidate is stale or no longer passes current "
+                    "hard safety checks. Generate fresh candidates."
+                ),
+            )
+        if candidate["status"] == "INSUFFICIENT_DATA":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This candidate cannot be applied because required scheduling "
+                    "or enrollment data is missing."
+                ),
+            )
+        if (
+            candidate["status"] == "CONDITIONALLY_SAFE"
+            and not request.confirm_conditional
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This candidate requires explicit coordinator confirmation of "
+                    "the listed metadata limitations."
+                ),
+            )
+
+        previous_change = db.scalar(
+            select(StudentScheduleChange)
+            .where(
+                StudentScheduleChange.report_id == report.id,
+                StudentScheduleChange.candidate_id == candidate_id,
+            )
+            .order_by(StudentScheduleChange.id.desc())
+        )
+        if previous_change is not None:
+            message = (
+                "This candidate was previously undone; use the history redo action."
+                if previous_change.undone
+                else "This candidate already has an active history record."
+            )
+            raise HTTPException(status_code=409, detail=message)
+
+        old_day = entry.day
+        old_start_time = entry.start_time
+        old_end_time = entry.end_time
+        destination = candidate["move_to"]
+        entry.day = destination["day"]
+        entry.start_time = destination["start_time"]
+        entry.end_time = destination["end_time"]
+        db.flush()
+
+        entries_after = list(
+            db.scalars(
+                select(TimetableEntry)
+                .where(TimetableEntry.term_id == report.term_id)
+                .order_by(TimetableEntry.id)
+            ).all()
+        )
+        analysis_after = build_enrollment_conflict_analysis(
+            db,
+            entries_after,
+            term_id=report.term_id,
+        )
+        risks_after = analysis_after["risks"]
+        clashes_after = detect_clashes(entries_after)
+        target_clashes = [
+            clash
+            for clash in clashes_after
+            if entry.id in {clash["entry_1"]["id"], clash["entry_2"]["id"]}
+        ]
+        report_entry_ids = set(live_result["report_entry_ids"])
+        report_entries_after = [
+            current for current in entries_after if current.id in report_entry_ids
+        ]
+        impact = candidate["impact"]
+        live_result_changed = (
+            target_clashes
+            or _reports_overlap(report_entries_after)
+            or len(clashes_after) != impact["structural_clashes_after"]
+            or len(risks_after) != impact["student_risks_after"]
+            or calculate_weighted_risk_cost(risks_after)
+            != impact["weighted_risk_after"]
+        )
+        if live_result_changed:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "The live timetable changed during final validation. "
+                    "No resolution was applied."
+                ),
+            )
+
+        reasons = [
+            component["explanation"]
+            for component in candidate["score_components"]
+        ]
+        reasons.extend(candidate["missing_data"])
+        history = StudentScheduleChange(
+            term_id=report.term_id,
+            entry_id=entry.id,
+            group_id=None,
+            report_id=report.id,
+            actor_user_id=actor_user_id,
+            candidate_id=candidate_id,
+            safety_status=candidate["status"],
+            report_resolution_note=request.resolution_note,
+            change_type="clash_report_resolution",
+            old_day=old_day,
+            old_start_time=old_start_time,
+            old_end_time=old_end_time,
+            new_day=entry.day,
+            new_start_time=entry.start_time,
+            new_end_time=entry.end_time,
+            score=float(candidate["rank_score"]),
+            reasons_json=json.dumps(reasons),
+            risk_cost_before=impact["weighted_risk_before"],
+            risk_cost_after=impact["weighted_risk_after"],
+            total_risks_before=impact["student_risks_before"],
+            total_risks_after=impact["student_risks_after"],
+            undone=False,
+        )
+        db.add(history)
+        report.status = "resolved"
+        report.resolution_note = request.resolution_note
+        event = StudentClashReportEvent(
+            report_id=report.id,
+            actor_user_id=actor_user_id,
+            action="resolution_applied",
+            from_status="under_review",
+            to_status="resolved",
+            note=request.resolution_note,
+        )
+        db.add(event)
+        db.flush()
+        add_time_change_notifications(
+            db,
+            entry=entry,
+            old_day=old_day,
+            old_start_time=old_start_time,
+            old_end_time=old_end_time,
+            event_key=f"clash-report-resolution:{history.id}",
+        )
+        add_clash_report_status_notification(
+            db,
+            user_id=report.student_user_id,
+            report_id=report.id,
+            status="resolved",
+            resolution_note=request.resolution_note,
+            event_key=str(event.id),
+            term_id=report.term_id,
+        )
+        db.commit()
+        db.refresh(report)
+        db.refresh(history)
+        return {
+            "success": True,
+            "message": "Clash-report resolution applied successfully.",
+            "report_id": report.id,
+            "report_status": report.status,
+            "change_id": history.id,
+            "candidate_id": candidate_id,
+            "safety_status": candidate["status"],
+            "conditional_confirmation_recorded": (
+                candidate["status"] == "CONDITIONALLY_SAFE"
+                and request.confirm_conditional
+            ),
+            "applied_candidate": candidate,
+            "report": _serialize_report(db, report, include_events=True),
+        }
+    except Exception:
+        db.rollback()
+        raise
 
 
 def update_clash_report(
