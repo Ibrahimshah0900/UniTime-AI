@@ -36,7 +36,7 @@ The human-readable contract and authorization matrix are in `docs/API_CONTRACT.m
 
 `python scripts/export_openapi.py`
 
-The deterministic ranking boundary, PII-free feature schema, future ranker interface, learning labels, and offline dataset-export workflow are documented in `docs/RANKER_CONTRACT.md`. UniTime-AI does not train or deploy an ML model in the current phase.
+The deterministic ranking boundary, PII-free feature schema, future ranker interface, learning labels, and offline ranking-dataset workflow are documented in `docs/RANKER_CONTRACT.md`. The PII-guarded domain event store and its separate export are documented in `docs/LEARNING_EVENTS.md`. UniTime-AI does not train or deploy an ML model in the current phase.
 
 ## Privileged bootstrap
 

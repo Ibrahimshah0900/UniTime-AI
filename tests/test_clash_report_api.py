@@ -15,6 +15,7 @@ from backend.clash_report_routes import review_router, student_router
 from backend.database import Base, get_db
 from backend.models import (
     Notification,
+    LearningEvent,
     StudentClashReport,
     StudentClashReportEvent,
     StudentEnrollment,
@@ -543,6 +544,16 @@ def test_conditional_resolution_requires_confirmation_and_applies_atomically():
         )
         assert "student_name" not in learning_event.features_json
         assert "registration_number" not in learning_event.features_json
+        domain_events = list(
+            db.scalars(select(LearningEvent).order_by(LearningEvent.id)).all()
+        )
+        assert {
+            "clash_report_submitted",
+            "clash_report_verified",
+            "resolution_applied",
+            "recommendation_selected",
+        }.issubset({event.event_type for event in domain_events})
+        assert all("student@example.edu" not in event.context_json for event in domain_events)
 
     with Session() as db:
         listed_history = list(
@@ -823,6 +834,12 @@ def test_report_resolution_undo_and_redo_keep_report_history_synchronized():
         ]
         assert actors == [coordinator.id, coordinator.id, coordinator.id]
         assert learning_outcomes == ["accepted", "undone", "redone"]
+        domain_event_types = set(
+            db.scalars(select(LearningEvent.event_type)).all()
+        )
+        assert {"resolution_undone", "resolution_redone"}.issubset(
+            domain_event_types
+        )
 
 
 def test_resolution_apply_rejects_stale_candidate_without_partial_writes():

@@ -28,7 +28,9 @@ from backend.models import (
     StudentClashReportEvent,
     StudentClashReportItem,
     TimetableEntry,
+    User,
 )
+from backend.learning_event_service import record_learning_event, stable_learning_key
 from backend.enrollment_conflict_graph import build_enrollment_conflict_analysis
 from backend.enrollment_service import get_student_timetable
 from backend.notification_service import (
@@ -1541,6 +1543,30 @@ def undo_student_resolution(
                 outcome_label="undone",
                 actor_user_id=actor_user_id,
             )
+            report = db.get(StudentClashReport, change.report_id)
+            actor = db.get(User, actor_user_id) if actor_user_id is not None else None
+            record_learning_event(
+                db,
+                term_id=change.term_id,
+                event_type="resolution_undone",
+                subject_key=(
+                    stable_learning_key("student", report.student_user_id)
+                    if report is not None
+                    else None
+                ),
+                entity_type="schedule_change",
+                entity_key=stable_learning_key("schedule_change", change.id),
+                actor_role=actor.role if actor is not None else "system",
+                outcome_label="undone",
+                context={
+                    "safety_status": change.safety_status,
+                    "reopened_report_count": (
+                        linked_report.get("reopened_report_count", 0)
+                        if linked_report is not None
+                        else 0
+                    ),
+                },
+            )
 
         add_time_change_notifications(
             db,
@@ -1806,6 +1832,30 @@ def redo_student_resolution(
                 event_type="resolution_redone",
                 outcome_label="redone",
                 actor_user_id=actor_user_id,
+            )
+            report = db.get(StudentClashReport, change.report_id)
+            actor = db.get(User, actor_user_id) if actor_user_id is not None else None
+            record_learning_event(
+                db,
+                term_id=change.term_id,
+                event_type="resolution_redone",
+                subject_key=(
+                    stable_learning_key("student", report.student_user_id)
+                    if report is not None
+                    else None
+                ),
+                entity_type="schedule_change",
+                entity_key=stable_learning_key("schedule_change", change.id),
+                actor_role=actor.role if actor is not None else "system",
+                outcome_label="redone",
+                context={
+                    "safety_status": change.safety_status,
+                    "resolved_report_count": (
+                        linked_report.get("resolved_report_count", 0)
+                        if linked_report is not None
+                        else 0
+                    ),
+                },
             )
 
         add_time_change_notifications(

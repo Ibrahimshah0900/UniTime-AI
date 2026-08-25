@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.models import AcademicTerm
+from backend.learning_event_service import record_learning_event, stable_learning_key
 from backend.term_schemas import AcademicTermCreate
 
 
@@ -178,7 +179,12 @@ def activate_academic_term(db: Session, *, term_id: int) -> AcademicTerm:
         raise
 
 
-def archive_academic_term(db: Session, *, term_id: int) -> AcademicTerm:
+def archive_academic_term(
+    db: Session,
+    *,
+    term_id: int,
+    actor_role: str = "system",
+) -> AcademicTerm:
     try:
         term = get_term(db, term_id, lock=True)
         if term.status != "active":
@@ -188,6 +194,20 @@ def archive_academic_term(db: Session, *, term_id: int) -> AcademicTerm:
             )
         term.status = "archived"
         term.archived_at = utc_now()
+        record_learning_event(
+            db,
+            term_id=term.id,
+            event_type="term_archived",
+            entity_type="academic_term",
+            entity_key=stable_learning_key("academic_term", term.id),
+            actor_role=actor_role,
+            outcome_label="archived",
+            context={
+                "term_code": term.code,
+                "previous_status": "active",
+                "new_status": "archived",
+            },
+        )
         db.commit()
         db.refresh(term)
         return term

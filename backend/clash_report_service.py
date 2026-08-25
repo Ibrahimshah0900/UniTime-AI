@@ -29,6 +29,7 @@ from backend.models import (
     TimetableEntry,
     User,
 )
+from backend.learning_event_service import record_learning_event, stable_learning_key
 from backend.notification_service import (
     add_clash_report_status_notification,
     add_time_change_notifications,
@@ -258,6 +259,22 @@ def create_clash_report(
                 to_status="submitted",
                 note=request.notes,
             )
+        )
+        record_learning_event(
+            db,
+            term_id=report.term_id,
+            event_type="clash_report_submitted",
+            subject_key=stable_learning_key("student", student_user_id),
+            entity_type="clash_report",
+            entity_key=stable_learning_key("clash_report", report.id),
+            actor_role="student",
+            outcome_label="submitted",
+            context={
+                "conflict_fingerprint": report.conflict_fingerprint,
+                "reported_entry_count": len(selected_entries),
+                "has_notes": request.notes is not None,
+                "has_evidence_reference": request.evidence_reference is not None,
+            },
         )
         db.commit()
         db.refresh(report)
@@ -765,6 +782,28 @@ def apply_clash_report_resolution_candidate(
             db.add(event)
             report_events.append((related_report, event))
         db.flush()
+        actor = db.get(User, actor_user_id)
+        for resolved_report, _event in report_events:
+            record_learning_event(
+                db,
+                term_id=resolved_report.term_id,
+                event_type="clash_report_verified",
+                subject_key=stable_learning_key(
+                    "student", resolved_report.student_user_id
+                ),
+                entity_type="clash_report",
+                entity_key=stable_learning_key(
+                    "clash_report", resolved_report.id
+                ),
+                actor_role=actor.role if actor is not None else None,
+                outcome_label="resolved",
+                context={
+                    "from_status": _event.from_status,
+                    "to_status": "resolved",
+                    "resolution_reason": "timetable_changed",
+                    "shared_resolution": resolved_report.id != report.id,
+                },
+            )
         create_resolution_learning_event(
             db,
             change=history,
@@ -772,6 +811,44 @@ def apply_clash_report_resolution_candidate(
             outcome_label="accepted",
             actor_user_id=actor_user_id,
             candidate=candidate,
+        )
+        record_learning_event(
+            db,
+            term_id=report.term_id,
+            event_type="resolution_applied",
+            subject_key=stable_learning_key("student", report.student_user_id),
+            entity_type="schedule_change",
+            entity_key=stable_learning_key("schedule_change", history.id),
+            actor_role=actor.role if actor is not None else None,
+            outcome_label="accepted",
+            context={
+                "safety_status": candidate["status"],
+                "ranker_id": candidate["ranker"]["ranker_id"],
+                "ranker_version": candidate["ranker"]["ranker_version"],
+                "rank_score": candidate["rank_score"],
+                "resolved_report_count": len(report_events),
+                "weighted_risk_before": impact["weighted_risk_before"],
+                "weighted_risk_after": impact["weighted_risk_after"],
+            },
+        )
+        record_learning_event(
+            db,
+            term_id=report.term_id,
+            event_type="recommendation_selected",
+            subject_key=stable_learning_key("student", report.student_user_id),
+            entity_type="schedule_change",
+            entity_key=stable_learning_key("schedule_change", history.id),
+            actor_role=actor.role if actor is not None else None,
+            outcome_label="selected_and_applied",
+            context={
+                "safety_status": candidate["status"],
+                "ranker_id": candidate["ranker"]["ranker_id"],
+                "ranker_version": candidate["ranker"]["ranker_version"],
+                "rank_score": candidate["rank_score"],
+                "feature_schema_version": candidate["features"][
+                    "feature_schema_version"
+                ],
+            },
         )
         add_time_change_notifications(
             db,
@@ -956,6 +1033,32 @@ def update_clash_report(
 
     try:
         db.flush()
+        learning_event_type = {
+            "resolved": "clash_report_verified",
+            "rejected": "clash_report_invalid",
+            "duplicate": "clash_report_duplicate",
+        }.get(request.status)
+        if learning_event_type is not None:
+            actor = db.get(User, actor_user_id)
+            record_learning_event(
+                db,
+                term_id=report.term_id,
+                event_type=learning_event_type,
+                subject_key=stable_learning_key(
+                    "student", report.student_user_id
+                ),
+                entity_type="clash_report",
+                entity_key=stable_learning_key("clash_report", report.id),
+                actor_role=actor.role if actor is not None else None,
+                outcome_label=request.status,
+                context={
+                    "from_status": previous_status,
+                    "to_status": request.status,
+                    "resolution_reason": request.resolution_reason,
+                    "has_resolution_note": request.resolution_note is not None,
+                    "is_duplicate": request.status == "duplicate",
+                },
+            )
         add_clash_report_status_notification(
             db,
             user_id=report.student_user_id,

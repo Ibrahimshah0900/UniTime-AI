@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from backend.enrollment_schemas import EnrollmentCreate
 from backend.models import StudentEnrollment, TimetableEntry
+from backend.learning_event_service import record_learning_event, stable_learning_key
 from backend.schedule_matching import (
     normalize_section,
     section_matches,
@@ -246,6 +247,33 @@ def create_student_enrollment(
     db.add(enrollment)
 
     try:
+        db.flush()
+        record_learning_event(
+            db,
+            term_id=enrollment.term_id,
+            event_type="student_enrolled",
+            subject_key=stable_learning_key("student", user_id),
+            entity_type="enrollment",
+            entity_key=stable_learning_key("enrollment", enrollment.id),
+            actor_role="student",
+            outcome_label=(
+                "conflict_detected"
+                if conflict_validation["has_conflicts"]
+                else "no_conflict"
+            ),
+            context={
+                "course_code": enrollment.course_code,
+                "section": enrollment.section,
+                "semester": enrollment.semester,
+                "mapped_entry_count": len(
+                    conflict_validation["mapped_timetable_entry_ids"]
+                ),
+                "conflict_count": len(conflict_validation["conflicts"]),
+                "alternate_section_count": len(
+                    conflict_validation["alternate_sections"]
+                ),
+            },
+        )
         db.commit()
         db.refresh(enrollment)
     except IntegrityError as exc:
@@ -274,8 +302,27 @@ def delete_student_enrollment(
 
     require_active_term_id(db, enrollment.term_id)
 
+    record_learning_event(
+        db,
+        term_id=enrollment.term_id,
+        event_type="student_dropped",
+        subject_key=stable_learning_key("student", user_id),
+        entity_type="enrollment",
+        entity_key=stable_learning_key("enrollment", enrollment.id),
+        actor_role="student",
+        outcome_label="dropped",
+        context={
+            "course_code": enrollment.course_code,
+            "section": enrollment.section,
+            "semester": enrollment.semester,
+        },
+    )
     db.delete(enrollment)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 def get_student_timetable(db: Session, user_id: int):
     active_term = get_active_term(db)

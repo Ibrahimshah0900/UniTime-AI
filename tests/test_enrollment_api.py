@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -13,7 +13,7 @@ from backend.database import Base, get_db
 from backend.enrollment_conflict_graph import build_enrollment_conflict_analysis
 from backend.enrollment_routes import router as enrollment_router
 from backend.enrollment_service import get_student_timetable
-from backend.models import StudentProfile, TimetableEntry, User
+from backend.models import LearningEvent, StudentProfile, TimetableEntry, User
 
 
 def create_context():
@@ -209,3 +209,17 @@ def test_add_validation_reports_live_conflict_and_unverified_alternate_without_a
         )
         assert [entry.course_code for entry in personal_after_drop] == ["AI-301"]
         assert analysis_after_drop["coverage"]["enrollment_backed_edges"] == 0
+        learning_events = list(
+            db.scalars(select(LearningEvent).order_by(LearningEvent.id)).all()
+        )
+        assert [event.event_type for event in learning_events] == [
+            "student_enrolled",
+            "student_enrolled",
+            "student_dropped",
+        ]
+        assert [event.outcome_label for event in learning_events[:2]] == [
+            "no_conflict",
+            "conflict_detected",
+        ]
+        assert all(event.subject_key and len(event.subject_key) == 64 for event in learning_events)
+        assert all("student@example.edu" not in event.context_json for event in learning_events)

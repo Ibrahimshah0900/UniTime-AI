@@ -11,6 +11,7 @@ from backend.auth_security import hash_password
 from backend.database import Base, get_db
 from backend.models import (
     Notification,
+    LearningEvent,
     StudentEnrollment,
     TimetableChange,
     TimetableEntry,
@@ -127,10 +128,18 @@ def test_safe_manual_time_change_is_audited_notified_and_reversible():
             change = db.get(TimetableChange, change_id)
             entry = db.get(TimetableEntry, entry_id)
             notifications = list(db.scalars(select(Notification)).all())
+            learning_event = db.scalar(
+                select(LearningEvent).where(
+                    LearningEvent.event_type == "manual_timetable_change"
+                )
+            )
             assert change is not None and change.undone is False
             assert entry is not None and entry.day == "Tuesday"
             assert len(notifications) == 3
             assert all(item.type == "time_change" for item in notifications)
+            assert learning_event is not None
+            assert learning_event.actor_role == "coordinator"
+            assert '"change_type":"manual_time_change"' in learning_event.context_json
     finally:
         app.dependency_overrides.clear()
 

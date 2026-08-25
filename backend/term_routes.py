@@ -69,4 +69,8 @@ def archive_term(
     current_user: Annotated[User, Depends(require_coordinator_or_admin)],
     db: Session = Depends(get_db),
 ):
-    return archive_academic_term(db, term_id=term_id)
+    return archive_academic_term(
+        db,
+        term_id=term_id,
+        actor_role=current_user.role,
+    )

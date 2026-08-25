@@ -69,6 +69,7 @@ from backend.models import (
     TimetableEntry,
     User,
 )
+from backend.learning_event_service import record_learning_event, stable_learning_key
 from backend.operation_schemas import (
     AuditTrailResponse,
     ChangeCollectionResponse,
@@ -955,11 +956,11 @@ def redo_student_schedule_change(
 @app.patch(
     "/timetable/{entry_id}/room",
     response_model=TimetableEntryResponse,
-    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def change_timetable_room(
     entry_id: int,
     request: RoomChangeRequest,
+    current_user: User = Depends(require_coordinator_or_admin),
     db: Session = Depends(get_db),
 ):
     acquire_timetable_write_lock(db)
@@ -1096,7 +1097,7 @@ def change_timetable_room(
             },
         )
 
-    create_change_record(
+    change = create_change_record(
         db,
         entry_id=entry.id,
         change_type="manual_room_change",
@@ -1104,6 +1105,23 @@ def change_timetable_room(
         new_room=requested_room,
         reason="Manual room change",
         score=None,
+    )
+    record_learning_event(
+        db,
+        term_id=entry.term_id,
+        event_type="manual_timetable_change",
+        entity_type="timetable_change",
+        entity_key=stable_learning_key("timetable_change", change.id),
+        actor_role=current_user.role,
+        outcome_label="applied",
+        context={
+            "change_type": change.change_type,
+            "entry_kind": entry.entry_kind,
+            "course_code": entry.course_code,
+            "class_type": entry.class_type,
+            "old_room": old_room,
+            "new_room": requested_room,
+        },
     )
 
     try:
@@ -1121,11 +1139,11 @@ def change_timetable_room(
 @app.patch(
     "/timetable/{entry_id}/time",
     response_model=TimetableTimeChangeResponse,
-    dependencies=[Depends(require_coordinator_or_admin)],
 )
 def change_timetable_time(
     entry_id: int,
     request: TimetableTimeChangeRequest,
+    current_user: User = Depends(require_coordinator_or_admin),
     db: Session = Depends(get_db),
 ):
     acquire_timetable_write_lock(db)
@@ -1133,6 +1151,7 @@ def change_timetable_time(
         db,
         entry_id=entry_id,
         request=request,
+        actor_role=current_user.role,
     )
 
 

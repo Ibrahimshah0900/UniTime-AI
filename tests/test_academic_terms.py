@@ -17,7 +17,13 @@ from backend.enrollment_service import (
     get_student_timetable,
     list_student_enrollments,
 )
-from backend.models import AcademicTerm, StudentEnrollment, TimetableEntry, User
+from backend.models import (
+    AcademicTerm,
+    LearningEvent,
+    StudentEnrollment,
+    TimetableEntry,
+    User,
+)
 from backend.term_routes import router as term_router
 from backend.term_schemas import AcademicTermCreate
 from backend.term_service import (
@@ -143,6 +149,14 @@ def test_coordinator_runs_strict_term_lifecycle_without_overwriting_history():
         )
         assert historical is not None
         assert historical.term_id == legacy_id
+        archived_event = db.scalar(
+            select(LearningEvent).where(
+                LearningEvent.event_type == "term_archived"
+            )
+        )
+        assert archived_event is not None
+        assert archived_event.actor_role == "coordinator"
+        assert archived_event.term_id == legacy_id
         assert get_active_term(db).id == planning_id
         try:
             resolve_term_for_write(db, legacy_id)

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.clash_detector import detect_clashes
 from backend.models import TimetableChange, TimetableEntry
+from backend.learning_event_service import record_learning_event, stable_learning_key
 from backend.notification_service import add_time_change_notifications
 from backend.schemas import TimetableTimeChangeRequest
 from backend.student_conflict_analyzer import analyze_student_conflicts
@@ -103,6 +104,7 @@ def apply_manual_time_change(
     *,
     entry_id: int,
     request: TimetableTimeChangeRequest,
+    actor_role: str = "system",
 ) -> dict[str, Any]:
     try:
         entry = db.get(TimetableEntry, entry_id)
@@ -140,6 +142,28 @@ def apply_manual_time_change(
         )
         db.add(change)
         db.flush()
+        record_learning_event(
+            db,
+            term_id=entry.term_id,
+            event_type="manual_timetable_change",
+            entity_type="timetable_change",
+            entity_key=stable_learning_key("timetable_change", change.id),
+            actor_role=actor_role,
+            outcome_label="applied",
+            context={
+                "change_type": change.change_type,
+                "entry_kind": entry.entry_kind,
+                "course_code": entry.course_code,
+                "class_type": entry.class_type,
+                "old_day": old_day,
+                "old_start_time": old_start_time,
+                "old_end_time": old_end_time,
+                "new_day": entry.day,
+                "new_start_time": entry.start_time,
+                "new_end_time": entry.end_time,
+                **safety,
+            },
+        )
         add_time_change_notifications(
             db,
             entry=entry,

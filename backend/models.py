@@ -657,3 +657,54 @@ class StudentClashReportEvent(Base):
     to_status: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_auth_utc_now)
+
+
+class LearningEvent(Base):
+    __tablename__ = "learning_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ("
+            "'recommendation_generated','recommendation_shown',"
+            "'recommendation_selected','recommendation_rejected',"
+            "'resolution_applied','resolution_undone','resolution_redone',"
+            "'manual_timetable_change','student_enrolled','student_dropped',"
+            "'clash_report_submitted','clash_report_verified',"
+            "'clash_report_invalid','clash_report_duplicate','term_archived')",
+            name="ck_learning_events_event_type",
+        ),
+        CheckConstraint(
+            "actor_role IS NULL OR actor_role IN "
+            "('student','faculty','coordinator','admin','system')",
+            name="ck_learning_events_actor_role",
+        ),
+        Index(
+            "ix_learning_events_type_created",
+            "event_type",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    term_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    subject_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    entity_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    entity_key: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    actor_role: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    source: Mapped[str] = mapped_column(String(40), nullable=False, default="backend")
+    outcome_label: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    context_schema_version: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="1.0",
+    )
+    context_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+    )
