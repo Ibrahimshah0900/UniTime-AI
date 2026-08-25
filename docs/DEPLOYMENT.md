@@ -23,7 +23,7 @@ The repository also includes `frontend/Dockerfile`, an unprivileged Nginx SPA co
 
 Use one migration-running instance during deployments if the hosting platform starts multiple replicas simultaneously. After migrations complete, scale application replicas normally.
 
-The current migration head is `5989aedcfe45`. It adds verified institutional student profiles, registration-number identity, nullable official email, and first-login password state. Existing student accounts are preserved as unverified legacy profiles for coordinator review; they are not falsely marked institutionally verified.
+The current migration head is `36bb9325c02a`. It adds immutable server-attached student identity/academic snapshots and a deterministic conflict fingerprint to clash reports. Existing reports are backfilled without deleting their class items or event history.
 
 ## Release checks
 

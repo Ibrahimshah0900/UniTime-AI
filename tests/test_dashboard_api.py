@@ -68,7 +68,19 @@ def test_student_dashboard_contains_student_workflow_counts():
     student = create_user(Session, "student@example.edu", "student")
     with Session() as db:
         db.add(StudentEnrollment(user_id=student.id, course_code="AI-301", section="A", semester="Fall 2026"))
-        db.add(StudentClashReport(student_user_id=student.id, status="submitted"))
+        db.add(StudentClashReport(
+            student_user_id=student.id,
+            student_registration_number_snapshot=f"TEST-{student.id:06d}",
+            student_name_snapshot=student.full_name,
+            student_email_snapshot=student.email,
+            student_department_snapshot="Computing",
+            student_program_snapshot="BS AI",
+            student_batch_snapshot="2026",
+            student_semester_snapshot=3,
+            student_section_snapshot="A",
+            conflict_fingerprint="a" * 64,
+            status="submitted",
+        ))
         db.add(Notification(user_id=student.id, type="schedule_change", title="Changed", message="Changed"))
         db.commit()
     app.dependency_overrides[get_current_user] = lambda: student
@@ -103,7 +115,19 @@ def test_coordinator_and_admin_dashboards_expose_operational_counts():
     student = create_user(Session, "student@example.edu", "student")
     with Session() as db:
         db.add(TimetableEntry(course_code="AI-301", day="Monday", start_time="10:00", end_time="11:00", room="R1"))
-        db.add(StudentClashReport(student_user_id=student.id, status="under_review"))
+        db.add(StudentClashReport(
+            student_user_id=student.id,
+            student_registration_number_snapshot=f"TEST-{student.id:06d}",
+            student_name_snapshot=student.full_name,
+            student_email_snapshot=student.email,
+            student_department_snapshot="Computing",
+            student_program_snapshot="BS AI",
+            student_batch_snapshot="2026",
+            student_semester_snapshot=3,
+            student_section_snapshot="A",
+            conflict_fingerprint="b" * 64,
+            status="under_review",
+        ))
         db.commit()
 
     app.dependency_overrides[get_current_user] = lambda: coordinator

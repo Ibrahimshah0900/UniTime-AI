@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+import hashlib
+import json
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.clash_report_schemas import ClashReportCreate, ClashReportReviewUpdate
@@ -12,6 +15,7 @@ from backend.models import (
     StudentClashReport,
     StudentClashReportEvent,
     StudentClashReportItem,
+    StudentProfile,
     TimetableEntry,
     User,
 )
@@ -38,6 +42,49 @@ def _reports_overlap(entries: Sequence[TimetableEntry]) -> bool:
     return False
 
 
+def _get_verified_student_identity(
+    db: Session,
+    student_user_id: int,
+) -> tuple[User, StudentProfile]:
+    student = db.get(User, student_user_id)
+    profile = db.get(StudentProfile, student_user_id)
+    if (
+        student is None
+        or student.role != "student"
+        or not student.is_active
+        or student.must_change_password
+        or profile is None
+        or not profile.is_verified
+        or not profile.onboarding_completed
+        or profile.academic_status != "active"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="An active, verified, onboarded student identity is required.",
+        )
+    return student, profile
+
+
+def _conflict_fingerprint(entries: Sequence[TimetableEntry]) -> str:
+    identity = [
+        {
+            "entry_id": entry.id,
+            "course_code": (entry.course_code or "").strip().upper(),
+            "section": (entry.section or "").strip().upper(),
+            "day": entry.day,
+            "start_time": entry.start_time,
+            "end_time": entry.end_time,
+        }
+        for entry in sorted(entries, key=lambda item: item.id)
+    ]
+    encoded = json.dumps(
+        identity,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _get_items(db: Session, report_id: int) -> list[StudentClashReportItem]:
     statement = (
         select(StudentClashReportItem)
@@ -62,16 +109,19 @@ def _serialize_report(
     *,
     include_events: bool,
 ) -> dict:
-    student = db.get(User, report.student_user_id)
-    if student is None:
-        raise HTTPException(status_code=500, detail="Report owner could not be loaded.")
-
     result = {
         "id": report.id,
         "term_id": report.term_id,
         "student_user_id": report.student_user_id,
-        "student_name": student.full_name,
-        "student_email": student.email,
+        "student_registration_number": report.student_registration_number_snapshot,
+        "student_name": report.student_name_snapshot,
+        "student_email": report.student_email_snapshot,
+        "student_department": report.student_department_snapshot,
+        "student_program": report.student_program_snapshot,
+        "student_batch": report.student_batch_snapshot,
+        "student_semester": report.student_semester_snapshot,
+        "student_section": report.student_section_snapshot,
+        "conflict_fingerprint": report.conflict_fingerprint,
         "status": report.status,
         "notes": report.notes,
         "evidence_reference": report.evidence_reference,
@@ -93,6 +143,7 @@ def create_clash_report(
     request: ClashReportCreate,
 ) -> dict:
     active_term = get_active_term(db)
+    student, profile = _get_verified_student_identity(db, student_user_id)
     personal_entries = {
         entry.id: entry for entry in get_student_timetable(db, student_user_id)
     }
@@ -115,9 +166,38 @@ def create_clash_report(
             detail="The selected timetable classes do not overlap.",
         )
 
+    if any(entry.term_id != active_term.id for entry in selected_entries):
+        raise HTTPException(
+            status_code=422,
+            detail="Every reported class must belong to the active academic term.",
+        )
+
+    conflict_fingerprint = _conflict_fingerprint(selected_entries)
+    existing_report_id = db.scalar(
+        select(StudentClashReport.id).where(
+            StudentClashReport.student_user_id == student_user_id,
+            StudentClashReport.term_id == active_term.id,
+            StudentClashReport.conflict_fingerprint == conflict_fingerprint,
+        )
+    )
+    if existing_report_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"This conflict was already reported as report {existing_report_id}.",
+        )
+
     report = StudentClashReport(
         term_id=active_term.id,
         student_user_id=student_user_id,
+        student_registration_number_snapshot=profile.registration_number,
+        student_name_snapshot=student.full_name,
+        student_email_snapshot=student.email,
+        student_department_snapshot=profile.department,
+        student_program_snapshot=profile.program,
+        student_batch_snapshot=profile.batch,
+        student_semester_snapshot=profile.current_semester,
+        student_section_snapshot=profile.section,
+        conflict_fingerprint=conflict_fingerprint,
         status="submitted",
         notes=request.notes,
         evidence_reference=request.evidence_reference,
@@ -126,6 +206,14 @@ def create_clash_report(
 
     try:
         db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This exact conflict has already been reported.",
+        ) from exc
+
+    try:
         for entry in selected_entries:
             db.add(
                 StudentClashReportItem(

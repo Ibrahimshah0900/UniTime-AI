@@ -23,6 +23,7 @@ from sqlalchemy.orm import (
 from backend.clash_detector import detect_clashes
 from backend.database import Base
 from backend.models import TimetableEntry
+from backend.enrollment_conflict_graph import build_enrollment_conflict_analysis
 from backend.notification_service import add_time_change_notifications
 from backend.student_conflict_analyzer import (
     analyze_student_conflicts,
@@ -276,13 +277,13 @@ def parse_reasons(
 def get_live_group(
     group_id: int,
     entries: list[TimetableEntry],
+    *,
+    risks: list[dict] | None = None,
 ) -> dict:
-    risks = analyze_student_conflicts(
-        entries
-    )
+    selected_risks = risks if risks is not None else analyze_student_conflicts(entries)
 
     groups = build_student_conflict_groups(
-        risks
+        selected_risks
     )
 
     for group in groups:
@@ -306,10 +307,13 @@ def get_live_group(
 def get_live_best_fix(
     group_id: int,
     entries: list[TimetableEntry],
+    *,
+    risks: list[dict] | None = None,
 ) -> tuple[dict, dict]:
     group = get_live_group(
         group_id,
         entries,
+        risks=risks,
     )
 
     resolution = (
@@ -707,10 +711,16 @@ def apply_student_resolution(
             db
         )
 
+        risks_before = build_enrollment_conflict_analysis(
+            db,
+            entries_before,
+        )["risks"]
+
         group, best_fix = (
             get_live_best_fix(
                 group_id,
                 entries_before,
+                risks=risks_before,
             )
         )
 
@@ -737,12 +747,6 @@ def apply_student_resolution(
                 entry,
                 best_fix,
                 entries_before,
-            )
-        )
-
-        risks_before = (
-            analyze_student_conflicts(
-                entries_before
             )
         )
 
@@ -788,11 +792,10 @@ def apply_student_resolution(
             )
         )
 
-        risks_after = (
-            analyze_student_conflicts(
-                entries_after
-            )
-        )
+        risks_after = build_enrollment_conflict_analysis(
+            db,
+            entries_after,
+        )["risks"]
 
         clashes_after = (
             detect_clashes(
@@ -983,10 +986,10 @@ def apply_student_resolution(
                 ),
             },
             "warning": (
-                "This change resolves an inferred "
-                "student/cohort scheduling risk. "
-                "It does not represent confirmed "
-                "individual enrollment data."
+                "The applied group used enrollment-backed conflict evidence."
+                if group.get("enrollment_backed_edges", 0) > 0
+                else
+                "The applied group used explicitly inferred timetable evidence."
             ),
         }
 
@@ -1054,11 +1057,10 @@ def undo_student_resolution(
             db
         )
 
-        risks_before = (
-            analyze_student_conflicts(
-                entries_before
-            )
-        )
+        risks_before = build_enrollment_conflict_analysis(
+            db,
+            entries_before,
+        )["risks"]
 
         clashes_before = (
             detect_clashes(
@@ -1090,11 +1092,10 @@ def undo_student_resolution(
             db
         )
 
-        risks_after = (
-            analyze_student_conflicts(
-                entries_after
-            )
-        )
+        risks_after = build_enrollment_conflict_analysis(
+            db,
+            entries_after,
+        )["risks"]
 
         clashes_after = (
             detect_clashes(
@@ -1312,11 +1313,10 @@ def redo_student_resolution(
             )
         )
 
-        risks_before = (
-            analyze_student_conflicts(
-                entries_before
-            )
-        )
+        risks_before = build_enrollment_conflict_analysis(
+            db,
+            entries_before,
+        )["risks"]
 
         clashes_before = (
             detect_clashes(
@@ -1346,11 +1346,10 @@ def redo_student_resolution(
             db
         )
 
-        risks_after = (
-            analyze_student_conflicts(
-                entries_after
-            )
-        )
+        risks_after = build_enrollment_conflict_analysis(
+            db,
+            entries_after,
+        )["risks"]
 
         clashes_after = (
             detect_clashes(

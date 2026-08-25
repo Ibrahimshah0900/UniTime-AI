@@ -95,6 +95,9 @@ export interface StudentRisk {
   }
   shared_sections: string[]
   same_course_level: boolean
+  evidence_source: 'enrollment' | 'timetable_inference'
+  affected_student_count: number
+  enrollment_coverage: 'complete_for_edge' | 'partial' | 'none'
   evidence: string[]
   limitations: string[]
   entry_1: ClashEntry
@@ -107,6 +110,11 @@ export interface StudentRiskCollection {
     confirmed: number
     probable: number
     possible: number
+    enrollment_backed: number
+    inferred: number
+    enrollment_records: number
+    verified_students: number
+    unmapped_enrollment_records: number
     important_note: string
   }
   risks: StudentRisk[]
@@ -129,6 +137,8 @@ export interface StudentConflictGroup {
   entries: ClashEntry[]
   evidence: string[]
   limitations: string[]
+  evidence_sources: Array<'enrollment' | 'timetable_inference'>
+  enrollment_backed_edges: number
   action: string
 }
 
@@ -137,6 +147,7 @@ export interface StudentGroupCollection {
     total_groups: number
     confirmed_groups: number
     probable_groups: number
+    enrollment_backed_groups: number
     unique_timetable_entries_involved: number
     important_note: string
   }

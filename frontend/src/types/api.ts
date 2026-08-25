@@ -103,8 +103,15 @@ export interface ClashReportSummary {
   id: number
   term_id: number
   student_user_id: number
+  student_registration_number: string
   student_name: string
-  student_email: string
+  student_email: string | null
+  student_department: string
+  student_program: string
+  student_batch: string
+  student_semester: number
+  student_section: string
+  conflict_fingerprint: string
   status: ClashReportStatus
   notes: string | null
   evidence_reference: string | null

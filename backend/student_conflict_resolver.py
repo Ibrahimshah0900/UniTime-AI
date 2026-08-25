@@ -1056,11 +1056,13 @@ def resolve_student_conflict_group(
             all_moves[:10]
         ),
         "important_note": (
-            "These are timetable-based planning suggestions. "
-            "They are not automatically applied because student "
-            "conflicts are inferred without individual enrollment "
-            "data. Suggestions marked 'requires_assignment' also "
-            "need a room before they can be considered fully feasible."
+            "This group contains enrollment-backed conflict evidence. "
+            "Every move still requires deterministic hard-constraint validation."
+            if group.get("enrollment_backed_edges", 0) > 0
+            else
+            "This is an inferred timetable-based planning suggestion. "
+            "Suggestions marked 'requires_assignment' need a room before "
+            "they can be considered fully feasible."
         ),
     }
 

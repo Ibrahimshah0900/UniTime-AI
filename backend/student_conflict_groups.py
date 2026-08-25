@@ -142,12 +142,6 @@ def conflicts_belong_together(
         )
     )
 
-    if not (
-        first_sections
-        & second_sections
-    ):
-        return False
-
     first_ids = {
         entry_key(
             first["entry_1"]
@@ -196,6 +190,17 @@ def conflicts_belong_together(
 
     if first_ids & second_ids:
         return True
+
+    if (
+        first.get("evidence_source") == "enrollment"
+        or second.get("evidence_source") == "enrollment"
+    ):
+        # Separate enrollment-backed edges are kept distinct unless they are
+        # connected through an actual timetable offering.
+        return False
+
+    if not (first_sections & second_sections):
+        return False
 
     # Also allow grouping of separate pairwise conflicts that clearly
     # belong to the same inferred cohort/time block.
@@ -373,6 +378,10 @@ def build_group(
 
     limitations: set[str] = set()
 
+    evidence_sources: set[str] = set()
+
+    enrollment_backed_edges = 0
+
     start_times: list[str] = []
     end_times: list[str] = []
 
@@ -429,6 +438,11 @@ def build_group(
                 [],
             )
         )
+
+        evidence_source = conflict.get("evidence_source", "timetable_inference")
+        evidence_sources.add(evidence_source)
+        if evidence_source == "enrollment":
+            enrollment_backed_edges += 1
 
     ordered_entries = sorted(
         entries.values(),
@@ -487,6 +501,8 @@ def build_group(
         "limitations": sorted(
             limitations
         ),
+        "evidence_sources": sorted(evidence_sources),
+        "enrollment_backed_edges": enrollment_backed_edges,
         "action": (
             "Review this timetable block as one cohort-level "
             "scheduling problem rather than resolving each "
@@ -590,6 +606,12 @@ def summarize_student_conflict_groups(
         == "probable"
     )
 
+    enrollment_backed = sum(
+        1
+        for group in groups
+        if group.get("enrollment_backed_edges", 0) > 0
+    )
+
     courses_involved = {
         entry["id"]
         for group in groups
@@ -608,12 +630,12 @@ def summarize_student_conflict_groups(
         "probable_groups": (
             probable
         ),
+        "enrollment_backed_groups": enrollment_backed,
         "unique_timetable_entries_involved": len(
             courses_involved
         ),
         "important_note": (
-            "These are grouped timetable-based cohort risks. "
-            "They do not prove that individual students are "
-            "enrolled in every course within a group."
+            "Groups with enrollment-backed edges are confirmed from active "
+            "verified enrollment data. Other groups remain explicitly inferred."
         ),
     }

@@ -15,7 +15,7 @@ from backend.clash_report_service import (
     update_clash_report,
 )
 from backend.database import Base
-from backend.models import StudentEnrollment, TimetableEntry, User
+from backend.models import StudentEnrollment, StudentProfile, TimetableEntry, User
 
 
 def create_test_session():
@@ -37,6 +37,21 @@ def create_user(db, email: str, role: str = "student") -> User:
         is_active=True,
     )
     db.add(user)
+    db.flush()
+    if role == "student":
+        db.add(
+            StudentProfile(
+                user_id=user.id,
+                registration_number=f"TEST-{user.id:06d}",
+                department="Computer Science",
+                program="BS Artificial Intelligence",
+                batch="Fall 2023",
+                current_semester=6,
+                section="A",
+                is_verified=True,
+                onboarding_completed=True,
+            )
+        )
     db.commit()
     db.refresh(user)
     return user
@@ -120,16 +135,68 @@ def test_submission_captures_snapshots_and_initial_event():
         )
 
         assert result["status"] == "submitted"
+        assert result["student_registration_number"] == f"TEST-{student.id:06d}"
+        assert result["student_name"] == "Student"
+        assert result["student_program"] == "BS Artificial Intelligence"
+        assert result["student_semester"] == 6
+        assert result["student_section"] == "A"
+        assert len(result["conflict_fingerprint"]) == 64
         assert [item.course_code for item in result["items"]] == ["AI-301", "CS-210"]
         assert result["events"][0].action == "submitted"
         assert result["events"][0].actor_user_id == student.id
 
         first.course_code = "AI-999"
         first.start_time = "12:00"
+        student.full_name = "Changed Live Name"
+        profile = db.get(StudentProfile, student.id)
+        profile.program = "Changed Program"
         db.commit()
         persisted = get_clash_report(db, result["id"], student_user_id=student.id)
         assert persisted["items"][0].course_code == "AI-301"
         assert persisted["items"][0].start_time == "10:00"
+        assert persisted["student_name"] == "Student"
+        assert persisted["student_program"] == "BS Artificial Intelligence"
+
+
+def test_submission_rejects_an_exact_duplicate_conflict():
+    Session = create_test_session()
+    with Session() as db:
+        student = create_user(db, "student@example.edu")
+        first, second, _ = seed_schedule(db, student)
+        first_report = create_clash_report(
+            db,
+            student_user_id=student.id,
+            request=report_request(first.id, second.id),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_clash_report(
+                db,
+                student_user_id=student.id,
+                request=report_request(first.id, second.id),
+            )
+
+        assert exc_info.value.status_code == 409
+        assert str(first_report["id"]) in exc_info.value.detail
+
+
+def test_submission_rechecks_verified_student_state_in_the_service():
+    Session = create_test_session()
+    with Session() as db:
+        student = create_user(db, "student@example.edu")
+        first, second, _ = seed_schedule(db, student)
+        profile = db.get(StudentProfile, student.id)
+        profile.is_verified = False
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_clash_report(
+                db,
+                student_user_id=student.id,
+                request=report_request(first.id, second.id),
+            )
+
+        assert exc_info.value.status_code == 403
 
 
 def test_submission_rejects_unowned_or_missing_timetable_entries():

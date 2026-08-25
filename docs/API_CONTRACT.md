@@ -1,6 +1,6 @@
 # UniTime-AI backend API contract
 
-Contract version: `0.9.0`
+Contract version: `0.10.0`
 
 The exact OpenAPI snapshot is committed as `docs/openapi.json`. JSON requests reject unknown fields where request models use `extra="forbid"`. Authenticated requests send `Authorization: Bearer <access_token>`.
 
@@ -64,7 +64,7 @@ Validation failures use status 422 and add `details`, containing safe `location`
 - Student roster import accepts multipart CSV/XLSX. `dry_run=true` previews the all-row validation summary; any invalid/duplicate-in-file row prevents application. `update_existing=true` updates institutional academic fields by registration number without implicitly changing verification or activation state. Existing rows are duplicates by default.
 - Provisioned users must change their temporary password, which invalidates the first token. A verified student must then complete `/account/student-profile` onboarding before enrollment, personal timetable, or clash-report operations.
 - Enrollment create: `course_code`, `section`, `semester` (non-empty strings). Course and section identities are stored uppercase; semester casing is normalized consistently. Case-only variants are duplicates.
-- Clash-report create: 2–10 unique positive `timetable_entry_ids`, optional `notes`, optional `evidence_reference`. Every entry must belong to the student's personal timetable and at least one selected pair must overlap.
+- Clash-report create: 2–10 unique positive `timetable_entry_ids`, optional `notes`, optional `evidence_reference`. The service independently rechecks active/verified/onboarded identity, active-term enrollment, personal-timetable ownership, current entry state, and real overlap. Exact repeat submissions return 409.
 - Clash review: `status` plus terminal `resolution_note`; duplicate status also requires `duplicate_of_report_id`. Allowed transitions are `submitted -> under_review|rejected|duplicate` and `under_review -> resolved|rejected|duplicate`.
 - Faculty assignment create: `faculty_user_id`, `course_code`, `section`, `semester`.
 - Timetable time change: `day`, `start_time`, and `end_time`. Day/time values are normalized and the request is rejected if the destination creates a room/faculty clash or increases cohort risk.
@@ -75,11 +75,12 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 - Collection APIs added after Phase 4 expose explicit totals or lists as shown in OpenAPI.
 - Timetable entries, enrollments, faculty assignments, clash reports, notifications, and scheduling history expose `term_id`. Current operational APIs default to the active term; archived rows remain readable but cannot be mutated.
-- Student clash-report detail includes immutable `items` snapshots and ordered `events` audit history.
+- Student clash-report detail includes immutable server-attached registration number, name, email, department, program, batch, semester, section, term, conflict fingerprint, class-item snapshots, and ordered event history. Later edits to the live profile do not rewrite report evidence.
+- `/clashes/student-risk` uses active verified `StudentEnrollment` rows to create confirmed weighted edges. `affected_student_count` is the real edge weight. Timetable-only fallback is labeled `timetable_inference` and can only be probable/possible; it is suppressed when complete enrollment coverage disproves the heuristic pair. The summary reports unmapped enrollment rows as data-quality issues.
 - Notifications contain parsed `payload`, `read_at`, and `created_at`; clients must use `type` for presentation behavior.
 - `/dashboard` returns `{role, generated_for_day, data}`; `data` is role-specific and clients must branch on `role`.
 - Clash, optimizer, execution, and history read endpoints publish their nested response schemas in OpenAPI. Mutation responses retain forward-compatible operation details while preserving the stable success/error envelope.
 
 ## Token handling
 
-Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.9.0; clients return to login after expiry.
+Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.10.0; clients return to login after expiry.

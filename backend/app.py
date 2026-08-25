@@ -30,6 +30,10 @@ from backend.auth_routes import router as auth_router
 from backend.clash_report_routes import review_router as clash_report_review_router
 from backend.clash_report_routes import student_router as student_clash_report_router
 from backend.enrollment_routes import router as enrollment_router
+from backend.enrollment_conflict_graph import (
+    build_enrollment_conflict_analysis,
+    summarize_enrollment_conflicts,
+)
 from backend.dashboard_routes import router as dashboard_router
 from backend.faculty_routes import faculty_router
 from backend.faculty_routes import directory_router as faculty_directory_router
@@ -97,10 +101,6 @@ from backend.schemas import (
     TimetableTimeChangeResponse,
 )
 from backend.schedule_matching import timetable_sort_key
-from backend.student_conflict_analyzer import (
-    analyze_student_conflicts,
-    summarize_student_conflicts,
-)
 from backend.student_conflict_groups import (
     build_student_conflict_groups,
     summarize_student_conflict_groups,
@@ -146,7 +146,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.9.0",
+    version="0.10.0",
 )
 
 app.add_middleware(
@@ -261,8 +261,8 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.9.0",
-        "phase": "institutional_provisioning",
+        "version": "0.10.0",
+        "phase": "authentic_enrollment_conflicts",
     }
 
 
@@ -515,13 +515,9 @@ def get_student_conflict_risks(
         db
     )
 
-    conflicts = analyze_student_conflicts(
-        entries
-    )
-
-    summary = summarize_student_conflicts(
-        conflicts
-    )
+    analysis = build_enrollment_conflict_analysis(db, entries)
+    conflicts = analysis["risks"]
+    summary = summarize_enrollment_conflicts(analysis)
 
     return {
         "summary": summary,
@@ -546,9 +542,7 @@ def get_student_conflict_groups(
         db
     )
 
-    risks = analyze_student_conflicts(
-        entries
-    )
+    risks = build_enrollment_conflict_analysis(db, entries)["risks"]
 
     groups = build_student_conflict_groups(
         risks
@@ -581,9 +575,7 @@ def get_student_conflict_resolutions(
         db
     )
 
-    risks = analyze_student_conflicts(
-        entries
-    )
+    risks = build_enrollment_conflict_analysis(db, entries)["risks"]
 
     groups = build_student_conflict_groups(
         risks
@@ -648,10 +640,8 @@ def get_student_conflict_resolutions(
                 best_fixes_requiring_room
             ),
             "important_note": (
-                "Student/cohort conflicts are inferred from "
-                "timetable structure without individual "
-                "enrollment data. These resolutions are "
-                "planning suggestions only."
+                "Confirmed conflicts use verified active-term enrollment data. "
+                "Any probable or possible conflicts remain explicitly inferred."
             ),
         },
         "resolutions": resolutions,

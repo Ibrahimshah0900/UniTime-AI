@@ -108,8 +108,15 @@ class ClashReportSummaryResponse(BaseModel):
     id: int
     term_id: int
     student_user_id: int
+    student_registration_number: str
     student_name: str
-    student_email: str
+    student_email: str | None
+    student_department: str
+    student_program: str
+    student_batch: str
+    student_semester: int
+    student_section: str
+    conflict_fingerprint: str
     status: ClashReportStatus
     notes: str | None
     evidence_reference: str | None

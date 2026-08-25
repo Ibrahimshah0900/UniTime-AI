@@ -550,6 +550,12 @@ class StudentClashReport(Base):
             "status IN ('submitted','under_review','resolved','rejected','duplicate')",
             name="ck_student_clash_reports_status",
         ),
+        UniqueConstraint(
+            "student_user_id",
+            "term_id",
+            "conflict_fingerprint",
+            name="uq_student_clash_report_identity",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -561,6 +567,31 @@ class StudentClashReport(Base):
     )
     student_user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    student_registration_number_snapshot: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+    student_name_snapshot: Mapped[str] = mapped_column(String(200), nullable=False)
+    student_email_snapshot: Mapped[Optional[str]] = mapped_column(
+        String(320),
+        nullable=True,
+    )
+    student_department_snapshot: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    student_program_snapshot: Mapped[str] = mapped_column(
+        String(120),
+        nullable=False,
+    )
+    student_batch_snapshot: Mapped[str] = mapped_column(String(40), nullable=False)
+    student_semester_snapshot: Mapped[int] = mapped_column(Integer, nullable=False)
+    student_section_snapshot: Mapped[str] = mapped_column(String(50), nullable=False)
+    conflict_fingerprint: Mapped[str] = mapped_column(
+        String(64),
         nullable=False,
         index=True,
     )

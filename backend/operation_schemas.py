@@ -150,6 +150,11 @@ class StudentRiskSummaryResponse(BaseModel):
     confirmed: int
     probable: int
     possible: int
+    enrollment_backed: int
+    inferred: int
+    enrollment_records: int
+    verified_students: int
+    unmapped_enrollment_records: int
     important_note: str
 
 
@@ -162,6 +167,9 @@ class StudentRiskResponse(OperationModel):
     overlap: TimeOverlapResponse
     shared_sections: list[str]
     same_course_level: bool
+    evidence_source: str
+    affected_student_count: int
+    enrollment_coverage: str
     evidence: list[str]
     limitations: list[str]
     entry_1: OperationEntryResponse
@@ -192,6 +200,8 @@ class StudentGroupResponse(OperationModel):
     entries: list[OperationEntryResponse]
     evidence: list[str]
     limitations: list[str]
+    evidence_sources: list[str]
+    enrollment_backed_edges: int
     action: str
 
 
@@ -199,6 +209,7 @@ class StudentGroupSummaryResponse(BaseModel):
     total_groups: int
     confirmed_groups: int
     probable_groups: int
+    enrollment_backed_groups: int
     unique_timetable_entries_involved: int
     important_note: str
 
