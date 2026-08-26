@@ -15,4 +15,11 @@ describe('role-aware navigation', () => {
     expect(paths).toContain('/clash-reports')
     expect(paths).not.toContain('/optimizer')
   })
+  it('exposes quality and resolver analytics only to coordinator/admin roles', () => {
+    expect(navForRole('coordinator').some((item) => item.path === '/insights')).toBe(true)
+    expect(navForRole('admin').some((item) => item.path === '/insights')).toBe(true)
+    expect(navForRole('faculty').some((item) => item.path === '/insights')).toBe(false)
+    expect(navForRole('student').some((item) => item.path === '/insights')).toBe(false)
+  })
+
 })

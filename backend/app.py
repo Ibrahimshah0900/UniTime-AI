@@ -35,6 +35,8 @@ from backend.enrollment_conflict_graph import (
     summarize_enrollment_conflicts,
 )
 from backend.dashboard_routes import router as dashboard_router
+from backend.data_quality_routes import router as data_quality_router
+from backend.resolver_analytics_routes import router as resolver_analytics_router
 from backend.faculty_routes import faculty_router
 from backend.faculty_routes import directory_router as faculty_directory_router
 from backend.faculty_routes import management_router as faculty_management_router
@@ -148,7 +150,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.15.0",
+    version="0.16.0",
 )
 
 app.add_middleware(
@@ -182,6 +184,8 @@ app.include_router(student_identity_account_router)
 app.include_router(student_identity_management_router)
 app.include_router(dashboard_router)
 app.include_router(academic_term_router)
+app.include_router(data_quality_router)
+app.include_router(resolver_analytics_router)
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +267,7 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.15.0",
+        "version": "0.16.0",
         "phase": "future_ranker_preparation",
     }
 

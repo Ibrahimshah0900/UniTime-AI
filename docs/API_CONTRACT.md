@@ -1,6 +1,6 @@
 # UniTime-AI backend API contract
 
-Contract version: `0.15.0`
+Contract version: `0.16.0`
 
 The exact OpenAPI snapshot is committed as `docs/openapi.json`. JSON requests reject unknown fields where request models use `extra="forbid"`. Authenticated requests send `Authorization: Bearer <access_token>`.
 
@@ -26,7 +26,7 @@ Validation failures use status 422 and add `details`, containing safe `location`
 - Ready authenticated roles: `/dashboard`, `/notifications*`, `/notification-preferences`, and read-only `/academic-terms*` access.
 - Verified, active, onboarded student only: `/student/enrollments*`, `/student/timetable`, `/student/clash-reports*`.
 - Faculty only: `/faculty/assignments`, `/faculty/timetable`.
-- Coordinator/admin: student provisioning, roster import, faculty provisioning, institutional timetable CRUD/import, clash analytics and fixes, optimizer plans/actions/history, faculty assignment management, clash-report review, notification job processing, audit/change history.
+- Coordinator/admin: student provisioning, roster import, faculty provisioning, institutional timetable CRUD/import, clash analytics and fixes, optimizer plans/actions/history, faculty assignment management, clash-report review, notification job processing, audit/change history, read-only data-quality diagnostics, and resolver analytics.
 - Admin only: `/admin/users*`.
 - Coordinator/admin: create, activate, and archive academic terms. Only one term may be active; archived terms are read-only.
 
@@ -55,6 +55,8 @@ Validation failures use status 422 and add `details`, containing safe `location`
 | Optimizer | `GET /optimizer/global`, `POST /optimizer/global/apply-best`, `GET /optimizer/plan`, `POST /optimizer/plan/apply` | Global and multi-step planning/execution |
 | History | `GET /changes`, undo/redo routes under `/changes` and `/student-schedule-changes`, `GET /audit-trail` | Change inspection and rollback |
 | Executions | `GET /optimizer/executions`, `GET /optimizer/executions/{id}`, undo/redo routes | Grouped execution history and rollback |
+| Data quality | `GET /data-quality` | Coordinator/admin read-only, term-scoped institutional diagnostics with stable issue codes, severity, safe entity identifiers, explanations, and suggested corrections |
+| Resolver analytics | `GET /resolver-analytics` | Coordinator/admin, term-scoped operational metrics derived only from live conflict state and persisted resolution/report events; unavailable rates are explicitly marked unavailable |
 | Operations | `GET /health`, `GET /ready` | Liveness and strict DB migration readiness |
 
 ## Key request contracts
@@ -72,6 +74,8 @@ Validation failures use status 422 and add `details`, containing safe `location`
 - Faculty assignment create: `faculty_user_id`, `course_code`, `section`, `semester`.
 - Timetable time change: `day`, `start_time`, and `end_time`. Day/time values are normalized and the request is rejected if the destination creates a room/faculty clash or increases cohort risk.
 - Notification preferences: nullable reminder minutes (`5|10|15|30`), daily-summary flag/time, schedule-change flag, clash-report-update flag.
+- Data-quality diagnostics: `GET /data-quality` accepts optional `term_id`. It is read-only and restricted to coordinator/admin. Findings use stable issue codes and avoid echoing unnecessary student PII. Checks are limited to facts supported by the current schema; for example, room-capacity problems are not invented when reliable capacity/class-size metadata does not exist.
+- Resolver analytics: `GET /resolver-analytics` accepts optional `term_id`. Current confirmed/inferred conflicts and structural clashes are recomputed from live term data; historical application/undo/redo and resolution metrics come from persisted events. Rates without a trustworthy denominator return an explicit unavailable metric rather than an estimate.
 - Timetable create uses the strict `TimetableEntryCreate` schema in OpenAPI. Unknown fields are rejected and all text limits match their database columns. Import accepts multipart CSV/XLSX with configured size/type validation.
 
 ## Stable response conventions
@@ -90,4 +94,9 @@ Validation failures use status 422 and add `details`, containing safe `location`
 
 ## Token handling
 
-Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.15.0; clients return to login after expiry.
+Access tokens are JWT bearer tokens with a configured lifetime. Store them using the platform's safest available mechanism, clear them on logout or 401, never place them in URLs, and never expose privileged tokens to logs. Password changes and account deactivation increment the account token version and immediately invalidate previously issued access tokens. The backend does not issue refresh tokens in contract version 0.16.0; clients return to login after expiry.
+
+
+## Synthetic/demo data tooling
+
+Synthetic data generation is deliberately outside normal API startup and production workflows. `scripts/generate_synthetic_demo.py` requires an explicit SQLite target and `--confirm-synthetic`, refuses the normal development database and non-empty targets, and generates clearly labeled DEMO/SYNTHETIC identities. It is intended for isolated testing and resolver benchmarking only; generated data is never presented as university data. See `docs/SYNTHETIC_DATA.md`.

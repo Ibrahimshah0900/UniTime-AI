@@ -210,6 +210,184 @@ export interface ClashReportClusterListResponse {
   limit: number
 }
 
+
+export type CandidateSafetyStatus = 'SAFE' | 'CONDITIONALLY_SAFE' | 'INSUFFICIENT_DATA' | 'REJECTED'
+
+export interface CandidateTimeSlot {
+  day: string
+  start_time: string
+  end_time: string
+}
+
+export interface CandidateCheck {
+  name: string
+  status: 'PASS' | 'WARN' | 'FAIL'
+  detail: string
+}
+
+export interface CandidateScoreComponent {
+  signal: string
+  value: number
+  explanation: string
+}
+
+export interface ResolutionCandidateImpact {
+  affected_students: number
+  confirmed_conflicts_before: number
+  confirmed_conflicts_after: number
+  confirmed_conflicts_removed: number
+  new_confirmed_conflicts: number
+  student_risks_before: number
+  student_risks_after: number
+  structural_clashes_before: number
+  structural_clashes_after: number
+  conflict_groups_before: number
+  conflict_groups_after: number
+  weighted_risk_before: number
+  weighted_risk_after: number
+  timetable_entries_changed: number
+}
+
+export interface ResolutionCandidate {
+  candidate_id: string
+  status: Exclude<CandidateSafetyStatus, 'REJECTED'>
+  actionable_without_confirmation: boolean
+  entry_id: number
+  course_code: string | null
+  course_name: string | null
+  section: string | null
+  move_from: CandidateTimeSlot
+  move_to: CandidateTimeSlot
+  duration_minutes: number
+  rank_score: number
+  score_components: CandidateScoreComponent[]
+  ranker: { ranker_id: string; ranker_version: string }
+  features: {
+    feature_schema_version: '1.0'
+    hard_constraints_passed: true
+    safety_status: Exclude<CandidateSafetyStatus, 'REJECTED'>
+    duration_minutes: number
+    affected_students: number
+    confirmed_conflicts_removed: number
+    inferred_conflicts_removed: number
+    structural_clashes_removed: number
+    conflict_groups_removed: number
+    weighted_risk_reduction: number
+    day_distance: number
+    time_shift_minutes: number
+    late_slot: boolean
+    missing_metadata_count: number
+  }
+  checks: CandidateCheck[]
+  missing_data: string[]
+  rejection_reasons: string[]
+  impact: ResolutionCandidateImpact
+}
+
+export interface RejectedResolutionCandidate {
+  candidate_id: string
+  entry_id: number
+  move_to: CandidateTimeSlot
+  status: 'REJECTED'
+  rejection_reasons: string[]
+  checks: CandidateCheck[]
+}
+
+export interface ClashReportResolutionCandidatesResponse {
+  report_id: number
+  report_status: ClashReportStatus
+  report_entry_ids: number[]
+  target_entry_ids: number[]
+  policy: {
+    operating_days: string[]
+    opens_at: string
+    closes_at: string
+    slot_interval_minutes: number
+    blocked_periods: Array<CandidateTimeSlot & { reason: string }>
+  }
+  summary: {
+    generated: number
+    safe: number
+    conditionally_safe: number
+    insufficient_data: number
+    rejected: number
+  }
+  candidates: ResolutionCandidate[]
+  rejected_candidates: RejectedResolutionCandidate[]
+  important_note: string
+}
+
+export interface ClashReportResolutionApplyResponse {
+  success: true
+  message: string
+  report_id: number
+  report_status: 'resolved'
+  change_id: number
+  candidate_id: string
+  safety_status: 'SAFE' | 'CONDITIONALLY_SAFE'
+  conditional_confirmation_recorded: boolean
+  resolved_report_ids: number[]
+  resolved_report_count: number
+  applied_candidate: ResolutionCandidate
+  report: ClashReportDetail
+}
+
+export interface DataQualityIssue {
+  issue_code: string
+  severity: 'critical' | 'error' | 'warning' | 'info'
+  scope: 'global' | 'term'
+  entity_type: string
+  entity_id: string | null
+  message: string
+  suggested_correction: string
+  related_entity_ids: number[]
+}
+
+export interface DataQualityReport {
+  term_id: number
+  term_code: string
+  generated_at: string
+  summary: { total: number; critical: number; error: number; warning: number; info: number }
+  issues: DataQualityIssue[]
+  important_note: string
+}
+
+export interface OptionalRateMetric {
+  value: number | null
+  numerator: number | null
+  denominator: number | null
+  available: boolean
+  reason: string | null
+}
+
+export interface ResolverAnalytics {
+  term_id: number
+  term_code: string
+  generated_at: string
+  current_confirmed_conflicts: number
+  current_inferred_conflicts: number
+  current_structural_clashes: number
+  current_verified_students: number
+  current_enrollment_records: number
+  current_affected_student_instances: number
+  report_status_counts: Record<ClashReportStatus, number>
+  report_total: number
+  report_cluster_count: number
+  grouped_duplicate_reports: number
+  average_first_resolution_hours: number | null
+  resolution_applications: number
+  resolution_undos: number
+  resolution_redos: number
+  confirmed_conflicts_removed_by_applications: number
+  structural_clashes_removed_by_applications: number
+  shared_resolved_reports: number
+  shared_resolution_percentage: number | null
+  recommendation_acceptance_rate: OptionalRateMetric
+  undo_rate: OptionalRateMetric
+  redo_rate: OptionalRateMetric
+  important_note: string
+}
+
 export interface FacultyAssignment {
   id: number
   term_id: number

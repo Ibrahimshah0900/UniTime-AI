@@ -1,4 +1,4 @@
-import { Bell, BookOpen, CalendarDays, ChartNoAxesCombined, ClipboardList, Gauge, History, LayoutDashboard, Settings, ShieldCheck, TriangleAlert, UserRoundCog, UsersRound } from 'lucide-react'
+import { Bell, BookOpen, CalendarDays, ChartNoAxesCombined, ClipboardList, Gauge, History, LayoutDashboard, Settings, ShieldCheck, ShieldAlert, TriangleAlert, UserRoundCog, UsersRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { UserRole } from '../types/api'
 
@@ -32,9 +32,10 @@ export function navForRole(role: UserRole): NavItem[] {
     { label: 'Faculty Assignments', path: '/faculty-assignments', icon: UsersRound },
     { label: 'Optimizer', path: '/optimizer', icon: ChartNoAxesCombined },
     { label: 'History', path: '/history', icon: History },
+    { label: 'Quality & Analytics', path: '/insights', icon: ShieldAlert },
     common[1],
   ]
-  if (role === 'admin') operational.splice(7, 0, { label: 'Users & Roles', path: '/admin/users', icon: UserRoundCog })
+  if (role === 'admin') operational.splice(8, 0, { label: 'Users & Roles', path: '/admin/users', icon: UserRoundCog })
   operational.push(common[2])
   return operational
 }

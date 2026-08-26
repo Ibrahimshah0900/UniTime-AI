@@ -1,6 +1,6 @@
 # UniTime-AI
 
-UniTime-AI is a full-stack university timetable and clash-resolution application for students, faculty, coordinators, and administrators. The FastAPI backend provides institution-controlled student/faculty provisioning, registration-number or email authentication, verified student profiles, transactional roster import, RBAC, timetable import and safe editing, clash analysis, optimizer execution and rollback, personal schedules, faculty assignments, clash reporting, notifications/reminders, dashboards, and account administration. The React/Vite frontend provides the corresponding role-adaptive user workflows.
+UniTime-AI is a full-stack university timetable and clash-resolution application for students, faculty, coordinators, and administrators. The FastAPI backend provides institution-controlled student/faculty provisioning, registration-number or email authentication, verified student profiles, transactional roster import, RBAC, timetable import and safe editing, clash analysis, optimizer execution and rollback, personal schedules, faculty assignments, clash reporting, deterministic report-scoped resolution candidates, notifications/reminders, data-quality diagnostics, resolver analytics, dashboards, and account administration. The React/Vite frontend provides the corresponding role-adaptive user workflows.
 
 ## Local setup
 
@@ -37,6 +37,12 @@ The human-readable contract and authorization matrix are in `docs/API_CONTRACT.m
 `python scripts/export_openapi.py`
 
 The deterministic ranking boundary, PII-free feature schema, future ranker interface, learning labels, and offline ranking-dataset workflow are documented in `docs/RANKER_CONTRACT.md`. The PII-guarded domain event store and its separate export are documented in `docs/LEARNING_EVENTS.md`. UniTime-AI does not train or deploy an ML model in the current phase.
+
+For isolated development and resolver benchmarking, generate clearly labeled synthetic data with:
+
+`python scripts/generate_synthetic_demo.py --database data/unitime-demo.db --confirm-synthetic --benchmark`
+
+The generator refuses the normal development database and non-empty targets. See `docs/SYNTHETIC_DATA.md`.
 
 ## Privileged bootstrap
 

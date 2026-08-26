@@ -15,10 +15,12 @@ def test_committed_openapi_contract_matches_application():
 
 
 def test_api_contract_version_is_stable_for_frontend_handoff():
-    assert app.version == "0.15.0"
-    assert len(app.openapi()["paths"]) == 68
+    assert app.version == "0.16.0"
+    assert len(app.openapi()["paths"]) == 70
     assert "/clash-reports/clusters" in app.openapi()["paths"]
     assert "/student/enrollments/validate" in app.openapi()["paths"]
+    assert "/data-quality" in app.openapi()["paths"]
+    assert "/resolver-analytics" in app.openapi()["paths"]
 
 
 def test_successful_json_operations_publish_response_schemas():

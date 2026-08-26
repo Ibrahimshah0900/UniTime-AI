@@ -35,10 +35,8 @@ def prepare_database() -> None:
     from backend.database import SessionLocal
     from backend.models import (
         FacultyClassAssignment,
-        StudentClashReport,
-        StudentClashReportEvent,
-        StudentClashReportItem,
         StudentEnrollment,
+        StudentProfile,
         TimetableEntry,
         User,
     )
@@ -52,6 +50,21 @@ def prepare_database() -> None:
         admin = User(email="admin.e2e@example.edu", full_name="E2E Admin", password_hash=password_hash, role="admin", is_active=True)
         db.add_all([student, faculty, coordinator, admin])
         db.flush()
+        db.add(
+            StudentProfile(
+                user_id=student.id,
+                registration_number="E2E-FA26-BAI-001",
+                department="Computing",
+                program="BS Artificial Intelligence",
+                batch="2026",
+                current_semester=3,
+                section="A",
+                academic_status="active",
+                is_verified=True,
+                onboarding_completed=True,
+                created_by_user_id=coordinator.id,
+            )
+        )
 
         ai_entry = TimetableEntry(
             course_code="AI-301",
@@ -93,35 +106,6 @@ def prepare_database() -> None:
             ]
         )
         db.flush()
-        report = StudentClashReport(
-            student_user_id=student.id,
-            status="submitted",
-            notes="Seeded overlapping classes for coordinator review.",
-        )
-        db.add(report)
-        db.flush()
-        for entry in (ai_entry, math_entry):
-            db.add(
-                StudentClashReportItem(
-                    report_id=report.id,
-                    timetable_entry_id=entry.id,
-                    course_code=entry.course_code or "Class",
-                    section=entry.section,
-                    semester=entry.semester,
-                    day=entry.day,
-                    start_time=entry.start_time,
-                    end_time=entry.end_time,
-                )
-            )
-        db.add(
-            StudentClashReportEvent(
-                report_id=report.id,
-                actor_user_id=student.id,
-                action="submitted",
-                to_status="submitted",
-                note="Seeded E2E clash report.",
-            )
-        )
         add_notification(
             db,
             user_id=student.id,

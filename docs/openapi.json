@@ -2232,6 +2232,147 @@
         "title": "DashboardResponse",
         "type": "object"
       },
+      "DataQualityIssueResponse": {
+        "properties": {
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "issue_code": {
+            "title": "Issue Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "related_entity_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Related Entity Ids",
+            "type": "array"
+          },
+          "scope": {
+            "enum": [
+              "global",
+              "term"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "error",
+              "warning",
+              "info"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "suggested_correction": {
+            "title": "Suggested Correction",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_code",
+          "severity",
+          "scope",
+          "entity_type",
+          "entity_id",
+          "message",
+          "suggested_correction"
+        ],
+        "title": "DataQualityIssueResponse",
+        "type": "object"
+      },
+      "DataQualityReportResponse": {
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "important_note": {
+            "title": "Important Note",
+            "type": "string"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/DataQualityIssueResponse"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DataQualitySummaryResponse"
+          },
+          "term_code": {
+            "title": "Term Code",
+            "type": "string"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term_id",
+          "term_code",
+          "generated_at",
+          "summary",
+          "issues",
+          "important_note"
+        ],
+        "title": "DataQualityReportResponse",
+        "type": "object"
+      },
+      "DataQualitySummaryResponse": {
+        "properties": {
+          "critical": {
+            "title": "Critical",
+            "type": "integer"
+          },
+          "error": {
+            "title": "Error",
+            "type": "integer"
+          },
+          "info": {
+            "title": "Info",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "warning": {
+            "title": "Warning",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "critical",
+          "error",
+          "warning",
+          "info"
+        ],
+        "title": "DataQualitySummaryResponse",
+        "type": "object"
+      },
       "EnrollmentAlternateSectionResponse": {
         "properties": {
           "conflict_free": {
@@ -4100,6 +4241,66 @@
         "title": "OptimizerSnapshotResponse",
         "type": "object"
       },
+      "OptionalRateMetric": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "denominator": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Denominator"
+          },
+          "numerator": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numerator"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "numerator",
+          "denominator",
+          "available"
+        ],
+        "title": "OptionalRateMetric",
+        "type": "object"
+      },
       "PasswordChange": {
         "additionalProperties": false,
         "properties": {
@@ -4265,6 +4466,181 @@
           "rejected"
         ],
         "title": "ResolutionCandidateSummaryResponse",
+        "type": "object"
+      },
+      "ResolverAnalyticsResponse": {
+        "properties": {
+          "average_first_resolution_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average First Resolution Hours"
+          },
+          "confirmed_conflicts_removed_by_applications": {
+            "title": "Confirmed Conflicts Removed By Applications",
+            "type": "integer"
+          },
+          "current_affected_student_instances": {
+            "title": "Current Affected Student Instances",
+            "type": "integer"
+          },
+          "current_confirmed_conflicts": {
+            "title": "Current Confirmed Conflicts",
+            "type": "integer"
+          },
+          "current_enrollment_records": {
+            "title": "Current Enrollment Records",
+            "type": "integer"
+          },
+          "current_inferred_conflicts": {
+            "title": "Current Inferred Conflicts",
+            "type": "integer"
+          },
+          "current_structural_clashes": {
+            "title": "Current Structural Clashes",
+            "type": "integer"
+          },
+          "current_verified_students": {
+            "title": "Current Verified Students",
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "grouped_duplicate_reports": {
+            "title": "Grouped Duplicate Reports",
+            "type": "integer"
+          },
+          "important_note": {
+            "title": "Important Note",
+            "type": "string"
+          },
+          "recommendation_acceptance_rate": {
+            "$ref": "#/components/schemas/OptionalRateMetric"
+          },
+          "redo_rate": {
+            "$ref": "#/components/schemas/OptionalRateMetric"
+          },
+          "report_cluster_count": {
+            "title": "Report Cluster Count",
+            "type": "integer"
+          },
+          "report_status_counts": {
+            "$ref": "#/components/schemas/ResolverAnalyticsStatusCounts"
+          },
+          "report_total": {
+            "title": "Report Total",
+            "type": "integer"
+          },
+          "resolution_applications": {
+            "title": "Resolution Applications",
+            "type": "integer"
+          },
+          "resolution_redos": {
+            "title": "Resolution Redos",
+            "type": "integer"
+          },
+          "resolution_undos": {
+            "title": "Resolution Undos",
+            "type": "integer"
+          },
+          "shared_resolution_percentage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Resolution Percentage"
+          },
+          "shared_resolved_reports": {
+            "title": "Shared Resolved Reports",
+            "type": "integer"
+          },
+          "structural_clashes_removed_by_applications": {
+            "title": "Structural Clashes Removed By Applications",
+            "type": "integer"
+          },
+          "term_code": {
+            "title": "Term Code",
+            "type": "string"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
+          "undo_rate": {
+            "$ref": "#/components/schemas/OptionalRateMetric"
+          }
+        },
+        "required": [
+          "term_id",
+          "term_code",
+          "generated_at",
+          "current_confirmed_conflicts",
+          "current_inferred_conflicts",
+          "current_structural_clashes",
+          "current_verified_students",
+          "current_enrollment_records",
+          "current_affected_student_instances",
+          "report_status_counts",
+          "report_total",
+          "report_cluster_count",
+          "grouped_duplicate_reports",
+          "average_first_resolution_hours",
+          "resolution_applications",
+          "resolution_undos",
+          "resolution_redos",
+          "confirmed_conflicts_removed_by_applications",
+          "structural_clashes_removed_by_applications",
+          "shared_resolved_reports",
+          "shared_resolution_percentage",
+          "recommendation_acceptance_rate",
+          "undo_rate",
+          "redo_rate",
+          "important_note"
+        ],
+        "title": "ResolverAnalyticsResponse",
+        "type": "object"
+      },
+      "ResolverAnalyticsStatusCounts": {
+        "properties": {
+          "duplicate": {
+            "default": 0,
+            "title": "Duplicate",
+            "type": "integer"
+          },
+          "rejected": {
+            "default": 0,
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "resolved": {
+            "default": 0,
+            "title": "Resolved",
+            "type": "integer"
+          },
+          "submitted": {
+            "default": 0,
+            "title": "Submitted",
+            "type": "integer"
+          },
+          "under_review": {
+            "default": 0,
+            "title": "Under Review",
+            "type": "integer"
+          }
+        },
+        "title": "ResolverAnalyticsStatusCounts",
         "type": "object"
       },
       "RoomChangeRequest": {
@@ -6880,7 +7256,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.15.0"
+    "version": "0.16.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -8442,6 +8818,61 @@
         ]
       }
     },
+    "/data-quality": {
+      "get": {
+        "operationId": "get_data_quality_report_data_quality_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataQualityReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Data Quality Report",
+        "tags": [
+          "Data Quality"
+        ]
+      }
+    },
     "/faculty-assignments": {
       "get": {
         "operationId": "get_managed_faculty_assignments_faculty_assignments_get",
@@ -9425,6 +9856,61 @@
           }
         },
         "summary": "Readiness Endpoint"
+      }
+    },
+    "/resolver-analytics": {
+      "get": {
+        "operationId": "get_resolver_analytics_resolver_analytics_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolverAnalyticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Resolver Analytics",
+        "tags": [
+          "Resolver Analytics"
+        ]
       }
     },
     "/student-schedule-changes": {

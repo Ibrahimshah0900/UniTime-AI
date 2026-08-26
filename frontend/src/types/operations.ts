@@ -328,7 +328,12 @@ export interface StudentScheduleChange {
   id: number
   term_id: number
   entry_id: number
-  group_id: number
+  group_id: number | null
+  report_id?: number | null
+  actor_user_id?: number | null
+  candidate_id?: string | null
+  safety_status?: string | null
+  report_resolution_note?: string | null
   change_type: string
   old_day: string
   old_start_time: string

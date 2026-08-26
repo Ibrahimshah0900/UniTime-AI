@@ -11,6 +11,7 @@ import { FacultyAssignmentsPage } from '../pages/FacultyAssignmentsPage'
 import { NotificationsPage } from '../pages/NotificationsPage'
 import { ClashesPage, HistoryPage, OptimizerPage } from '../pages/OperationsPages'
 import { TimetablePage } from '../pages/TimetablePage'
+import { InsightsPage } from '../pages/InsightsPage'
 
 export default function App() {
   return <Routes>
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="clashes" element={<ProtectedRoute roles={['coordinator','admin']}><ClashesPage/></ProtectedRoute>}/>
       <Route path="optimizer" element={<ProtectedRoute roles={['coordinator','admin']}><OptimizerPage/></ProtectedRoute>}/>
       <Route path="history" element={<ProtectedRoute roles={['coordinator','admin']}><HistoryPage/></ProtectedRoute>}/>
+      <Route path="insights" element={<ProtectedRoute roles={['coordinator','admin']}><InsightsPage/></ProtectedRoute>}/>
       <Route path="admin/users" element={<ProtectedRoute roles={['admin']}><AdminUsersPage/></ProtectedRoute>}/>
     </Route>
     <Route path="*" element={<Navigate to="/dashboard" replace/>}/>

@@ -1,389 +1,232 @@
-# UniTime-AI — Codex Repository Instructions
+# UniTime-AI — Repository Instructions
 
 ## Project purpose
-UniTime-AI is a university timetable clash-resolution system. The backend is a FastAPI application with SQLAlchemy/Alembic, authentication/RBAC, timetable import and clash detection, optimizer execution/rollback history, student enrollments, and personal timetables. The target is a production/deployment-ready application with role-specific workflows for students, faculty, coordinators, and admins.
+UniTime-AI is a full-stack university timetable and clash-resolution system. It supports students, faculty, coordinators, and admins with institution-controlled identity, academic terms, enrollment-backed personal timetables, verified clash reports, deterministic safe resolution candidates, transactional apply/undo/redo, notifications, learning-event preparation, and a React/Vite frontend.
 
 ## Working directory
-Primary local repo path on Windows:
+Primary Windows repository path: `D:\UniTime-AI`.
 
-`D:\UniTime-AI`
+Work in the existing repository. Extend the proven architecture; do not create a parallel rewrite.
 
-Use the repository in place. Do not create a parallel rewrite unless explicitly requested.
+## Current architectural baseline
+The repository has progressed beyond the historical Phase-5 handoff. The authoritative state is the actual Git history, migrations, tests, and API contract.
 
-## Current branch and exact pause point
-Current intended branch:
+Known checkpoint before the current continuation:
+- branch: `phase-6-faculty-access`
+- commit: `8b2c437 Collect pii guarded domain learning events`
+- Alembic head: `738057d5ac81`
+- API contract before the quality/analytics continuation: `0.15.0`
+- known green baseline: 257 backend tests passed, 1 skipped; 21 frontend tests passed; lint, typecheck, and production build passed
 
-`phase-5-clash-reporting`
+The current working branch may contain later commits. Always inspect Git and Alembic rather than resetting to the checkpoint above.
 
-Last committed checkpoint before Phase 5:
+Never rewrite, squash, or reset existing project history without explicit approval.
 
-`86905b6 Add student enrollments and personal timetable`
-
-Phase 5 has already started and there is intentionally uncommitted work in `backend/models.py`:
-
-- `StudentClashReport`
-- `StudentClashReportItem`
-- `StudentClashReportEvent`
-
-`python -m py_compile backend\models.py` passed after these models were added.
-
-No clash-report Alembic migration has been generated or applied yet. No Phase 5 clash-report service/API/tests exist yet.
-
-Do NOT automatically discard or restore the current uncommitted Phase 5 model work.
-
-The next expected action is:
-
-`alembic check`
-
-The expected result is schema drift showing the new clash-report tables/indexes because the models exist but the migration does not yet. After inspecting that output, generate the migration, inspect it, then apply it.
-
-## Last known green baseline
-Before Phase 5 began:
-
-- Full test suite: **125 passed**
-- Alembic head: `90feb9f09ea3`
-- `alembic check`: no new upgrade operations detected
-- `git diff --check`: clean
-
-Current Phase 5 model-only change has compiled successfully but has not yet been fully regression-tested or committed.
-
-## Important Git checkpoints
-Major known checkpoints include:
-
-- `b7f09ee` — Backend V1 Core - Functionally Tested
-- `4502d3e` — Phase 2 Global Optimizer and Multi-Step Safety
-- `314a454` — Add automated optimizer safety tests
-- `4725b07` — Add grouped optimizer execution history and rollback
-- Phase 3 production-hardening commits ending with `40aaefa Complete production readiness hardening`
-- `f3f6b55` — Add authentication and user roles
-- `3a744f5` — Enforce role based access control
-- `9439594` — Add privileged account provisioning
-- `86905b6` — Add student enrollments and personal timetable
-
-Never rewrite or squash project history without explicit approval.
-
-## Development workflow — mandatory
+## Mandatory workflow
 Reliability matters more than shaving off one command.
 
-Use a controlled fast-track workflow:
-
-1. Inspect the current file(s) and Git state before editing.
-2. Batch only a few closely related changes.
-3. Prefer readable edits/patches. Do not use opaque Base64 blobs or giant blind one-liners.
-4. After each meaningful code batch, run `py_compile` on touched Python files.
-5. Run targeted tests for the changed feature.
-6. Stop immediately on the first failure and fix it before stacking more changes.
-7. Run the full regression suite before a Git checkpoint.
+1. Inspect the current Git state and relevant code before editing.
+2. Make small, architecture-compatible changes.
+3. Prefer readable edits; no opaque Base64 blobs or giant blind shell one-liners.
+4. Compile changed Python code.
+5. Run targeted tests for the changed subsystem.
+6. Stop on the first real failure and fix the root cause before stacking more changes.
+7. Run the full regression suite before a checkpoint.
 8. Run `alembic check` whenever models/schema are involved.
 9. Run `git diff --check` before committing.
-10. Create a focused Git commit only after everything is green.
+10. Create focused local commits only after the milestone is green.
 
-If a patch goes wrong, prefer restoring the affected Sprint files to the last green Git checkpoint rather than layering more uncertain edits.
+Do not claim success for tests or deployment steps that were not actually run.
 
-Do not ask the user to manually edit files when Codex can edit them directly.
-
-## Windows / shell constraints
+## Windows / shell
 The user works on Windows CMD/VS Code terminals.
 
 - Prefer Windows-compatible commands.
-- Avoid shell constructs that depend on Bash unless you are running them yourself in a compatible environment.
-- Do not emit placeholder commands containing literal `...`.
-- Avoid fragile quoting-heavy one-liners.
-- If creating or patching multiline files, use normal file editing capabilities directly rather than encoded terminal tricks.
+- Use the project interpreter: `.venv\Scripts\python.exe`.
+- Avoid fragile quoting-heavy commands and Bash-only constructs in user-facing instructions.
+- Do not ask the user to manually edit code when the coding agent can make the edit safely.
 
-## Python / local environment
-The repo uses a virtual environment at:
+A machine-specific pytest temp-directory permission issue may exist under `%TEMP%`. When present, use the already verified project-local workaround `--basetemp=data\pytest-opencode` rather than changing application logic.
 
-`.venv`
+## Git and safety
+Allowed: inspect Git, selectively stage project files, create focused local commits after green verification.
 
-Typical startup:
+Never perform without explicit approval:
+- `git push`
+- `git reset --hard`
+- `git clean`
+- force-push/rebase/history rewrite
+- destructive deletion of project/user data
 
-`cd /d D:\UniTime-AI`
-
-`.venv\Scripts\activate`
-
-Run API locally with:
-
-`python -m uvicorn backend.app:app --reload`
-
-Development docs:
-
-`http://127.0.0.1:8000/docs`
+Never commit secrets, `.env`, local databases, generated demo databases, `node_modules`, build output, or agent-operation files.
 
 ## Database / migrations
-Local development DB:
+Alembic is the sole schema owner. Application startup must not use `create_all()` as schema management.
 
-`data/unitime_ai.db`
+Local development defaults to SQLite; production is PostgreSQL-ready via `DATABASE_URL`.
 
-Alembic is the sole schema owner. Do not reintroduce runtime `create_all()` ownership into application startup.
+Before a schema checkpoint:
+- inspect current migration head
+- generate one focused migration only when required
+- inspect the migration manually
+- run upgrade/check in an isolated or appropriate environment
+- preserve existing data semantics
 
-Production is intended to use a hosted database, likely PostgreSQL, via `DATABASE_URL`.
+Do not reset the development database merely to make migration problems disappear.
 
-Important commands:
-
-- `alembic current`
-- `alembic check`
-- `alembic revision --autogenerate -m "..."`
-- inspect generated migration before `alembic upgrade head`
-- `alembic upgrade head`
-
-Migration head before Phase 5: `90feb9f09ea3`.
-
-## Existing backend capabilities
-### Core timetable / clash engine
-Existing capabilities include:
-
-- timetable CRUD
-- CSV/XLSX timetable import
-- course parsing
-- room/faculty clash detection
-- room suggestions/fixes
-- student conflict-risk analysis
-- student conflict groups/resolutions
-- timetable change history
-- student schedule change history
-- undo/redo
-- audit trail
-
-### Optimizer
-Existing capabilities include:
-
-- global optimizer
-- multi-step optimization plan
-- optimizer safety rules
-- grouped optimizer execution history
-- grouped optimizer undo/redo
-- no structural clash increase
-- risk-cost improvement requirements
-- student conflict-group safety
-- confirmed-risk safety
-
-Existing optimizer routes include:
-
-- `GET /optimizer/global`
-- `POST /optimizer/global/apply-best`
-- `GET /optimizer/plan`
-- `POST /optimizer/plan/apply`
-- `GET /optimizer/executions`
-- `GET /optimizer/executions/{execution_id}`
-- `POST /optimizer/executions/{execution_id}/undo`
-- `POST /optimizer/executions/{execution_id}/redo`
-
-### Production hardening
-Already implemented:
-
-- environment-configurable DB
-- Alembic migration ownership
-- strict `/ready` migration-head check
-- `/health`
-- CORS config
-- trusted hosts
-- centralized logging
-- request IDs
-- safe API exception handling
-- standardized validation/errors
-- security headers
-- production docs behavior
-- upload hardening
-- runtime production configuration validation
-- dotenv loading
-
-### Authentication / roles
+## Authentication, identity, and RBAC
 Roles:
-
 - `student`
 - `faculty`
 - `coordinator`
 - `admin`
 
-Authentication includes:
-
+Preserve:
+- JWT auth with token-version invalidation
 - Argon2 password hashing
-- JWT access tokens
-- `POST /auth/register` — public student registration only
-- `POST /auth/login`
-- `GET /auth/me`
+- student login by registration number or email
+- faculty/coordinator/admin email login
+- institution-controlled student provisioning/import
+- temporary-password and first-login workflow
+- verified student profile/onboarding
+- faculty provisioning and assignments
+- ownership protection
+- production public-registration restrictions
 
-Privileged users are provisioned through a CLI, not public self-registration:
+Do not reintroduce unrestricted public institutional registration.
 
-`python -m backend.create_user --email <email> --name "<name>" --role faculty|coordinator|admin`
+## Academic terms
+The authoritative lifecycle is:
 
-The CLI prompts for the password interactively so the password is not stored in shell history.
+`planning -> active -> archived`
 
-### RBAC
-All 14 sensitive timetable/optimizer mutation routes are guarded for coordinator/admin access.
+Planning is a draft workspace, active is current operational truth, archived terms are historical/read-only. Current APIs default to the active term where appropriate.
 
-Expected behavior:
+Do not destructively replace this lifecycle. A deeper same-term publication/version model is optional future work only if it can be integrated safely.
 
-- anonymous: `401`
-- student: `403`
-- faculty: `403` for institutional timetable mutation
-- coordinator: allowed
-- admin: allowed
+## Enrollment-backed schedules and conflict graph
+Student enrollments use stable course/section/semester identities rather than direct timetable-entry foreign keys.
 
-Permanent RBAC tests exist.
+Personal timetable matching supports exact sections, combined sections, common/shared entries, missing timetable semester metadata, and normalized identities.
 
-### Student enrollments / personal timetable
-Student enrollment identity is intentionally stable and does NOT point directly to timetable entry IDs:
+Confirmed student conflicts must come from actual active verified enrollment mappings. Heuristic timetable-only risks must remain explicitly labeled inferred/probable and must never be presented as confirmed enrollment evidence.
 
-- `user_id`
-- `course_code`
-- `section`
-- `semester`
+## Verified clash reporting
+Students submit reports only for classes in their current personal timetable and for real current overlaps. Reports preserve immutable server-attached identity, term, class, and conflict snapshots.
 
-This avoids enrollment breakage when timetable imports rebuild entries.
+Students may access only their own reports. Coordinator/admin review is audited.
 
-Existing endpoints:
+A report must not become `resolved` merely because a reviewer selected a status and wrote a note. Verified resolution reasons are:
+- `timetable_changed`
+- `enrollment_corrected`
+- `course_dropped`
+- `other_verified_correction`
 
-- `GET /student/enrollments`
-- `POST /student/enrollments`
-- `DELETE /student/enrollments/{enrollment_id}`
-- `GET /student/timetable`
+The backend must verify the reported live conflict is actually gone; otherwise resolution returns a conflict response.
 
-Student-only guards apply.
+## Duplicate clustering
+Reports for the same underlying term/conflict may be clustered while preserving each report and owner. Cluster-level responses must not expose student names, emails, registration numbers, or user IDs.
 
-Personal timetable matching rules currently account for real imported timetable data:
+## Deterministic safe resolution candidates
+The application already has report-scoped candidate generation and ranking.
 
-- course code must match
-- enrolled section `A` matches timetable section `A`
-- enrolled section `A` also matches combined section `A,C`
-- timetable section `None` is treated as shared/common and included
-- timetable semester `None` does not block a match
-- when timetable semester is present, it must match enrollment semester
+Candidate states:
+- `SAFE`
+- `CONDITIONALLY_SAFE`
+- `INSUFFICIENT_DATA`
+- `REJECTED`
 
-Real imported timetable data contains sections such as `A`, `B`, `C`, `A,C`, `B,C`, and some `None` sections. Many current timetable entries have `semester=None`.
+Hard constraints are authoritative. Reject violations before ranking. `INSUFFICIENT_DATA` and `REJECTED` are never applicable. Conditional candidates require explicit coordinator confirmation.
 
-## Phase 5 — Student clash reporting requirements
-This is the current active phase.
+Candidate IDs include relevant live timetable/policy/enrollment evidence so stale candidates are rejected at execution.
 
-The report workflow should support:
+## Transactional apply / undo / redo
+Resolution application must:
+- regenerate/revalidate under the timetable write lock
+- reject stale/unsafe candidates
+- update only the intended timetable entry
+- recheck the live result
+- resolve matching reports only when the real overlap disappeared
+- record report events, timetable history, actor/candidate/safety metadata, notifications, and learning signals
+- commit atomically
 
-1. Authenticated student submits a clash report from the app.
-2. Report references the relevant classes/timetable entries and stores stable snapshots such as course code, section, day, and time where appropriate.
-3. Student may include notes/reason and an evidence reference/attachment reference if supported.
-4. Coordinator/admin gets a review queue.
-5. Status lifecycle:
-   - `submitted`
-   - `under_review`
-   - `resolved`
-   - `rejected`
-   - `duplicate`
-6. Duplicate reports should be linkable/groupable.
-7. Resolution note should be stored.
-8. Full event/audit history should record actions and status changes.
-9. Students should only see their own reports.
-10. Coordinator/admin can review/update reports.
-11. Faculty should not gain coordinator/admin timetable mutation powers unless explicitly decided later.
-12. Notifications will later be emitted for status changes/resolutions.
+Failure rolls everything back.
 
-The current uncommitted models were designed to support this:
+Undo must reopen any related report whose real conflict returns. Redo must regenerate/revalidate the candidate before reapplying.
 
-- `StudentClashReport`
-- `StudentClashReportItem`
-- `StudentClashReportEvent`
+## Enrollment add/drop validation
+`POST /student/enrollments/validate` previews actual timetable overlaps and timetable-only alternate sections. It must not claim capacity, eligibility, seat availability, or institutional approval unless those facts are modeled and verified. Never auto-switch a student between sections.
 
-Inspect them before changing their design.
+## Learning / AI boundary
+No production ML model is currently trained, selected, hosted, deployed, or allowed to bypass hard safety rules.
 
-## Remaining roadmap after clash reporting
-After Phase 5, continue roughly in this order unless repo evidence suggests a better dependency order:
+Allowed engineering work:
+- deterministic safety and ranking
+- feature extraction
+- PII-guarded event collection
+- dataset export
+- synthetic benchmarks
+- ranker interfaces
+- future-model safety tests
 
-1. Complete student clash reporting and coordinator/admin review queue.
-2. Faculty-to-class mapping and faculty-specific schedule/access where needed.
-3. Notifications and reminder preferences:
-   - before-class reminders, e.g. 5/10/15/30 minutes
-   - optional daily summaries
-   - schedule-change notifications
-   - room/time change notifications
-   - cancellation notifications
-   - clash-report status/resolution notifications
-4. Role-specific dashboard APIs for student/faculty/coordinator/admin.
-5. Final backend API contract cleanup and OpenAPI review.
-6. Frontend integration.
-7. End-to-end tests for all roles.
-8. Production deployment configuration and CI/CD.
-9. Hosted PostgreSQL migration/deployment.
-10. Production smoke tests and release readiness.
+Not part of coding-agent work:
+- training/selecting a production ML algorithm
+- hosting/deploying a model
+- using an LLM as the timetable resolver
+- inventing performance metrics
 
-## Frontend workflow — important
-Do not independently redesign the frontend UX as an uncoordinated rewrite.
+If ML is added later, it may rank candidates that already passed deterministic safety; it cannot override constraints.
 
-The agreed workflow is:
+## Synthetic/demo data
+Synthetic generation is an isolated development/testing tool, never application-startup behavior and never production data.
 
-1. Backend/API requirements are finalized enough for frontend work.
-2. ChatGPT prepares one comprehensive Gemini frontend prompt covering:
-   - project goals
-   - backend capabilities
-   - architecture
-   - API contract
-   - roles
-   - required screens/components/flows
-   - clash-report and notification workflows
-   - required frontend files/structure
-   - integration constraints
-   - what Gemini must not change
-3. User gives that prompt to Gemini.
-4. Gemini returns frontend code/ZIP.
-5. ChatGPT/Codex reviews, verifies, fixes, integrates, and tests it against FastAPI.
+Synthetic records must be unmistakably labeled DEMO/SYNTHETIC, use reserved/test identities, avoid real PII, refuse the normal development/production database, refuse populated targets, and remain deterministic for a given seed/configuration.
 
-Do not invent a parallel frontend before this workflow unless the user explicitly changes the plan.
+Generated databases and benchmark artifacts must not be committed.
 
-## Deployment target
-The final system should be deployment-ready so the user's laptop does not need to remain running.
+## Data quality and resolver analytics
+Coordinator/admin diagnostics must be read-only and privacy-conscious. Report only facts supported by the actual schema. Do not fabricate capacity/equipment issues or unavailable analytics.
 
-Expected production components:
+Metrics without trustworthy denominators must be marked unavailable rather than estimated.
 
-- hosted FastAPI backend
-- hosted PostgreSQL or equivalent production DB
-- production secrets via environment variables
-- HTTPS/domain configuration
-- migrations executed safely during deployment
-- frontend/mobile client configured for production API
-- CI/CD or repeatable deployment commands
-- production smoke tests
-- clear README/deployment documentation
+## Frontend
+The React/Vite frontend is already integrated. Preserve the approved role-adaptive design; do not rebuild it from scratch or start an unrelated redesign.
 
-Do not hardcode production secrets into the repository.
+Coordinator workflows should expose report clusters, ranked candidates, impact/safety explanations, confirmation, apply results, history, undo/reopen, safe redo, quality diagnostics, and resolver analytics without dumping raw JSON as the normal UX.
+
+Maintain loading/error/empty/disabled/stale/success states and existing accessibility patterns.
 
 ## Testing expectations
-Do not claim a feature is complete until relevant tests are added and green.
-
-Known green baseline before Phase 5:
-
-`125 passed`
-
-Use:
-
-`python -m pytest tests -q`
-
-Before a feature checkpoint also run:
-
-- `python -m py_compile <touched files>`
-- targeted feature tests
-- `python -m pytest tests -q`
-- `alembic check` when relevant
+Backend checkpoint:
+- compile changed Python files or `compileall`
+- targeted tests
+- full `pytest` regression
+- `alembic check`
 - `git diff --check`
-- `git status --short`
 
-## Initial Codex startup procedure
-When starting work in this repo, first inspect rather than assume.
+Frontend checkpoint:
+- `npm run lint`
+- `npm run typecheck`
+- `npm test -- --run` or repository-established equivalent
+- `npm run build`
 
-Run/read at minimum:
+Run Playwright E2E for full-stack role/resolution workflows when the environment supports it. Never claim it passed unless it actually ran.
 
+Important end-to-end resolver invariant:
+student provisioning/onboarding -> authentic enrollments -> conflict warning -> verified report -> coordinator cluster/candidates -> safe apply -> timetable changes -> related reports resolve because clash is gone -> student history/notification -> undo -> conflict/report reopen -> safe redo -> verified resolution again.
+
+## Deployment boundary
+The repository is deployment-ready in architecture but must not be called production-deployed until PostgreSQL migrations, role smoke tests, production-style E2E, notification worker, real secrets, HTTPS/domain/CORS/hosts, backups, and live smoke tests are verified.
+
+Mobile/Capacitor packaging, GitHub release, and production hosting are intentionally after the web resolver is logically complete and fully verified.
+
+## Startup inspection
+At the beginning of any significant work, inspect at minimum:
 1. `git branch --show-current`
 2. `git status --short`
-3. `git log --oneline -8`
-4. inspect the current `StudentClashReport`, `StudentClashReportItem`, and `StudentClashReportEvent` models
-5. `python -m py_compile backend\models.py`
-6. `alembic current`
-7. `alembic check`
+3. `git log --oneline -10`
+4. `.venv\Scripts\python.exe -m alembic current`
+5. `.venv\Scripts\python.exe -m alembic check`
+6. relevant API contract, models, routes/services, tests, and frontend files
 
-Expected current branch: `phase-5-clash-reporting`.
-
-Expected uncommitted change: `backend/models.py` containing the Phase 5 clash-report models.
-
-Do not auto-clean the working tree if that is what you find.
-
-## Decision rule
-Inspect existing code and extend the current architecture. Avoid parallel implementations, duplicate models, duplicate services, or replacing proven components without a concrete reason.
-
-Preserve the existing tested behavior while adding the remaining functionality needed for a complete, deploy-ready UniTime-AI application.
+The repository itself is authoritative. Do not follow historical pause-point text when Git, migrations, and current code show later completed work.
