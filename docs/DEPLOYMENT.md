@@ -19,7 +19,7 @@ Never commit production credentials. Configure them in the hosting platform's se
 
 Build with `docker build -t unitime-ai-api .`. The image runs as a non-root user, applies `alembic upgrade head`, then starts Uvicorn on `$PORT`.
 
-The repository also includes `frontend/Dockerfile`, an unprivileged Nginx SPA configuration, and `compose.yaml` for a complete PostgreSQL/backend/notification-worker/frontend deployment. Set `POSTGRES_PASSWORD` and a random `AUTH_SECRET_KEY` of at least 32 characters, then run `docker compose up --build`. The frontend is exposed on port 8080 by default and proxies same-origin `/api` requests to FastAPI.
+The repository also includes `frontend/Dockerfile`, an unprivileged Nginx SPA configuration, and `compose.yaml` for a complete PostgreSQL/backend/notification-worker/frontend deployment. Set `POSTGRES_PASSWORD`, a random `AUTH_SECRET_KEY` of at least 32 characters, and `PUBLIC_FRONTEND_ORIGIN` to the real deployed frontend origin, then run `docker compose up --build`. Compose intentionally has no localhost production CORS fallback. The frontend is exposed on port 8080 by default and proxies same-origin `/api` requests to FastAPI.
 
 Use one migration-running instance during deployments if the hosting platform starts multiple replicas simultaneously. After migrations complete, scale application replicas normally.
 

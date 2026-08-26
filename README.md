@@ -26,7 +26,7 @@ Always run `alembic upgrade head` before starting a new application release. `/r
 
 The repository includes a non-root Docker image and GitHub Actions backend CI. The image applies migrations before starting Uvicorn. Required production configuration and deployment checks are documented in `docs/DEPLOYMENT.md`.
 
-For a complete local production-style stack, set `POSTGRES_PASSWORD` and `AUTH_SECRET_KEY`, then run `docker compose up --build`. This starts PostgreSQL, the API, one notification worker, and the built frontend on port 8080.
+For a complete production-style stack, set `POSTGRES_PASSWORD`, `AUTH_SECRET_KEY`, and `PUBLIC_FRONTEND_ORIGIN` to the real deployed frontend origin, then run `docker compose up --build`. This starts PostgreSQL, the API, one notification worker, and the built frontend on port 8080.
 
 Run due reminders from a platform scheduler with `python -m backend.notification_worker --once`, or deploy the documented single continuous worker process.
 

@@ -23,8 +23,9 @@ services:
       AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:?Set AUTH_SECRET_KEY to at least 32 random characters}
       AUTH_ACCESS_TOKEN_MINUTES: ${AUTH_ACCESS_TOKEN_MINUTES:-60}
       APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Karachi}
-      CORS_ORIGINS: ${PUBLIC_FRONTEND_ORIGIN:-http://localhost:8080}
-      ALLOWED_HOSTS: backend,localhost,127.0.0.1
+      CORS_ORIGINS: ${PUBLIC_FRONTEND_ORIGIN:?Set PUBLIC_FRONTEND_ORIGIN to the deployed frontend origin}
+      ALLOWED_HOSTS: backend,127.0.0.1
+      ALLOW_PUBLIC_STUDENT_REGISTRATION: "false"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       MAX_TIMETABLE_UPLOAD_MB: ${MAX_TIMETABLE_UPLOAD_MB:-10}
       CANDIDATE_RANKER_MODE: ${CANDIDATE_RANKER_MODE:-experimental_catboost}
@@ -46,8 +47,9 @@ services:
       DATABASE_URL: postgresql+psycopg://unitime:${POSTGRES_PASSWORD}@database:5432/unitime
       AUTH_SECRET_KEY: ${AUTH_SECRET_KEY}
       APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Karachi}
-      CORS_ORIGINS: ${PUBLIC_FRONTEND_ORIGIN:-http://localhost:8080}
-      ALLOWED_HOSTS: backend
+      CORS_ORIGINS: ${PUBLIC_FRONTEND_ORIGIN:?Set PUBLIC_FRONTEND_ORIGIN to the deployed frontend origin}
+      ALLOWED_HOSTS: backend,127.0.0.1
+      ALLOW_PUBLIC_STUDENT_REGISTRATION: "false"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       backend:
