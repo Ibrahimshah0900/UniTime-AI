@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "input_features": [
+    "duration_minutes",
+    "affected_students",
+    "confirmed_conflicts_removed",
+    "inferred_conflicts_removed",
+    "structural_clashes_removed",
+    "conflict_groups_removed",
+    "weighted_risk_reduction",
+    "day_distance",
+    "time_shift_minutes",
+    "missing_metadata_count",
+    "late_slot",
+    "is_conditionally_safe"
+  ],
+  "target": "synthetic_relevance",
+  "ranking_group": "group_id",
+  "categorical_encoding": {
+    "safety_status": {
+      "SAFE": 0,
+      "CONDITIONALLY_SAFE": 1,
+      "output_feature": "is_conditionally_safe"
+    }
+  },
+  "boolean_encoding": {
+    "late_slot": {
+      "false": 0,
+      "true": 1
+    }
+  },
+  "scaling": "none",
+  "eligible_candidates": [
+    "SAFE",
+    "CONDITIONALLY_SAFE"
+  ],
+  "never_rank": [
+    "INSUFFICIENT_DATA",
+    "REJECTED"
+  ]
+}

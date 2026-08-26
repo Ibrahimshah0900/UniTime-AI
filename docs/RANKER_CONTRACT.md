@@ -1,6 +1,6 @@
 # UniTime-AI ranker preparation contract
 
-UniTime-AI is fully functional without an ML model. Hard scheduling constraints remain deterministic and authoritative. This contract prepares data and interfaces for possible manual research later; it does not select, train, evaluate, deploy, or host a model.
+UniTime-AI is fully functional without ML. Hard scheduling constraints remain deterministic and authoritative. The repository now includes a frozen CatBoost `research-v1` ranker trained on synthetic labels only. It is an experimental ordering layer, not a safety authority and not evidence of real-university accuracy.
 
 ## Safety boundary
 
@@ -11,11 +11,11 @@ The candidate pipeline is ordered and cannot be reversed:
 3. Apply deterministic policy, structural-clash, enrollment-backed student-conflict, report-overlap, group, and global-risk checks.
 4. Put any hard failure in `REJECTED`. Rejected candidates never reach a ranker.
 5. Classify remaining candidates as `SAFE`, `CONDITIONALLY_SAFE`, or `INSUFFICIENT_DATA` based on available metadata.
-6. Pass only the PII-free `CandidateFeatures` contract to the configured ranker.
+6. Pass only eligible `SAFE` and `CONDITIONALLY_SAFE` candidates through the PII-free `CandidateFeatures` contract to the experimental ML ranker. `INSUFFICIENT_DATA` remains visible for data-quality review but is ranked only by the deterministic fallback.
 7. Accept only a bounded score and explanatory components from the ranker. The ranker cannot return status, actionability, a timetable mutation, or a hard-check override.
 8. At execution, regenerate and hard-check the candidate under the timetable write lock. A stale or newly unsafe candidate is rejected regardless of rank score.
 
-`INSUFFICIENT_DATA` candidates are visible for data-quality review but cannot be executed. `CONDITIONALLY_SAFE` candidates require an explicit coordinator confirmation. A future ML ranker must not change either rule.
+`INSUFFICIENT_DATA` candidates are visible for data-quality review but cannot be executed. `CONDITIONALLY_SAFE` candidates require an explicit coordinator confirmation. The experimental ML ranker cannot change either rule.
 
 ## Feature input contract — version 1.0
 
@@ -55,7 +55,7 @@ A ranker declares non-empty `ranker_id` and `ranker_version` values. It returns 
 }
 ```
 
-`score` must be an integer from 0 through 100. Unknown fields are rejected. The production default is `deterministic_weighted` version `1.0`, which is a transparent rule-based baseline—not an ML model.
+`score` must be an integer from 0 through 100. Unknown fields are rejected. The configured default is `catboost_research_v1` for eligible candidates, with `deterministic_weighted` version `1.0` as the mandatory fallback. The CatBoost raw ordering signal is mapped monotonically into the existing 0–100 planning-score range; it is not a probability.
 
 ## Learning events and outcome labels
 
@@ -80,3 +80,19 @@ Export CSV:
 Use `--term-id <positive-id>` to scope an export. Exports omit database user/report/change identifiers and identity/schedule text. `example_id` is generated only for the export.
 
 Before any future training, the project owner must manually review the dataset and label meaning, choose an offline evaluation design, train in Google Colab, and compare against the deterministic baseline. No model may be integrated unless it materially improves ranking under a valid evaluation, and deterministic hard constraints must remain authoritative.
+
+
+## Experimental CatBoost research-v1 runtime
+
+- Artifact status: `EXPERIMENTAL_SYNTHETIC`
+- Algorithm: `CatBoostRanker` / YetiRank
+- Training data origin: `SYNTHETIC_ONLY`
+- Eligible for ML inference: `SAFE`, `CONDITIONALLY_SAFE`
+- Never sent to ML inference: `INSUFFICIENT_DATA`, `REJECTED`
+- Runtime mode: `CANDIDATE_RANKER_MODE=experimental_catboost`
+- Emergency/manual fallback mode: `CANDIDATE_RANKER_MODE=deterministic`
+- Artifact directory: `backend/ai_ranker/research_v1/`
+
+Before first model load, the runtime verifies the frozen feature ordering, schema version, eligible/never-rank statuses, model size, and SHA-256 checksum from the manifest. Missing CatBoost, missing/corrupt artifacts, schema mismatch, invalid features, load errors, and prediction errors are treated as expected ranker runtime failures and fall back to deterministic weighted ranking. Invalid output from an explicitly injected/custom ranker is still rejected by the strict ranker contract rather than silently accepted.
+
+Synthetic evaluation numbers in the bundle are research diagnostics only. They must never be presented as production accuracy or coordinator success probability. Real coordinator choices/outcomes should be collected through the existing PII-guarded learning pipeline before any future retraining or promotion decision.

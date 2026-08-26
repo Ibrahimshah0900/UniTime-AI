@@ -1,0 +1,29 @@
+{
+  "dataset_origin": "SYNTHETIC_ONLY",
+  "selection_dataset": "VALIDATION_ONLY",
+  "test_set_evaluated": true,
+  "selection_rule": [
+    "highest mean_ndcg_at_3",
+    "highest top1_accuracy",
+    "highest mean_ndcg",
+    "highest mean_reciprocal_rank"
+  ],
+  "winner": "catboost",
+  "winner_metrics": {
+    "mean_ndcg": 0.9891039403551255,
+    "mean_ndcg_at_3": 0.9795241489369203,
+    "top1_accuracy": 0.903010033444816,
+    "mean_reciprocal_rank": 0.9487179487179486
+  },
+  "delta_vs_deterministic": {
+    "ndcg_delta": 0.03607913946220309,
+    "ndcg_at_3_delta": 0.06699086384096531,
+    "top1_delta": 0.2324414715719063,
+    "mrr_delta": 0.14020146520146504
+  },
+  "ensemble_method": "equal-weight mean of within-group normalized ranks",
+  "production_approved": false,
+  "warning": "Winner selected using synthetic validation data only. Test set remains untouched.",
+  "frozen_test_winner": "catboost",
+  "test_evaluation_report": "ranker_final_test_evaluation_v1.json"
+}

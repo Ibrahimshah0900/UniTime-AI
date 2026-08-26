@@ -1,0 +1,62 @@
+{
+  "experiment": "UniTime-AI ranker research v1",
+  "dataset_origin": "SYNTHETIC_ONLY",
+  "winner_selection": {
+    "selected_on": "VALIDATION_ONLY",
+    "winner": "catboost",
+    "selection_primary_metric": "mean_ndcg_at_3"
+  },
+  "test_set": {
+    "groups": 600,
+    "candidate_rows": 3078,
+    "evaluated_once_after_model_selection": true
+  },
+  "deterministic_test": {
+    "groups": 600,
+    "mean_ndcg": 0.9557103025525595,
+    "mean_ndcg_at_3": 0.9189675125757433,
+    "top1_accuracy": 0.6733333333333333,
+    "mean_reciprocal_rank": 0.81675
+  },
+  "catboost_test": {
+    "groups": 600,
+    "mean_ndcg": 0.9894399092337636,
+    "mean_ndcg_at_3": 0.980984870204723,
+    "top1_accuracy": 0.9,
+    "mean_reciprocal_rank": 0.9475
+  },
+  "delta_vs_deterministic": {
+    "ndcg_delta": 0.03372960668120406,
+    "ndcg_at_3_delta": 0.06201735762897975,
+    "top1_delta": 0.22666666666666668,
+    "mrr_delta": 0.13075000000000003
+  },
+  "paired_bootstrap_95_ci": {
+    "ndcg_delta": {
+      "observed_delta": 0.03372960668120424,
+      "ci_95_low": 0.02980125309210358,
+      "ci_95_high": 0.03796579915545397
+    },
+    "ndcg_at_3_delta": {
+      "observed_delta": 0.06201735762897982,
+      "ci_95_low": 0.05451093517647703,
+      "ci_95_high": 0.06956604767526137
+    },
+    "top1_delta": {
+      "observed_delta": 0.22666666666666666,
+      "ci_95_low": 0.185,
+      "ci_95_high": 0.2667083333333327
+    },
+    "mrr_delta": {
+      "observed_delta": 0.13075,
+      "ci_95_low": 0.10755347222222222,
+      "ci_95_high": 0.15422222222222223
+    }
+  },
+  "hard_safety_layer": "DETERMINISTIC_AND_AUTHORITATIVE",
+  "ml_role": "Rank SAFE and CONDITIONALLY_SAFE candidates only.",
+  "fallback": "DeterministicWeightedRanker",
+  "production_approved": false,
+  "real_world_accuracy_claimed": false,
+  "warning": "All labels in this experiment are synthetic. Results validate the ranking pipeline and synthetic generalization only. They do not establish performance on real coordinator decisions."
+}

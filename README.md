@@ -1,6 +1,6 @@
 # UniTime-AI
 
-UniTime-AI is a full-stack university timetable and clash-resolution application for students, faculty, coordinators, and administrators. The FastAPI backend provides institution-controlled student/faculty provisioning, registration-number or email authentication, verified student profiles, transactional roster import, RBAC, timetable import and safe editing, clash analysis, optimizer execution and rollback, personal schedules, faculty assignments, clash reporting, deterministic report-scoped resolution candidates, notifications/reminders, data-quality diagnostics, resolver analytics, dashboards, and account administration. The React/Vite frontend provides the corresponding role-adaptive user workflows.
+UniTime-AI is a full-stack university timetable and clash-resolution application for students, faculty, coordinators, and administrators. The FastAPI backend provides institution-controlled student/faculty provisioning, registration-number or email authentication, verified student profiles, transactional roster import, RBAC, timetable import and safe editing, clash analysis, optimizer execution and rollback, personal schedules, faculty assignments, clash reporting, deterministically safety-gated report-scoped resolution candidates with an experimental CatBoost research-v1 ranking layer, notifications/reminders, data-quality diagnostics, resolver analytics, dashboards, and account administration. The React/Vite frontend provides the corresponding role-adaptive user workflows.
 
 ## Local setup
 
@@ -36,7 +36,7 @@ The human-readable contract and authorization matrix are in `docs/API_CONTRACT.m
 
 `python scripts/export_openapi.py`
 
-The deterministic ranking boundary, PII-free feature schema, future ranker interface, learning labels, and offline ranking-dataset workflow are documented in `docs/RANKER_CONTRACT.md`. The PII-guarded domain event store and its separate export are documented in `docs/LEARNING_EVENTS.md`. UniTime-AI does not train or deploy an ML model in the current phase.
+The deterministic safety boundary, PII-free feature schema, ranker interface, fallback behavior, learning labels, and offline ranking-dataset workflow are documented in `docs/RANKER_CONTRACT.md`. The repository includes the frozen CatBoost `research-v1` artifact trained on synthetic labels only. It may rank only candidates that already passed deterministic hard checks, and its scores are not safety probabilities or evidence of real-university accuracy. Any runtime failure falls back to `DeterministicWeightedRanker`. The PII-guarded domain event store and its separate export are documented in `docs/LEARNING_EVENTS.md`.
 
 For isolated development and resolver benchmarking, generate clearly labeled synthetic data with:
 

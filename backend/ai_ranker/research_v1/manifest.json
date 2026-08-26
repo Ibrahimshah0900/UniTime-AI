@@ -1,0 +1,67 @@
+{
+  "model_name": "unitime_catboost_ranker",
+  "model_version": "research-v1",
+  "status": "EXPERIMENTAL_SYNTHETIC",
+  "algorithm": "CatBoostRanker",
+  "loss_function": "YetiRank",
+  "training_data_origin": "SYNTHETIC_ONLY",
+  "production_accuracy_claimed": false,
+  "real_world_accuracy_claimed": false,
+  "feature_contract_version": "1.0",
+  "eligible_candidate_statuses": [
+    "SAFE",
+    "CONDITIONALLY_SAFE"
+  ],
+  "never_rank": [
+    "INSUFFICIENT_DATA",
+    "REJECTED"
+  ],
+  "hard_safety_authority": "Existing deterministic UniTime-AI constraint validation",
+  "fallback_ranker": "DeterministicWeightedRanker",
+  "inference_policy": {
+    "hard_constraints_run_first": true,
+    "ml_can_override_hard_constraints": false,
+    "fallback_on_model_missing": true,
+    "fallback_on_load_error": true,
+    "fallback_on_feature_error": true,
+    "fallback_on_prediction_error": true,
+    "fallback_on_schema_mismatch": true
+  },
+  "synthetic_test_metrics": {
+    "ndcg": 0.9894,
+    "ndcg_at_3": 0.981,
+    "top1_accuracy": 0.9,
+    "mean_reciprocal_rank": 0.9475
+  },
+  "synthetic_delta_vs_deterministic": {
+    "ndcg": 0.0337,
+    "ndcg_at_3": 0.062,
+    "top1_accuracy": 0.2267,
+    "mean_reciprocal_rank": 0.1308
+  },
+  "limitations": [
+    "Model was trained only on synthetic ranking labels.",
+    "Synthetic performance does not establish real university performance.",
+    "Model must never receive rejected candidates.",
+    "Model must never bypass deterministic safety validation.",
+    "Real coordinator decisions should be collected for later retraining."
+  ],
+  "artifacts": {
+    "feature_contract.json": {
+      "sha256": "8909b72d141a44ff73d8c96005fb6e0cf14962b08be1eb47daf94fec1d5002b2",
+      "bytes": 849
+    },
+    "model.cbm": {
+      "sha256": "e969f44552ef7fa5f1ca93b8291b73ff4074a48f92c93c55166a76641d3e536d",
+      "bytes": 970536
+    },
+    "synthetic_test_evaluation.json": {
+      "sha256": "1048144760641aa1ed8806229652dcaa2fe38629de0b1fa0664b40fce2a7766b",
+      "bytes": 1991
+    },
+    "validation_selection.json": {
+      "sha256": "1dc5243d9b67bc39daa6a9fdb0252161b2fcbab2a152970468d6bfe76fb15e54",
+      "bytes": 977
+    }
+  }
+}

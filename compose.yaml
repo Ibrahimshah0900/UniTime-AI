@@ -27,6 +27,7 @@ services:
       ALLOWED_HOSTS: backend,localhost,127.0.0.1
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       MAX_TIMETABLE_UPLOAD_MB: ${MAX_TIMETABLE_UPLOAD_MB:-10}
+      CANDIDATE_RANKER_MODE: ${CANDIDATE_RANKER_MODE:-experimental_catboost}
     depends_on:
       database:
         condition: service_healthy

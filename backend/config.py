@@ -114,3 +114,14 @@ APP_TIMEZONE = os.getenv(
     "Asia/Karachi",
 ).strip() or "Asia/Karachi"
 
+
+CANDIDATE_RANKER_MODE = os.getenv(
+    "CANDIDATE_RANKER_MODE",
+    "experimental_catboost",
+).strip().lower()
+
+if CANDIDATE_RANKER_MODE not in {"deterministic", "experimental_catboost"}:
+    raise RuntimeError(
+        "CANDIDATE_RANKER_MODE must be deterministic or experimental_catboost."
+    )
+

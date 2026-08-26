@@ -158,24 +158,30 @@ Undo must reopen any related report whose real conflict returns. Redo must regen
 `POST /student/enrollments/validate` previews actual timetable overlaps and timetable-only alternate sections. It must not claim capacity, eligibility, seat availability, or institutional approval unless those facts are modeled and verified. Never auto-switch a student between sections.
 
 ## Learning / AI boundary
-No production ML model is currently trained, selected, hosted, deployed, or allowed to bypass hard safety rules.
+A frozen CatBoost `research-v1` ranking artifact is integrated as `EXPERIMENTAL_SYNTHETIC`. It was trained and selected outside the application code on synthetic labels only. It is not a production-accuracy claim and cannot bypass hard safety rules.
+
+The runtime order is mandatory:
+- deterministic candidate generation and hard safety checks
+- exclude `REJECTED` and `INSUFFICIENT_DATA` from ML inference
+- CatBoost may rank only `SAFE` and `CONDITIONALLY_SAFE` candidates
+- any model/dependency/artifact/schema/feature/prediction failure falls back to `DeterministicWeightedRanker`
+- transactional apply regenerates/revalidates under lock regardless of ranker score
 
 Allowed engineering work:
-- deterministic safety and ranking
+- deterministic safety and fallback ranking
+- frozen-model inference adapter and artifact integrity checks
 - feature extraction
 - PII-guarded event collection
 - dataset export
 - synthetic benchmarks
-- ranker interfaces
-- future-model safety tests
+- ranker safety/fallback tests
 
-Not part of coding-agent work:
-- training/selecting a production ML algorithm
-- hosting/deploying a model
-- using an LLM as the timetable resolver
-- inventing performance metrics
-
-If ML is added later, it may rank candidates that already passed deterministic safety; it cannot override constraints.
+Do not:
+- use an LLM as the timetable resolver
+- let ML override constraints or make a candidate applicable
+- claim synthetic metrics as real-university accuracy
+- retrain/tune the frozen artifact from application runtime
+- silently replace `research-v1` without a separately evaluated promotion decision
 
 ## Synthetic/demo data
 Synthetic generation is an isolated development/testing tool, never application-startup behavior and never production data.

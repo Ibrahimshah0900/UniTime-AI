@@ -9,8 +9,15 @@ from sqlalchemy.orm import Session
 from backend.candidate_ranker import (
     CandidateRanker,
     DeterministicWeightedRanker,
+    RankerOutput,
+    RankerScoreComponent,
     extract_candidate_features,
     validate_ranker_output,
+)
+from backend.config import CANDIDATE_RANKER_MODE
+from backend.experimental_ranker import (
+    CandidateRankerRuntimeError,
+    ExperimentalCatBoostRanker,
 )
 from backend.clash_detector import detect_clashes
 from backend.enrollment_conflict_graph import (
@@ -196,10 +203,18 @@ def generate_safe_candidates(
         targets.append(entry)
     if not targets:
         raise HTTPException(status_code=422, detail="At least one target entry is required.")
-    selected_ranker = ranker or DeterministicWeightedRanker(weights)
-    ranker_id = str(getattr(selected_ranker, "ranker_id", "")).strip()
-    ranker_version = str(getattr(selected_ranker, "ranker_version", "")).strip()
-    if not ranker_id or not ranker_version:
+    runtime_ranker = ranker is None
+    fallback_ranker = DeterministicWeightedRanker(weights)
+    selected_ranker: CandidateRanker = (
+        ranker
+        if ranker is not None
+        else ExperimentalCatBoostRanker()
+        if CANDIDATE_RANKER_MODE == "experimental_catboost"
+        else fallback_ranker
+    )
+    selected_ranker_id = str(getattr(selected_ranker, "ranker_id", "")).strip()
+    selected_ranker_version = str(getattr(selected_ranker, "ranker_version", "")).strip()
+    if not selected_ranker_id or not selected_ranker_version:
         raise ValueError("Rankers must declare non-empty ranker_id and ranker_version values.")
 
     enrollment_evidence = build_enrollment_conflict_evidence(db, entries)
@@ -413,7 +428,46 @@ def generate_safe_candidates(
                 missing_metadata_count=len(missing_data),
                 policy=policy,
             )
-            ranker_output = validate_ranker_output(selected_ranker.rank(features))
+            effective_ranker = selected_ranker
+            fallback_reason: str | None = None
+            if (
+                runtime_ranker
+                and CANDIDATE_RANKER_MODE == "experimental_catboost"
+                and status == "INSUFFICIENT_DATA"
+            ):
+                effective_ranker = fallback_ranker
+                fallback_reason = (
+                    "INSUFFICIENT_DATA is excluded by the frozen research-v1 ML contract."
+                )
+            try:
+                ranker_output = validate_ranker_output(effective_ranker.rank(features))
+            except CandidateRankerRuntimeError as exc:
+                if not runtime_ranker:
+                    raise
+                effective_ranker = fallback_ranker
+                fallback_reason = str(exc)
+                ranker_output = validate_ranker_output(effective_ranker.rank(features))
+
+            effective_ranker_id = str(getattr(effective_ranker, "ranker_id", "")).strip()
+            effective_ranker_version = str(
+                getattr(effective_ranker, "ranker_version", "")
+            ).strip()
+            if fallback_reason is not None:
+                ranker_output = RankerOutput(
+                    score=ranker_output.score,
+                    components=(
+                        RankerScoreComponent(
+                            signal="ranker_fallback",
+                            value=0,
+                            explanation=(
+                                "Experimental ranker was not used; deterministic weighted "
+                                f"ranking applied instead. Reason: {fallback_reason}"
+                            ),
+                        ),
+                        *ranker_output.components,
+                    ),
+                )
+
             accepted.append(
                 {
                     "candidate_id": candidate_id,
@@ -435,8 +489,8 @@ def generate_safe_candidates(
                         component.model_dump() for component in ranker_output.components
                     ],
                     "ranker": {
-                        "ranker_id": ranker_id,
-                        "ranker_version": ranker_version,
+                        "ranker_id": effective_ranker_id,
+                        "ranker_version": effective_ranker_version,
                     },
                     "features": features.model_dump(),
                     "checks": checks,
@@ -499,7 +553,10 @@ def generate_safe_candidates(
         "candidates": accepted[:limit],
         "rejected_candidates": rejected[:include_rejected_limit],
         "important_note": (
-            "Candidates are generated, hard-filtered, and ranked deterministically. "
-            "Scores are transparent planning scores, not ML predictions."
+            "Candidates are always generated and hard-filtered deterministically. "
+            "When configured, the EXPERIMENTAL_SYNTHETIC CatBoost research-v1 model ranks "
+            "only SAFE and CONDITIONALLY_SAFE candidates; runtime/model/schema failures and "
+            "INSUFFICIENT_DATA fall back to deterministic weighted ranking. Scores are planning "
+            "rank signals, not ML predictions of safety or real-world success."
         ),
     }
