@@ -17,16 +17,20 @@ export interface TimetableCreatePayload {
   source?: 'manual' | 'csv' | 'xlsx' | 'docx' | 'pdf' | 'image'
 }
 
+function termQuery(termId?: number | null) {
+  return termId ? `?term_id=${termId}` : ''
+}
+
 export const timetableApi = {
-  list: () => apiRequest<TimetableEntry[]>('/timetable'),
+  list: (termId?: number | null) => apiRequest<TimetableEntry[]>(`/timetable${termQuery(termId)}`),
   get: (id: number) => apiRequest<TimetableEntry>(`/timetable/${id}`),
-  create: (payload: TimetableCreatePayload) => apiRequest<TimetableEntry>('/timetable', { method: 'POST', body: payload }),
+  create: (payload: TimetableCreatePayload, termId?: number | null) => apiRequest<TimetableEntry>(`/timetable${termQuery(termId)}`, { method: 'POST', body: payload }),
   remove: (id: number) => apiRequest<void>(`/timetable/${id}`, { method: 'DELETE' }),
   changeRoom: (id: number, room: string) => apiRequest<TimetableEntry>(`/timetable/${id}/room`, { method: 'PATCH', body: { room } }),
   changeTime: (id: number, payload: { day: DayName; start_time: string; end_time: string }) => apiRequest<TimetableTimeChangeResponse>(`/timetable/${id}/time`, { method: 'PATCH', body: payload }),
-  importFile: (file: File) => {
+  importFile: (file: File, termId?: number | null) => {
     const formData = new FormData()
     formData.append('file', file)
-    return apiRequest<unknown>('/timetable/import', { method: 'POST', formData })
+    return apiRequest<unknown>(`/timetable/import${termQuery(termId)}`, { method: 'POST', formData })
   },
 }

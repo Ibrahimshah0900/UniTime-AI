@@ -189,6 +189,25 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     const springTerm = page.locator('.enrollment-list article').filter({ hasText: 'Spring 2027' })
     await expect(springTerm.getByText('SPRING-2027 - planning')).toBeVisible()
 
+    await page.getByRole('link', { name: 'Timetable', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Timetable management' })).toBeVisible()
+    await page.getByLabel('Academic term').selectOption({ label: 'Spring 2027 - planning' })
+    await expect(page.getByText('Artificial Intelligence')).toHaveCount(0)
+    await page.getByRole('button', { name: 'New entry' }).click()
+    const planningEntryDialog = page.getByRole('dialog', { name: 'Create timetable entry' })
+    await planningEntryDialog.getByLabel('Course code').fill('NLP-401')
+    await planningEntryDialog.getByLabel('Course name').fill('Natural Language Processing')
+    await planningEntryDialog.getByLabel('Section').fill('A')
+    await planningEntryDialog.getByLabel('Semester').fill('Spring 2027')
+    await planningEntryDialog.getByLabel('Faculty').fill('E2E Faculty')
+    await planningEntryDialog.getByLabel('Room').fill('LAB-2')
+    await planningEntryDialog.getByRole('button', { name: 'Create entry' }).click()
+    await expect(page.getByText('Timetable entry created.')).toBeVisible()
+    await expect(page.getByText('Natural Language Processing')).toBeVisible()
+
+    await page.getByRole('link', { name: 'Academic Terms' }).click()
+    await expect(page.getByRole('heading', { name: 'Academic terms' })).toBeVisible()
+
     page.once('dialog', (dialog) => dialog.accept())
     await springTerm.getByRole('button', { name: 'Activate' }).click()
     await expect(page.getByText(/Archive the current active term/)).toBeVisible()
@@ -202,6 +221,9 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     await springTerm.getByRole('button', { name: 'Activate' }).click()
     await expect(page.getByText('Academic term activated.')).toBeVisible()
     await expect(springTerm.getByText('SPRING-2027 - active')).toBeVisible()
+
+    await page.getByRole('link', { name: 'Timetable', exact: true }).click()
+    await expect(page.getByText('Natural Language Processing')).toBeVisible()
 
     await logout(page)
 
