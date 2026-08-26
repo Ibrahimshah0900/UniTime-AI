@@ -225,6 +225,20 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     await page.getByRole('link', { name: 'Timetable', exact: true }).click()
     await expect(page.getByText('Natural Language Processing')).toBeVisible()
 
+    await page.getByLabel('Academic term').selectOption({ label: 'Legacy Imported Term - archived' })
+    await expect(page.getByText('Artificial Intelligence')).toBeVisible()
+    await expect(page.getByText('Natural Language Processing')).toHaveCount(0)
+    await expect(page.getByText('LEGACY-IMPORTED - archived - read-only')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'New entry' })).toHaveCount(0)
+    await expect(page.getByText('Import CSV/XLSX')).toHaveCount(0)
+    await page.getByRole('button', { name: 'List' }).click()
+    await expect(page.getByRole('button', { name: 'Change room' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Change day and time' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Delete entry' })).toHaveCount(0)
+
+    await page.getByLabel('Academic term').selectOption({ label: 'Spring 2027 - active' })
+    await expect(page.getByText('Natural Language Processing')).toBeVisible()
+
     await logout(page)
 
     await login(page, 'student.e2e@example.edu')
