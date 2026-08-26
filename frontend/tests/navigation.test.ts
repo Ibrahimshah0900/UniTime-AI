@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { navForRole } from '../src/app/navigation'
+import { mobileStudentNav, navForRole } from '../src/app/navigation'
 
 describe('role-aware navigation', () => {
   it('keeps admin user management admin-only', () => {
@@ -22,4 +22,10 @@ describe('role-aware navigation', () => {
     expect(navForRole('student').some((item) => item.path === '/insights')).toBe(false)
   })
 
+
+  it(`keeps student mobile navigation complete`, () => {
+    const paths = mobileStudentNav.map((item) => item.path)
+    expect(paths).toContain(`/enrollments`)
+    expect(paths).toContain(`/account`)
+  })
 })

@@ -421,7 +421,7 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   .app-shell--student .topbar__identity { display:none; }
   .app-shell--student .sidebar { display:none; }
   .app-shell--student .topbar__menu { display:none !important; }
-  .app-shell--student .mobile-bottom-nav { position:fixed; z-index:45; bottom:0; left:0; right:0; height:66px; display:grid; grid-template-columns:repeat(5,1fr); background:rgba(255,255,255,.96); border-top:1px solid var(--line); backdrop-filter:blur(14px); }
+  .app-shell--student .mobile-bottom-nav { position:fixed; z-index:45; bottom:0; left:0; right:0; height:66px; display:grid; grid-template-columns:repeat(6,1fr); background:rgba(255,255,255,.96); border-top:1px solid var(--line); backdrop-filter:blur(14px); }
   .mobile-bottom-nav a { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:#75817e; font-size:.6rem; }
   .mobile-bottom-nav a.active { color:var(--accent); font-weight:800; }
   .page { padding:20px 14px 28px; }

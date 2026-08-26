@@ -4,7 +4,8 @@ const config: CapacitorConfig = {
   appId: 'com.unitimeai.mobile',
   appName: 'UniTime-AI',
   webDir: 'dist',
-  ...(process.env.CAPACITOR_DEV_CLEARTEXT === '1' ? { server: { cleartext: true } } : {})
+  ...(process.env.CAPACITOR_DEV_CLEARTEXT === '1' ? { server: { cleartext: true }, android: { allowMixedContent: true } } : {})
 };
 
 export default config;
+

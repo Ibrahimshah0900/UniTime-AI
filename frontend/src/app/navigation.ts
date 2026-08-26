@@ -43,6 +43,7 @@ export function navForRole(role: UserRole): NavItem[] {
 export const mobileStudentNav = [
   { label: 'Home', path: '/dashboard', icon: Gauge },
   { label: 'Timetable', path: '/timetable', icon: CalendarDays },
+  { label: 'Enrollments', path: '/enrollments', icon: BookOpen },
   { label: 'Reports', path: '/clash-reports', icon: TriangleAlert },
   { label: 'Notifications', path: '/notifications', icon: Bell },
   { label: 'More', path: '/account', icon: ShieldCheck },
