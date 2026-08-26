@@ -205,6 +205,29 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     await expect(page.getByText('Timetable entry created.')).toBeVisible()
     await expect(page.getByText('Natural Language Processing')).toBeVisible()
 
+    await page.getByRole('button', { name: 'New entry' }).click()
+    const planningClashDialog = page.getByRole('dialog', { name: 'Create timetable entry' })
+    await planningClashDialog.getByLabel('Course code').fill('ML-402')
+    await planningClashDialog.getByLabel('Course name').fill('Machine Learning Systems')
+    await planningClashDialog.getByLabel('Section').fill('A')
+    await planningClashDialog.getByLabel('Semester').fill('Spring 2027')
+    await planningClashDialog.getByLabel('Faculty').fill('Dr Planning')
+    await planningClashDialog.getByLabel('Room').fill('LAB-2')
+    await planningClashDialog.getByRole('button', { name: 'Create entry' }).click()
+    await expect(page.getByText('Timetable entry created.')).toBeVisible()
+    await expect(page.getByText('Machine Learning Systems')).toBeVisible()
+
+    await page.getByRole('link', { name: 'Clash Management' }).click()
+    await page.getByLabel('Academic term').selectOption({ label: 'Spring 2027 - planning' })
+    await expect(page.getByText(/NLP-401 ↔ ML-402|ML-402 ↔ NLP-401/).first()).toBeVisible()
+    await expect(page.getByText('SPRING-2027 - planning - analysis only')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Apply fix' }).first()).toBeDisabled()
+
+    await page.getByRole('link', { name: 'Optimizer' }).click()
+    await page.getByLabel('Academic term').selectOption({ label: 'Spring 2027 - planning' })
+    await expect(page.getByText('SPRING-2027 - planning - analysis only')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Apply best move' })).toBeDisabled()
+
     await page.getByRole('link', { name: 'Academic Terms' }).click()
     await expect(page.getByRole('heading', { name: 'Academic terms' })).toBeVisible()
 

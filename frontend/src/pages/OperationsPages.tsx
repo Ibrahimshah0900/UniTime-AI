@@ -10,7 +10,8 @@ import {
 import { useState } from 'react'
 import { ApiError } from '../api/client'
 import { clashesApi, historyApi, optimizerApi } from '../api/operations'
-import { Field, Input } from '../components/Form'
+import { termsApi } from '../api/terms'
+import { Field, Input, Select } from '../components/Form'
 import {
   EmptyState,
   ErrorNote,
@@ -76,11 +77,16 @@ function MoveSummary({ move }: { move: StudentMove | OptimizerMove }) {
 }
 
 export function ClashesPage() {
-  const clashes = useAsync(() => clashesApi.all(), [])
-  const rooms = useAsync(() => clashesApi.roomSuggestions(), [])
-  const risk = useAsync(() => clashesApi.studentRisk(), [])
-  const groups = useAsync(() => clashesApi.studentGroups(), [])
-  const resolutions = useAsync(() => clashesApi.studentResolutions(), [])
+  const terms = useAsync(() => termsApi.list(), [])
+  const [selectedTermId, setSelectedTermId] = useState<number | null>(null)
+  const effectiveTermId = selectedTermId ?? terms.data?.active_term_id ?? terms.data?.terms[0]?.id ?? null
+  const selectedTerm = terms.data?.terms.find((term) => term.id === effectiveTermId) ?? null
+  const canApplySelectedTerm = selectedTerm?.status === 'active'
+  const clashes = useAsync(() => clashesApi.all(effectiveTermId), [effectiveTermId])
+  const rooms = useAsync(() => clashesApi.roomSuggestions(effectiveTermId), [effectiveTermId])
+  const risk = useAsync(() => clashesApi.studentRisk(effectiveTermId), [effectiveTermId])
+  const groups = useAsync(() => clashesApi.studentGroups(effectiveTermId), [effectiveTermId])
+  const resolutions = useAsync(() => clashesApi.studentResolutions(effectiveTermId), [effectiveTermId])
   const [message, setMessage] = useState('')
   const [actionError, setActionError] = useState('')
   const [busyRoom, setBusyRoom] = useState<number | null>(null)
@@ -100,7 +106,7 @@ export function ClashesPage() {
   async function applyRoom(index: number) {
     const clash = roomClashes[index]
     const fix = rooms.data?.resolutions[index]?.best_fix
-    if (!clash || !fix || busyRoom !== null) return
+    if (!canApplySelectedTerm || !clash || !fix || busyRoom !== null) return
     if (!window.confirm(`Move ${fix.course_code || `entry #${fix.entry_id}`} from ${fix.from_room || 'unassigned'} to ${fix.to_room}?`)) return
     setBusyRoom(index)
     setMessage('')
@@ -118,7 +124,7 @@ export function ClashesPage() {
 
   async function applyGroup(groupId: number) {
     const resolution = resolutions.data?.resolutions.find((item) => item.group_id === groupId)
-    if (!resolution?.best_fix || busyGroup !== null) return
+    if (!canApplySelectedTerm || !resolution?.best_fix || busyGroup !== null) return
     if (!window.confirm(`Apply the best validated move for conflict group #${groupId}?`)) return
     setBusyGroup(groupId)
     setMessage('')
@@ -142,6 +148,14 @@ export function ClashesPage() {
       />
       {message && <SuccessNote>{message}</SuccessNote>}
       {actionError && <ErrorNote>{actionError}</ErrorNote>}
+      {terms.error && <ErrorNote>{terms.error}</ErrorNote>}
+      <div className="toolbar">
+        <Select aria-label="Academic term" value={effectiveTermId ? String(effectiveTermId) : ''} onChange={(event) => setSelectedTermId(Number(event.target.value))} disabled={terms.loading || !terms.data?.terms.length}>
+          <option value="" disabled>{terms.loading ? 'Loading terms…' : 'Select term'}</option>
+          {terms.data?.terms.map((term) => <option key={term.id} value={term.id}>{term.name} - {term.status}</option>)}
+        </Select>
+        {selectedTerm && <span className="muted">{selectedTerm.code} - {selectedTerm.status}{canApplySelectedTerm ? '' : ' - analysis only'}</span>}
+      </div>
 
       <div className="metric-grid">
         <Metric label="Structural clashes" value={clashes.data?.total ?? '—'} tone={clashes.data?.total ? 'danger' : 'success'} />
@@ -183,13 +197,13 @@ export function ClashesPage() {
                     <td>{fix ? <><strong>{fix.course_code || fix.course_name || `Entry #${fix.entry_id}`}</strong><small>{fix.from_room || 'Unassigned'} → {fix.to_room} · {formatClock(fix.start_time)}–{formatClock(fix.end_time)}</small></> : 'No safe move found'}</td>
                     <td>{fix?.score ?? '—'}</td>
                     <td>{fix?.reasons.slice(0, 2).join(' · ') || resolution.error || 'No candidate currently satisfies the safety rules.'}</td>
-                    <td><button className="btn btn--secondary" disabled={!fix || !clash || busyRoom !== null} onClick={() => void applyRoom(index)}><Wrench size={15}/>{busyRoom === index ? 'Applying…' : 'Apply fix'}</button></td>
+                    <td><button className="btn btn--secondary" disabled={!canApplySelectedTerm || !fix || !clash || busyRoom !== null} onClick={() => void applyRoom(index)}><Wrench size={15}/>{busyRoom === index ? 'Applying…' : 'Apply fix'}</button></td>
                   </tr>
                 )
               })}</tbody>
             </table>
           </div>
-        ) : <EmptyState title="No room fixes needed" description="There are no active room clashes requiring resolution." />}
+        ) : <EmptyState title="No room fixes needed" description="There are no room clashes requiring resolution in this academic term." />}
       </Section>
 
       <div className="two-column">
@@ -211,7 +225,7 @@ export function ClashesPage() {
               return (
                 <article key={group.group_id}>
                   <div><strong>Group #{group.group_id} · {group.entries.map(entryLabel).join(' ↔ ')}</strong><span>{group.day} · {formatClock(group.time_window.start_time)}–{formatClock(group.time_window.end_time)}</span><small>{resolution?.best_fix ? slotLabel(resolution.best_fix.move_to) : 'No safe candidate currently available'}</small></div>
-                  <div className="compact-list__actions"><StatusBadge tone={tone(group.risk_level)}>{titleCase(group.risk_level)}</StatusBadge><button className="btn btn--secondary" disabled={!resolution?.best_fix || busyGroup !== null} onClick={() => void applyGroup(group.group_id)}><TriangleAlert size={15}/>{busyGroup === group.group_id ? 'Applying…' : 'Apply best'}</button></div>
+                  <div className="compact-list__actions"><StatusBadge tone={tone(group.risk_level)}>{titleCase(group.risk_level)}</StatusBadge><button className="btn btn--secondary" disabled={!canApplySelectedTerm || !resolution?.best_fix || busyGroup !== null} onClick={() => void applyGroup(group.group_id)}><TriangleAlert size={15}/>{busyGroup === group.group_id ? 'Applying…' : 'Apply best'}</button></div>
                 </article>
               )
             })}</div>
@@ -223,10 +237,15 @@ export function ClashesPage() {
 }
 
 export function OptimizerPage() {
+  const terms = useAsync(() => termsApi.list(), [])
+  const [selectedTermId, setSelectedTermId] = useState<number | null>(null)
+  const effectiveTermId = selectedTermId ?? terms.data?.active_term_id ?? terms.data?.terms[0]?.id ?? null
+  const selectedTerm = terms.data?.terms.find((term) => term.id === effectiveTermId) ?? null
+  const canApplySelectedTerm = selectedTerm?.status === 'active'
   const [maxSteps, setMaxSteps] = useState(5)
-  const global = useAsync(() => optimizerApi.global(20), [])
-  const plan = useAsync(() => optimizerApi.plan(maxSteps), [maxSteps])
-  const executions = useAsync(() => optimizerApi.executions(), [])
+  const global = useAsync(() => optimizerApi.global(20, effectiveTermId), [effectiveTermId])
+  const plan = useAsync(() => optimizerApi.plan(maxSteps, effectiveTermId), [maxSteps, effectiveTermId])
+  const executions = useAsync(() => optimizerApi.executions(effectiveTermId), [effectiveTermId])
   const [selectedExecutionId, setSelectedExecutionId] = useState('')
   const execution = useAsync(async () => selectedExecutionId ? optimizerApi.execution(selectedExecutionId) : null, [selectedExecutionId])
   const [message, setMessage] = useState('')
@@ -239,7 +258,7 @@ export function OptimizerPage() {
   }
 
   async function applyGlobal() {
-    if (!global.data?.best_move || busy) return
+    if (!canApplySelectedTerm || !global.data?.best_move || busy) return
     if (!window.confirm('Apply the backend-ranked best global optimizer move?')) return
     setBusy('global')
     setMessage('')
@@ -256,7 +275,7 @@ export function OptimizerPage() {
   }
 
   async function applyPlan() {
-    if (!plan.data?.planned_steps || busy) return
+    if (!canApplySelectedTerm || !plan.data?.planned_steps || busy) return
     if (!window.confirm(`Apply this ${plan.data.planned_steps}-step optimizer plan?`)) return
     setBusy('plan')
     setMessage('')
@@ -273,7 +292,7 @@ export function OptimizerPage() {
   }
 
   async function rollback(mode: 'undo' | 'redo') {
-    if (!selectedExecutionId || busy) return
+    if (!canApplySelectedTerm || !selectedExecutionId || busy) return
     if (!window.confirm(`${mode === 'undo' ? 'Undo' : 'Redo'} optimizer execution ${selectedExecutionId}?`)) return
     setBusy(mode)
     setMessage('')
@@ -295,13 +314,21 @@ export function OptimizerPage() {
       <PageHeader title="Optimizer" description="Review deterministic timetable improvements and their safety impact before applying any mutation." />
       {message && <SuccessNote>{message}</SuccessNote>}
       {actionError && <ErrorNote>{actionError}</ErrorNote>}
+      {terms.error && <ErrorNote>{terms.error}</ErrorNote>}
+      <div className="toolbar">
+        <Select aria-label="Academic term" value={effectiveTermId ? String(effectiveTermId) : ''} onChange={(event) => { setSelectedTermId(Number(event.target.value)); setSelectedExecutionId('') }} disabled={terms.loading || !terms.data?.terms.length}>
+          <option value="" disabled>{terms.loading ? 'Loading terms…' : 'Select term'}</option>
+          {terms.data?.terms.map((term) => <option key={term.id} value={term.id}>{term.name} - {term.status}</option>)}
+        </Select>
+        {selectedTerm && <span className="muted">{selectedTerm.code} - {selectedTerm.status}{canApplySelectedTerm ? '' : ' - analysis only'}</span>}
+      </div>
 
       <div className="optimizer-hero">
         <div>
           <span className="eyebrow">Read-only analysis</span>
           <h2>Global optimizer</h2>
           <p>The backend evaluates each candidate against the complete timetable and rejects moves that worsen structural clashes or cohort risk.</p>
-          <button className="btn btn--primary" disabled={!global.data?.best_move || Boolean(busy)} onClick={() => void applyGlobal()}><Sparkles size={16}/>{busy === 'global' ? 'Applying…' : 'Apply best move'}</button>
+          <button className="btn btn--primary" disabled={!canApplySelectedTerm || !global.data?.best_move || Boolean(busy)} onClick={() => void applyGlobal()}><Sparkles size={16}/>{busy === 'global' ? 'Applying…' : 'Apply best move'}</button>
         </div>
         <div>{global.loading ? <LoadingState label="Ranking moves" /> : global.error ? <ErrorState message={global.error} retry={global.reload} /> : global.data ? (
           <div className="optimizer-overview">
@@ -325,7 +352,7 @@ export function OptimizerPage() {
             <>
               <div className="plan-summary"><div><span>Planned</span><strong>{plan.data.planned_steps}</strong></div><div><span>Risk cost reduced</span><strong>{plan.data.overall_improvement.student_risk_cost.reduction}</strong></div><div><span>Clashes reduced</span><strong>{plan.data.overall_improvement.general_clashes.reduction}</strong></div></div>
               {plan.data.steps.length ? <ol className="plan-steps">{plan.data.steps.map((step) => <li key={step.step}><MoveSummary move={step} /></li>)}</ol> : <EmptyState title="No steps proposed" description={plan.data.stop_reason || 'No safe plan is available.'} />}
-              <div className="section-footer"><button className="btn btn--primary" disabled={!plan.data.planned_steps || Boolean(busy)} onClick={() => void applyPlan()}><Play size={16}/>{busy === 'plan' ? 'Applying…' : `Apply ${plan.data.planned_steps}-step plan`}</button></div>
+              <div className="section-footer"><button className="btn btn--primary" disabled={!canApplySelectedTerm || !plan.data.planned_steps || Boolean(busy)} onClick={() => void applyPlan()}><Play size={16}/>{busy === 'plan' ? 'Applying…' : `Apply ${plan.data.planned_steps}-step plan`}</button></div>
             </>
           ) : null}
         </Section>
@@ -340,7 +367,7 @@ export function OptimizerPage() {
               {execution.loading ? <LoadingState label="Loading execution detail" /> : execution.error ? <ErrorState message={execution.error} retry={execution.reload} /> : execution.data ? <>
                 <div className="plan-summary"><div><span>Status</span><strong>{titleCase(execution.data.status)}</strong></div><div><span>Risk cost</span><strong>{execution.data.baseline.student_risk_cost} → {execution.data.final.student_risk_cost}</strong></div><div><span>Clashes</span><strong>{execution.data.baseline.general_clashes} → {execution.data.final.general_clashes}</strong></div></div>
                 {execution.data.steps?.length ? <div className="linked-steps">{execution.data.steps.map((step) => <span key={step.step_number}>Step {step.step_number} · change #{step.change_id}</span>)}</div> : null}
-                <div className="button-row"><button className="btn btn--secondary" disabled={execution.data.status === 'undone' || Boolean(busy)} onClick={() => void rollback('undo')}><RotateCcw size={15}/>{busy === 'undo' ? 'Undoing…' : 'Undo execution'}</button><button className="btn btn--secondary" disabled={execution.data.status !== 'undone' || Boolean(busy)} onClick={() => void rollback('redo')}><RotateCw size={15}/>{busy === 'redo' ? 'Redoing…' : 'Redo execution'}</button></div>
+                <div className="button-row"><button className="btn btn--secondary" disabled={!canApplySelectedTerm || execution.data.status === 'undone' || Boolean(busy)} onClick={() => void rollback('undo')}><RotateCcw size={15}/>{busy === 'undo' ? 'Undoing…' : 'Undo execution'}</button><button className="btn btn--secondary" disabled={!canApplySelectedTerm || execution.data.status !== 'undone' || Boolean(busy)} onClick={() => void rollback('redo')}><RotateCw size={15}/>{busy === 'redo' ? 'Redoing…' : 'Redo execution'}</button></div>
               </> : null}
             </div>
           )}

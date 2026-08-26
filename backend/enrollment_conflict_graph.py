@@ -71,7 +71,7 @@ def _confirmed_risk(
         "enrollment_coverage": "complete_for_edge",
         "evidence": [
             f"{affected_student_count} active verified student(s) are enrolled in both offerings.",
-            "The two current timetable entries overlap in the active academic term.",
+            "The two current timetable entries overlap in the selected academic term.",
         ],
         "limitations": [],
         "entry_1": build_entry_summary(first),

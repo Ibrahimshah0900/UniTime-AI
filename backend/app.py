@@ -193,11 +193,22 @@ app.include_router(resolver_analytics_router)
 # ---------------------------------------------------------------------------
 
 
+def resolve_read_term_id(
+    db: Session,
+    term_id: int | None = None,
+) -> int:
+    return (
+        get_active_term(db)
+        if term_id is None
+        else get_term(db, term_id)
+    ).id
+
+
 def get_all_entries(
     db: Session,
     term_id: int | None = None,
 ) -> list[TimetableEntry]:
-    selected_term_id = term_id or get_active_term(db).id
+    selected_term_id = resolve_read_term_id(db, term_id)
     statement = (
         select(TimetableEntry)
         .where(TimetableEntry.term_id == selected_term_id)
@@ -451,10 +462,12 @@ async def import_timetable(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_clashes(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
     entries = get_all_entries(
-        db
+        db,
+        term_id=term_id,
     )
 
     clashes = detect_clashes(
@@ -478,10 +491,12 @@ def get_clashes(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_room_clash_suggestions(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
     entries = get_all_entries(
-        db
+        db,
+        term_id=term_id,
     )
 
     room_clashes = get_room_clashes(
@@ -515,13 +530,20 @@ def get_room_clash_suggestions(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_student_conflict_risks(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    selected_term_id = resolve_read_term_id(db, term_id)
     entries = get_all_entries(
-        db
+        db,
+        term_id=selected_term_id,
     )
 
-    analysis = build_enrollment_conflict_analysis(db, entries)
+    analysis = build_enrollment_conflict_analysis(
+        db,
+        entries,
+        term_id=selected_term_id,
+    )
     conflicts = analysis["risks"]
     summary = summarize_enrollment_conflicts(analysis)
 
@@ -542,13 +564,20 @@ def get_student_conflict_risks(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_student_conflict_groups(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    selected_term_id = resolve_read_term_id(db, term_id)
     entries = get_all_entries(
-        db
+        db,
+        term_id=selected_term_id,
     )
 
-    risks = build_enrollment_conflict_analysis(db, entries)["risks"]
+    risks = build_enrollment_conflict_analysis(
+        db,
+        entries,
+        term_id=selected_term_id,
+    )["risks"]
 
     groups = build_student_conflict_groups(
         risks
@@ -575,13 +604,20 @@ def get_student_conflict_groups(
     dependencies=[Depends(require_coordinator_or_admin)],
 )
 def get_student_conflict_resolutions(
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
+    selected_term_id = resolve_read_term_id(db, term_id)
     entries = get_all_entries(
-        db
+        db,
+        term_id=selected_term_id,
     )
 
-    risks = build_enrollment_conflict_analysis(db, entries)["risks"]
+    risks = build_enrollment_conflict_analysis(
+        db,
+        entries,
+        term_id=selected_term_id,
+    )["risks"]
 
     groups = build_student_conflict_groups(
         risks
@@ -646,7 +682,7 @@ def get_student_conflict_resolutions(
                 best_fixes_requiring_room
             ),
             "important_note": (
-                "Confirmed conflicts use verified active-term enrollment data. "
+                "Confirmed conflicts use verified enrollment data from the selected academic term. "
                 "Any probable or possible conflicts remain explicitly inferred."
             ),
         },
@@ -666,6 +702,7 @@ def get_student_conflict_resolutions(
 )
 def get_global_timetable_optimization(
     limit: int = 20,
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
     """
@@ -696,7 +733,8 @@ def get_global_timetable_optimization(
         )
 
     entries = get_all_entries(
-        db
+        db,
+        term_id=term_id,
     )
 
     result = optimize_timetable_globally(
@@ -719,10 +757,11 @@ def get_global_timetable_optimization(
 )
 def get_multi_step_optimization_plan(
     max_steps: int = 5,
+    term_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ):
     try:
-        entries = get_all_entries(db)
+        entries = get_all_entries(db, term_id=term_id)
         return build_multi_step_optimization_plan(
             entries,
             max_steps=max_steps,
