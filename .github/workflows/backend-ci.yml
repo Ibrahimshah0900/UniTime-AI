@@ -121,6 +121,9 @@ jobs:
         working-directory: frontend
         env:
           CAPACITOR_DEV_CLEARTEXT: "1"
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+        working-directory: frontend/android
       - name: Build Android debug APK
         run: ./gradlew assembleDebug
         working-directory: frontend/android
