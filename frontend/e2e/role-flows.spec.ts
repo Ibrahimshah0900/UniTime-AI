@@ -219,8 +219,8 @@ test.describe.serial('role-adaptive integrated workflows', () => {
 
     await page.getByRole('link', { name: 'Clash Management' }).click()
     await page.getByLabel('Academic term').selectOption({ label: 'Spring 2027 - planning' })
-    await expect(page.getByText(/NLP-401 ↔ ML-402|ML-402 ↔ NLP-401/).first()).toBeVisible()
     await expect(page.getByText('SPRING-2027 - planning - analysis only')).toBeVisible()
+    await expect(page.getByText(/NLP-401 ↔ ML-402|ML-402 ↔ NLP-401/).first()).toBeVisible()
     await expect(page.getByRole('button', { name: 'Apply fix' }).first()).toBeDisabled()
 
     await page.getByRole('link', { name: 'Optimizer' }).click()
