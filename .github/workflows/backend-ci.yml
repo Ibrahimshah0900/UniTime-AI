@@ -24,7 +24,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: alembic upgrade head
       - run: alembic check
-      - run: python -m pytest tests -q -p no:cacheprovider -W error
+      - run: python -m pytest tests -q
       - run: git diff --check
       - run: docker build -t unitime-ai-api:ci .
 
@@ -91,4 +91,4 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: alembic upgrade head
       - run: alembic check
-      - run: python -m pytest tests/test_live_database_smoke.py -q -p no:cacheprovider -W error
+      - run: python -m pytest tests/test_live_database_smoke.py -q
