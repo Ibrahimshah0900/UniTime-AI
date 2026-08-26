@@ -8,13 +8,10 @@ export interface AcademicTermCreatePayload {
   ends_on?: string | null
 }
 
-export const academicTermsApi = {
+export const termsApi = {
   list: () => apiRequest<AcademicTermListResponse>('/academic-terms'),
   current: () => apiRequest<AcademicTerm>('/academic-terms/current'),
-  create: (payload: AcademicTermCreatePayload) =>
-    apiRequest<AcademicTerm>('/academic-terms', { method: 'POST', body: payload }),
-  activate: (termId: number) =>
-    apiRequest<AcademicTerm>(`/academic-terms/${termId}/activate`, { method: 'POST' }),
-  archive: (termId: number) =>
-    apiRequest<AcademicTerm>(`/academic-terms/${termId}/archive`, { method: 'POST' }),
+  create: (payload: AcademicTermCreatePayload) => apiRequest<AcademicTerm>('/academic-terms', { method: 'POST', body: payload }),
+  activate: (id: number) => apiRequest<AcademicTerm>(`/academic-terms/${id}/activate`, { method: 'POST' }),
+  archive: (id: number) => apiRequest<AcademicTerm>(`/academic-terms/${id}/archive`, { method: 'POST' }),
 }

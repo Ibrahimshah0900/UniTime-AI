@@ -1,4 +1,4 @@
-import { Bell, BookOpen, CalendarDays, ChartNoAxesCombined, ClipboardList, Gauge, History, LayoutDashboard, Settings, ShieldCheck, ShieldAlert, TriangleAlert, UserRoundCog, UsersRound } from 'lucide-react'
+import { Bell, BookOpen, CalendarDays, ChartNoAxesCombined, ClipboardList, Gauge, History, LayoutDashboard, Settings, ShieldCheck, ShieldAlert, TriangleAlert, UserRoundCog, UsersRound, CalendarRange } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { UserRole } from '../types/api'
 
@@ -27,6 +27,7 @@ export function navForRole(role: UserRole): NavItem[] {
   const operational: NavItem[] = [
     common[0],
     { label: 'Timetable', path: '/timetable', icon: CalendarDays },
+    { label: 'Academic Terms', path: '/academic-terms', icon: CalendarRange },
     { label: 'Clash Management', path: '/clashes', icon: TriangleAlert },
     { label: 'Student Reports', path: '/clash-reports', icon: ClipboardList },
     { label: 'Faculty Assignments', path: '/faculty-assignments', icon: UsersRound },

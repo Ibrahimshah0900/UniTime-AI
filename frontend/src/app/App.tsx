@@ -12,6 +12,7 @@ import { NotificationsPage } from '../pages/NotificationsPage'
 import { ClashesPage, HistoryPage, OptimizerPage } from '../pages/OperationsPages'
 import { TimetablePage } from '../pages/TimetablePage'
 import { InsightsPage } from '../pages/InsightsPage'
+import { AcademicTermsPage } from '../pages/AcademicTermsPage'
 
 export default function App() {
   return <Routes>
@@ -22,6 +23,7 @@ export default function App() {
       <Route index element={<Navigate to="/dashboard" replace/>}/>
       <Route path="dashboard" element={<DashboardPage/>}/>
       <Route path="timetable" element={<TimetablePage/>}/>
+      <Route path="academic-terms" element={<ProtectedRoute roles={['coordinator','admin']}><AcademicTermsPage/></ProtectedRoute>}/>
       <Route path="notifications" element={<NotificationsPage/>}/>
       <Route path="account" element={<AccountPage/>}/>
       <Route path="enrollments" element={<ProtectedRoute roles={['student']}><EnrollmentsPage/></ProtectedRoute>}/>

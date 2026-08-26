@@ -173,4 +173,46 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     await expect(page.getByRole('heading', { name: 'Clash management' })).toBeVisible()
     await logout(page)
   })
+  test('coordinator switches academic terms without leaking archived student data', async ({ page }) => {
+    await login(page, 'coordinator.e2e@example.edu')
+
+    await page.getByRole('link', { name: 'Academic Terms' }).click()
+    await expect(page.getByRole('heading', { name: 'Academic terms' })).toBeVisible()
+
+    await page.getByLabel('Term code').fill('SPRING-2027')
+    await page.getByLabel('Term name').fill('Spring 2027')
+    await page.getByLabel('Starts on').fill('2027-01-11')
+    await page.getByLabel('Ends on').fill('2027-05-28')
+    await page.getByRole('button', { name: 'Create planning term' }).click()
+    await expect(page.getByText('Planning academic term created.')).toBeVisible()
+
+    const springTerm = page.locator('.enrollment-list article').filter({ hasText: 'Spring 2027' })
+    await expect(springTerm.getByText('SPRING-2027 - planning')).toBeVisible()
+
+    page.once('dialog', (dialog) => dialog.accept())
+    await springTerm.getByRole('button', { name: 'Activate' }).click()
+    await expect(page.getByText(/Archive the current active term/)).toBeVisible()
+
+    const activeTerm = page.locator('.enrollment-list article').filter({ hasText: 'active' }).first()
+    page.once('dialog', (dialog) => dialog.accept())
+    await activeTerm.getByRole('button', { name: 'Archive' }).click()
+    await expect(page.getByText('Academic term archived.')).toBeVisible()
+
+    page.once('dialog', (dialog) => dialog.accept())
+    await springTerm.getByRole('button', { name: 'Activate' }).click()
+    await expect(page.getByText('Academic term activated.')).toBeVisible()
+    await expect(springTerm.getByText('SPRING-2027 - active')).toBeVisible()
+
+    await logout(page)
+
+    await login(page, 'student.e2e@example.edu')
+    await page.getByRole('link', { name: 'My Timetable' }).click()
+    await expect(page.getByText('Artificial Intelligence')).toHaveCount(0)
+
+    await page.getByRole('link', { name: 'Enrollments' }).click()
+    await expect(page.getByText('AI-301', { exact: true })).toHaveCount(0)
+
+    await logout(page)
+  })
+
 })
