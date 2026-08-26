@@ -157,15 +157,25 @@ def build_resolver_analytics(db: Session, *, term_id: int | None = None) -> dict
         else None
     )
 
-    # recommendation_generated/shown are valid event types, but the current
-    # service does not persist one event per candidate display. Do not invent a
-    # denominator. Surface the metric as unavailable until instrumentation exists.
-    domain_event_types = Counter(
+    # Candidate-review API calls now persist one recommendation_generated event
+    # per observed impression and one recommendation_shown event per returned
+    # candidate, so generated impressions are a real acceptance denominator.
+    term_learning_events = list(
         db.scalars(
-            select(LearningEvent.event_type).where(LearningEvent.term_id == term.id)
+            select(LearningEvent).where(LearningEvent.term_id == term.id)
         ).all()
     )
-    selected = int(domain_event_types.get("recommendation_selected", 0))
+    domain_event_types = Counter(event.event_type for event in term_learning_events)
+    selected = 0
+    for event in term_learning_events:
+        if event.event_type != "recommendation_selected":
+            continue
+        try:
+            context = json.loads(event.context_json)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if isinstance(context, dict) and context.get("impression_observed") is True:
+            selected += 1
     generated = int(domain_event_types.get("recommendation_generated", 0))
     if generated:
         acceptance_rate = _rate(selected, generated)
@@ -174,8 +184,7 @@ def build_resolver_analytics(db: Session, *, term_id: int | None = None) -> dict
             0,
             0,
             unavailable_reason=(
-                "Candidate-generation impressions are not persistently instrumented yet, "
-                "so an acceptance denominator would be fabricated."
+                "No instrumented candidate-review impression has been recorded for this term yet."
             ),
         )
 

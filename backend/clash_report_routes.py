@@ -17,6 +17,7 @@ from backend.clash_report_schemas import (
     ClashReportReviewUpdate,
     ClashReportStatus,
 )
+from backend.recommendation_learning_service import record_resolution_candidate_impression
 from backend.clash_report_service import (
     apply_clash_report_resolution_candidate,
     create_clash_report,
@@ -141,13 +142,21 @@ def get_clash_report_resolution_candidates(
     limit: int = Query(default=20, ge=1, le=100),
     include_rejected_limit: int = Query(default=20, ge=0, le=100),
 ):
-    return generate_clash_report_resolution_candidates(
+    result = generate_clash_report_resolution_candidates(
         db,
         report_id=report_id,
         target_entry_id=target_entry_id,
         limit=limit,
         include_rejected_limit=include_rejected_limit,
     )
+    record_resolution_candidate_impression(
+        db,
+        report_id=report_id,
+        actor_user_id=current_user.id,
+        actor_role=current_user.role,
+        result=result,
+    )
+    return result
 
 
 @review_router.post(

@@ -188,3 +188,114 @@ def test_empty_dataset_has_no_csv_rows():
     with Session() as db:
         assert build_ranker_dataset(db)["rows"] == []
         assert ranker_dataset_to_csv(build_ranker_dataset(db)) == ""
+
+
+def test_recommendation_choice_dataset_builds_groupwise_pii_free_labels():
+    from backend.learning_dataset_service import (
+        build_recommendation_choice_dataset,
+        recommendation_choice_dataset_to_csv,
+    )
+    from backend.learning_event_service import record_learning_event, stable_learning_key
+
+    Session = create_session()
+    with Session() as db:
+        db.add(AcademicTerm(code="SPRING-2027", name="Spring 2027", status="active"))
+        db.flush()
+        impression_key = "abc123"
+        report_key = stable_learning_key("clash_report", 99)
+        first_features = CandidateFeatures(
+            safety_status="SAFE",
+            duration_minutes=60,
+            affected_students=8,
+            confirmed_conflicts_removed=1,
+            inferred_conflicts_removed=0,
+            structural_clashes_removed=1,
+            conflict_groups_removed=1,
+            weighted_risk_reduction=100,
+            day_distance=1,
+            time_shift_minutes=60,
+            late_slot=False,
+            missing_metadata_count=0,
+        ).model_dump()
+        second_features = CandidateFeatures(
+            safety_status="CONDITIONALLY_SAFE",
+            duration_minutes=60,
+            affected_students=10,
+            confirmed_conflicts_removed=1,
+            inferred_conflicts_removed=0,
+            structural_clashes_removed=1,
+            conflict_groups_removed=1,
+            weighted_risk_reduction=100,
+            day_distance=2,
+            time_shift_minutes=90,
+            late_slot=False,
+            missing_metadata_count=1,
+        ).model_dump()
+        for position, (candidate_id, features, score) in enumerate(
+            (("a" * 24, first_features, 80), ("b" * 24, second_features, 70)),
+            start=1,
+        ):
+            record_learning_event(
+                db,
+                term_id=1,
+                event_type="recommendation_shown",
+                entity_type="clash_report",
+                entity_key=report_key,
+                actor_role="coordinator",
+                context={
+                    "impression_key": impression_key,
+                    "candidate_id": candidate_id,
+                    "position": position,
+                    "safety_status": features["safety_status"],
+                    "ranker_id": "catboost_research_v1",
+                    "ranker_version": "research-v1",
+                    "rank_score": score,
+                    "feature_schema_version": "1.0",
+                    "features": features,
+                },
+            )
+        schedule_change_key = stable_learning_key("schedule_change", 101)
+        record_learning_event(
+            db,
+            term_id=1,
+            event_type="recommendation_selected",
+            entity_type="schedule_change",
+            entity_key=schedule_change_key,
+            actor_role="coordinator",
+            outcome_label="selected_and_applied",
+            context={
+                "impression_key": impression_key,
+                "candidate_id": "a" * 24,
+                "safety_status": "SAFE",
+                "features": first_features,
+            },
+        )
+        record_learning_event(
+            db,
+            term_id=1,
+            event_type="recommendation_rejected",
+            entity_type="clash_report",
+            entity_key=report_key,
+            actor_role="coordinator",
+            outcome_label="not_selected",
+            context={
+                "impression_key": impression_key,
+                "candidate_id": "b" * 24,
+                "safety_status": "CONDITIONALLY_SAFE",
+                "features": second_features,
+            },
+        )
+        db.commit()
+
+        dataset = build_recommendation_choice_dataset(db, term_id=1)
+        assert dataset["decision_group_count"] == 1
+        assert dataset["candidate_row_count"] == 2
+        assert [row["choice_label"] for row in dataset["rows"]] == [1, 0]
+        assert {row["choice_outcome"] for row in dataset["rows"]} == {
+            "selected",
+            "not_selected",
+        }
+        assert all("candidate_id" not in row for row in dataset["rows"])
+        csv_output = recommendation_choice_dataset_to_csv(dataset)
+        assert "decision_group_id" in csv_output
+        assert "student@example.edu" not in csv_output

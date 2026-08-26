@@ -547,12 +547,33 @@ def test_conditional_resolution_requires_confirmation_and_applies_atomically():
         domain_events = list(
             db.scalars(select(LearningEvent).order_by(LearningEvent.id)).all()
         )
+        event_types = {event.event_type for event in domain_events}
         assert {
             "clash_report_submitted",
             "clash_report_verified",
             "resolution_applied",
+            "recommendation_generated",
+            "recommendation_shown",
             "recommendation_selected",
-        }.issubset({event.event_type for event in domain_events})
+            "recommendation_rejected",
+        }.issubset(event_types)
+        selected_event = next(
+            event for event in domain_events if event.event_type == "recommendation_selected"
+        )
+        selected_context = json.loads(selected_event.context_json)
+        assert selected_context["candidate_id"] == candidate["candidate_id"]
+        assert selected_context["impression_observed"] is True
+        assert selected_context["impression_key"]
+        assert selected_context["features"] == candidate["features"]
+        not_selected = [
+            json.loads(event.context_json)
+            for event in domain_events
+            if event.event_type == "recommendation_rejected"
+            and event.outcome_label == "not_selected"
+        ]
+        assert not_selected
+        assert all(item["candidate_id"] != candidate["candidate_id"] for item in not_selected)
+        assert all(item["eligible_for_ranker_training"] is True for item in not_selected)
         assert all("student@example.edu" not in event.context_json for event in domain_events)
 
     with Session() as db:

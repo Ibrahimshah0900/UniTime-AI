@@ -30,6 +30,7 @@ from backend.models import (
     User,
 )
 from backend.learning_event_service import record_learning_event, stable_learning_key
+from backend.recommendation_learning_service import record_resolution_candidate_choice
 from backend.notification_service import (
     add_clash_report_status_notification,
     add_time_change_notifications,
@@ -831,24 +832,13 @@ def apply_clash_report_resolution_candidate(
                 "weighted_risk_after": impact["weighted_risk_after"],
             },
         )
-        record_learning_event(
+        record_resolution_candidate_choice(
             db,
-            term_id=report.term_id,
-            event_type="recommendation_selected",
-            subject_key=stable_learning_key("student", report.student_user_id),
-            entity_type="schedule_change",
-            entity_key=stable_learning_key("schedule_change", history.id),
+            report=report,
+            actor_user_id=actor_user_id,
             actor_role=actor.role if actor is not None else None,
-            outcome_label="selected_and_applied",
-            context={
-                "safety_status": candidate["status"],
-                "ranker_id": candidate["ranker"]["ranker_id"],
-                "ranker_version": candidate["ranker"]["ranker_version"],
-                "rank_score": candidate["rank_score"],
-                "feature_schema_version": candidate["features"][
-                    "feature_schema_version"
-                ],
-            },
+            schedule_change_key=stable_learning_key("schedule_change", history.id),
+            selected_candidate=candidate,
         )
         add_time_change_notifications(
             db,

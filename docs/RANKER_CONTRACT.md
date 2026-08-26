@@ -59,13 +59,18 @@ A ranker declares non-empty `ranker_id` and `ranker_version` values. It returns 
 
 ## Learning events and outcome labels
 
-Only real coordinator actions create append-only learning events:
+The append-only learning pipeline now captures both outcomes and the comparison set that produced a coordinator choice:
 
-- candidate application → `accepted`
-- undo → `undone`
-- redo → `redone`
+- candidate-review API response → one `recommendation_generated` impression;
+- every returned candidate → `recommendation_shown` with display position and frozen PII-free features;
+- applied candidate → `recommendation_selected`;
+- eligible SAFE/CONDITIONALLY_SAFE alternatives from the same observed impression → `recommendation_rejected` / `not_selected`;
+- deterministic hard-filter examples → `recommendation_rejected` / `hard_constraint_rejected` and excluded from ranking labels;
+- candidate application → `accepted`;
+- undo → `undone`;
+- redo → `redone`.
 
-Each event freezes the PII-free feature vector, ranker identity/version, score, candidate safety status, and event time. Undo/redo append events; they do not rewrite prior evidence.
+This makes future groupwise ranking research possible without storing student identity or raw schedule text. The selected-only `resolution_learning_events` export remains available for outcome analysis; `scripts/export_recommendation_choices.py` is the comparative choice export. Undo/redo append events and never rewrite prior evidence.
 
 ## Offline export
 

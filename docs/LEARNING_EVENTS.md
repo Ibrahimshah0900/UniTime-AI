@@ -10,7 +10,10 @@ Current strong domain signals include:
 
 - student enrollment and drop, including whether the add produced a live conflict;
 - clash-report submission, verified resolution, rejection/invalidity, and duplicate classification;
-- deterministic recommendation selection and transactional resolution apply;
+- coordinator recommendation impressions, including every returned candidate's PII-free feature snapshot and display position;
+- explicit recommendation selection plus eligible alternatives that were shown but not selected;
+- deterministic hard-rejected examples, labeled separately and excluded from ranker-training negatives;
+- transactional resolution apply;
 - resolution undo and redo;
 - safe manual room/time changes;
 - academic-term archival.
@@ -25,5 +28,14 @@ From the repository root:
 python scripts/export_learning_events.py data/learning-events.json
 python scripts/export_learning_events.py data/learning-events.csv --term-id 1
 ```
+
+For groupwise ranking data built only from observed coordinator choices:
+
+```powershell
+python scripts/export_recommendation_choices.py data/recommendation-choices.json
+python scripts/export_recommendation_choices.py data/recommendation-choices.csv --term-id 1
+```
+
+A recommendation impression is created only when the coordinator/admin candidate-review API returns a candidate set. `recommendation_shown` records the PII-free frozen feature snapshot and position for each returned candidate. When one candidate is applied, the selected candidate is linked back to the latest matching impression and eligible SAFE/CONDITIONALLY_SAFE alternatives from that impression are appended as `recommendation_rejected` with outcome `not_selected`. Hard-filtered REJECTED examples use outcome `hard_constraint_rejected` and are never treated as ranking negatives.
 
 Both formats declare schema version `1.0`. Exported subject/entity keys are pseudonymous stable linkage keys. A project owner must still review any dataset manually before later offline experimentation. No performance metric may be claimed from demo or tiny data.
