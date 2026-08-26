@@ -3,6 +3,7 @@ name: UniTime-AI CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -92,3 +93,41 @@ jobs:
       - run: alembic upgrade head
       - run: alembic check
       - run: python -m pytest tests/test_live_database_smoke.py -q
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - run: npm ci
+        working-directory: frontend
+      - name: Build frontend for Android
+        run: npm run build
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://127.0.0.1:8000
+          CAPACITOR_DEV_CLEARTEXT: "1"
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+        working-directory: frontend
+        env:
+          CAPACITOR_DEV_CLEARTEXT: "1"
+      - name: Build Android debug APK
+        run: ./gradlew assembleDebug
+        working-directory: frontend/android
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: UniTime-AI-Android-Debug
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
