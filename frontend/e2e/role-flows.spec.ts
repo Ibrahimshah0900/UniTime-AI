@@ -145,6 +145,21 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     await logout(page)
   })
 
+  test('student receives coordinator schedule resolution updates', async ({ page }) => {
+    await login(page, 'student.e2e@example.edu')
+
+    await page.getByRole('link', { name: 'Notifications', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Notifications & reminders' })).toBeVisible()
+    await expect(page.getByText(/Schedule changed for/).first()).toBeVisible()
+
+    await page.getByRole('link', { name: 'My Timetable' }).click()
+    await expect(page.getByRole('heading', { name: 'My timetable' })).toBeVisible()
+    await expect(page.getByText('Artificial Intelligence')).toBeVisible()
+    await expect(page.getByText('Discrete Mathematics')).toBeVisible()
+
+    await logout(page)
+  })
+
   test('admin can access privileged account and full operations views', async ({ page }) => {
     await login(page, 'admin.e2e@example.edu')
     await page.getByRole('link', { name: 'Users & Roles' }).click()
