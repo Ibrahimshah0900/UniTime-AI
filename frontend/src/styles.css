@@ -1250,3 +1250,517 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Timetable Experience v2 */
+
+.view-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.78);
+  box-shadow: var(--shadow-xs);
+  backdrop-filter: blur(14px);
+}
+
+.view-switcher .btn--ghost {
+  min-height: 35px;
+  padding-inline: 12px;
+  border-radius: 10px;
+}
+
+.view-switcher .btn--ghost.is-active {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+.view-switcher .btn--primary {
+  margin-left: 4px;
+}
+
+.timetable-toolbar {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 0.68);
+  box-shadow: var(--shadow-xs);
+  backdrop-filter: blur(14px);
+}
+
+.timetable-toolbar--term {
+  justify-content: flex-start;
+}
+
+.timetable-toolbar--term .input {
+  width: auto;
+  min-width: 240px;
+}
+
+.timetable-board {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in oklab, var(--accent-soft) 38%, transparent), transparent 26rem),
+    rgb(255 255 255 / 0.72);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(16px);
+}
+
+.timetable-board__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px 15px;
+  border-bottom: 1px solid var(--line);
+  background: rgb(255 255 255 / 0.62);
+}
+
+.timetable-board__header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timetable-board__header strong {
+  color: var(--text);
+  font-size: .93rem;
+  letter-spacing: -.02em;
+}
+
+.timetable-board__legend {
+  color: var(--muted);
+  font-size: .68rem;
+}
+
+.timetable-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(205px, 1fr));
+  gap: 10px;
+  padding: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.timetable-grid::-webkit-scrollbar {
+  height: 9px;
+}
+
+.timetable-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.timetable-grid::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--line-strong);
+  background-clip: padding-box;
+}
+
+.timetable-day {
+  min-height: 390px;
+  overflow: hidden;
+  scroll-snap-align: start;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: rgb(255 255 255 / 0.82);
+  box-shadow: var(--shadow-xs);
+}
+
+.timetable-day--today {
+  border-color: color-mix(in oklab, var(--accent) 34%, var(--line));
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--accent) 8%, transparent),
+    var(--shadow-sm);
+}
+
+.timetable-day__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 73px;
+  padding: 13px 13px 12px;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--surface-soft) 76%, white),
+      rgb(255 255 255 / 0.7)
+    );
+}
+
+.timetable-day--today .timetable-day__header {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--accent-soft) 78%, white),
+      rgb(255 255 255 / 0.74)
+    );
+}
+
+.timetable-day__header > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.timetable-day__header > div:first-child > span {
+  color: var(--muted);
+  font-size: .59rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.timetable-day__header > div:first-child > strong {
+  color: var(--text);
+  font-size: .86rem;
+  letter-spacing: -.025em;
+}
+
+.timetable-day__badges {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.timetable-count,
+.timetable-today {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: .58rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.timetable-count {
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+
+.timetable-today {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.timetable-day__body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 315px;
+  padding: 10px;
+}
+
+.class-block {
+  --class-accent: var(--accent);
+  --class-soft: var(--accent-soft);
+
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid color-mix(in oklab, var(--class-accent) 15%, var(--line));
+  border-left: 1px solid color-mix(in oklab, var(--class-accent) 15%, var(--line));
+  border-radius: 14px;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--class-soft) 40%, white),
+      white 72%
+    );
+  box-shadow: 0 7px 20px rgb(20 28 48 / 0.045);
+}
+
+.class-block::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--class-accent);
+}
+
+.class-block--lecture {
+  --class-accent: oklch(60% 0.17 260);
+  --class-soft: oklch(95% 0.035 260);
+}
+
+.class-block--lab {
+  --class-accent: oklch(61% 0.16 165);
+  --class-soft: oklch(95% 0.035 165);
+}
+
+.class-block--tutorial {
+  --class-accent: oklch(68% 0.16 75);
+  --class-soft: oklch(96% 0.04 75);
+}
+
+.class-block--online {
+  --class-accent: oklch(62% 0.14 305);
+  --class-soft: oklch(95% 0.035 305);
+}
+
+.class-block--hybrid {
+  --class-accent: oklch(63% 0.16 20);
+  --class-soft: oklch(95% 0.035 20);
+}
+
+.class-block--other {
+  --class-accent: oklch(58% 0.04 250);
+  --class-soft: oklch(95% 0.012 250);
+}
+
+.class-block__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.class-block__type {
+  color: var(--class-accent);
+  font-size: .58rem;
+  font-weight: 820;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.class-block__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: .61rem;
+  white-space: nowrap;
+}
+
+.class-block > strong {
+  color: var(--text);
+  font-size: .82rem;
+  line-height: 1.3;
+  letter-spacing: -.02em;
+}
+
+.class-block__identity {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.class-block__identity span {
+  display: inline-flex;
+  min-height: 21px;
+  align-items: center;
+  padding: 0 7px;
+  border: 1px solid color-mix(in oklab, var(--class-accent) 13%, var(--line));
+  border-radius: 999px;
+  color: var(--text-soft);
+  background: rgb(255 255 255 / 0.62);
+  font-size: .58rem;
+  font-weight: 690;
+}
+
+.class-block__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 2px;
+}
+
+.class-block__meta small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: .63rem;
+  line-height: 1.35;
+}
+
+.timetable-day__empty {
+  flex: 1;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: var(--muted);
+  text-align: center;
+}
+
+.timetable-day__empty > span {
+  width: 30px;
+  height: 1px;
+  margin-bottom: 10px;
+  background: var(--line-strong);
+}
+
+.timetable-day__empty strong {
+  color: var(--text-soft);
+  font-size: .7rem;
+}
+
+.timetable-day__empty small {
+  margin-top: 4px;
+  font-size: .61rem;
+}
+
+/* Faculty open timetable windows */
+
+.free-slots-section {
+  margin-bottom: 16px;
+}
+
+.free-slots-note {
+  margin: -3px 0 14px;
+  font-size: .74rem;
+  line-height: 1.45;
+}
+
+.free-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.free-slot-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--accent-soft) 28%, white),
+      white
+    );
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform .16s var(--ease-out),
+    border-color .16s ease,
+    box-shadow .16s ease;
+}
+
+.free-slot-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--accent) 25%, var(--line));
+  box-shadow: var(--shadow-sm);
+}
+
+.free-slot-card__icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.free-slot-card strong,
+.free-slot-card span {
+  display: block;
+}
+
+.free-slot-card strong {
+  color: var(--text);
+  font-size: .72rem;
+}
+
+.free-slot-card span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: .64rem;
+}
+
+.free-slot-card small {
+  padding: 5px 7px;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  font-size: .59rem;
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .timetable-grid {
+    grid-template-columns: repeat(7, 215px);
+  }
+
+  .free-slot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .view-switcher {
+    width: 100%;
+  }
+
+  .view-switcher .btn {
+    flex: 1;
+  }
+
+  .view-switcher .btn--primary {
+    flex: 1.35;
+  }
+
+  .timetable-toolbar {
+    padding: 9px;
+  }
+
+  .timetable-toolbar--term .input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .timetable-board {
+    border-radius: 18px;
+  }
+
+  .timetable-board__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+    padding: 15px;
+  }
+
+  .timetable-board__legend {
+    display: none;
+  }
+
+  .timetable-grid {
+    grid-template-columns: repeat(7, minmax(235px, 82vw));
+    gap: 9px;
+    padding: 9px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .timetable-day {
+    min-height: 360px;
+    scroll-snap-align: center;
+  }
+
+  .free-slot-grid {
+    grid-template-columns: 1fr;
+  }
+}
