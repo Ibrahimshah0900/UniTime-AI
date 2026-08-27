@@ -1,3 +1,4 @@
+import { motion } from 'motion/react'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { authApi } from '../api/auth'
@@ -7,7 +8,39 @@ import { Logo } from '../components/Logo'
 import { useAuth } from '../features/auth/AuthContext'
 
 function AuthFrame({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <div className="auth-page"><section className="auth-story"><Logo/><div><span className="eyebrow">University scheduling, simplified</span><h1>One timetable. Clearer decisions. Fewer clashes.</h1><p>UniTime-AI brings students, faculty and timetable coordinators into one dependable scheduling workspace.</p></div><div className="auth-story__note">Built around your university's real timetable data and role-based workflows.</div></section><section className="auth-panel"><div className="auth-panel__inner"><h2>{title}</h2><p>{subtitle}</p>{children}</div></section></div>
+  return <div className="auth-page">
+    <motion.section className="auth-story" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
+      <Logo/>
+      <div className="auth-story__content">
+        <span className="eyebrow">University scheduling intelligence</span>
+        <h1>One timetable.<br/>Clearer decisions.<br/>Fewer clashes.</h1>
+        <p>UniTime-AI brings students, faculty and timetable coordinators into one dependable scheduling workspace.</p>
+        <div className="auth-story__features" aria-label="Platform capabilities">
+          <span>Conflict-aware</span>
+          <span>Role-aware</span>
+          <span>Term-aware</span>
+        </div>
+      </div>
+      <div className="auth-story__note">
+        <strong>Scheduling you can trust.</strong>
+        <span>Built around institutional timetable data and controlled workflows.</span>
+      </div>
+    </motion.section>
+
+    <motion.section
+      className="auth-panel"
+      initial={{ opacity: 0, x: 16 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <div className="auth-panel__inner">
+        <span className="auth-panel__eyebrow">UniTime-AI</span>
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
+        {children}
+      </div>
+    </motion.section>
+  </div>
 }
 
 export function LoginPage() {

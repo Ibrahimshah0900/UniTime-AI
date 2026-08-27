@@ -1,16 +1,17 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { AlertCircle, CheckCircle2, Inbox, LoaderCircle, X } from 'lucide-react'
+import { motion } from 'motion/react'
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
-  return <header className="page-header"><div><h1>{title}</h1>{description && <p>{description}</p>}</div>{actions && <div className="page-header__actions">{actions}</div>}</header>
+  return <motion.header className="page-header" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}><div><h1>{title}</h1>{description && <p>{description}</p>}</div>{actions && <div className="page-header__actions">{actions}</div>}</motion.header>
 }
 
 export function Section({ title, description, actions, children, className = '' }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; className?: string }) {
-  return <section className={`section ${className}`}><div className="section__heading">{(title || description) && <div>{title && <h2>{title}</h2>}{description && <p>{description}</p>}</div>}{actions && <div className="section__actions">{actions}</div>}</div>{children}</section>
+  return <motion.section className={`section ${className}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}><div className="section__heading">{(title || description) && <div>{title && <h2>{title}</h2>}{description && <p>{description}</p>}</div>}{actions && <div className="section__actions">{actions}</div>}</div>{children}</motion.section>
 }
 
 export function Metric({ label, value, hint, tone = 'neutral' }: { label: string; value: ReactNode; hint?: string; tone?: string }) {
-  return <article className={`metric metric--${tone}`}><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</article>
+  return <motion.article className={`metric metric--${tone}`} initial={{ opacity: 0, y: 8, scale: 0.99 }} animate={{ opacity: 1, y: 0, scale: 1 }} whileHover={{ y: -3 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</motion.article>
 }
 
 export function StatusBadge({ children, tone = 'neutral' }: { children: ReactNode; tone?: string }) {
@@ -87,7 +88,7 @@ export function Modal({ title, children, onClose, wide = false }: { title: strin
     }
   }, [])
 
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose() }}><div ref={dialogRef} className={`modal ${wide ? 'modal--wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}><div className="modal__header"><h2 id={titleId}>{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><X size={18}/></button></div><div className="modal__body">{children}</div></div></div>
+  return <motion.div className="modal-backdrop" role="presentation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }} onMouseDown={(event) => { if (event.currentTarget === event.target) onClose() }}><motion.div ref={dialogRef} className={`modal ${wide ? 'modal--wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} initial={{ opacity: 0, y: 18, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}><div className="modal__header"><h2 id={titleId}>{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><X size={18}/></button></div><div className="modal__body">{children}</div></motion.div></motion.div>
 }
 
 export function ConfirmButton({ children, message, onConfirm, className = 'btn btn--danger', disabled = false }: { children: ReactNode; message: string; onConfirm: () => void; className?: string; disabled?: boolean }) {
