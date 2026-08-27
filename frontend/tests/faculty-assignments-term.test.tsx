@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FacultyAssignmentsPage } from '../src/pages/FacultyAssignmentsPage'
 
 const mocks = vi.hoisted(() => ({
+  role: 'coordinator' as 'coordinator' | 'faculty',
   assignments: vi.fn(),
   managedAssignments: vi.fn(),
   directory: vi.fn(),
@@ -13,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/features/auth/AuthContext', () => ({
-  useAuth: () => ({ user: { role: 'coordinator' } }),
+  useAuth: () => ({ user: { role: mocks.role } }),
 }))
 
 vi.mock('../src/api/faculty', () => ({
@@ -41,7 +42,9 @@ const terms = {
 
 describe('FacultyAssignmentsPage term selection', () => {
   beforeEach(() => {
+    mocks.role = 'coordinator'
     mocks.listTerms.mockReset().mockResolvedValue(terms)
+    mocks.assignments.mockReset().mockResolvedValue([])
     mocks.managedAssignments.mockReset().mockResolvedValue([])
     mocks.directory.mockReset().mockResolvedValue({ faculty: [{ id: 7, full_name: 'Dr Ada', email: 'ada@example.edu' }], total: 1, offset: 0, limit: 100 })
     mocks.addAssignment.mockReset().mockResolvedValue({})
@@ -69,5 +72,18 @@ describe('FacultyAssignmentsPage term selection', () => {
       section: 'A',
       semester: 'Spring 2027',
     }))
+  })
+
+  it('lets faculty switch terms for their own assignments', async () => {
+    mocks.role = 'faculty'
+    const user = userEvent.setup()
+    render(<FacultyAssignmentsPage />)
+
+    await waitFor(() => expect(mocks.assignments).toHaveBeenLastCalledWith(1))
+
+    await user.selectOptions(screen.getByLabelText('Academic term'), '2')
+
+    await waitFor(() => expect(mocks.assignments).toHaveBeenLastCalledWith(2))
+    expect(screen.queryByRole('button', { name: 'Add assignment' })).toBeNull()
   })
 })

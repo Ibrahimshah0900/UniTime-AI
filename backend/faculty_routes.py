@@ -66,16 +66,22 @@ def create_faculty_account(
 def get_my_faculty_assignments(
     current_user: Annotated[User, Depends(require_faculty)],
     db: Session = Depends(get_db),
+    term_id: int | None = Query(default=None, gt=0),
 ):
-    return list_faculty_assignments(db, faculty_user_id=current_user.id)
+    return list_faculty_assignments(
+        db,
+        faculty_user_id=current_user.id,
+        term_id=term_id,
+    )
 
 
 @faculty_router.get("/timetable", response_model=list[TimetableEntryResponse])
 def get_my_faculty_timetable(
     current_user: Annotated[User, Depends(require_faculty)],
     db: Session = Depends(get_db),
+    term_id: int | None = Query(default=None, gt=0),
 ):
-    return get_faculty_timetable(db, current_user.id)
+    return get_faculty_timetable(db, current_user.id, term_id=term_id)
 
 
 @management_router.get("", response_model=list[FacultyAssignmentResponse])

@@ -19,7 +19,8 @@ const classTypes: ClassType[] = ['lecture','lab','tutorial','online','hybrid','o
 export function TimetablePage() {
   const { user } = useAuth()
   const manager = Boolean(user && ['coordinator','admin'].includes(user.role))
-  const terms = useAsync(() => manager ? termsApi.list() : Promise.resolve({ terms: [], total: 0, active_term_id: null }), [manager])
+  const termAware = Boolean(user && ['faculty','coordinator','admin'].includes(user.role))
+  const terms = useAsync(() => termAware ? termsApi.list() : Promise.resolve({ terms: [], total: 0, active_term_id: null }), [termAware])
   const [selectedTermId, setSelectedTermId] = useState<number | null>(null)
   const effectiveTermId = selectedTermId ?? terms.data?.active_term_id ?? terms.data?.terms.find((term) => term.status === 'planning')?.id ?? terms.data?.terms[0]?.id ?? null
   const selectedTerm = terms.data?.terms.find((term) => term.id === effectiveTermId) ?? null
@@ -27,12 +28,12 @@ export function TimetablePage() {
   const source = useAsync(
     () => user?.role === 'student'
       ? studentApi.timetable()
-      : user?.role === 'faculty'
-        ? facultyApi.timetable()
-        : manager && terms.loading
-          ? Promise.resolve([] as TimetableEntry[])
+      : termAware && terms.loading
+        ? Promise.resolve([] as TimetableEntry[])
+        : user?.role === 'faculty'
+          ? facultyApi.timetable(effectiveTermId)
           : timetableApi.list(effectiveTermId),
-    [user?.role, manager, terms.loading, effectiveTermId],
+    [user?.role, termAware, terms.loading, effectiveTermId],
   )
   const [query, setQuery] = useState(''); const [view, setView] = useState<'week'|'list'>('week'); const [createOpen, setCreateOpen] = useState(false); const [roomEntry, setRoomEntry] = useState<TimetableEntry | null>(null); const [timeEntry, setTimeEntry] = useState<TimetableEntry | null>(null); const [message, setMessage] = useState(''); const [actionError, setActionError] = useState(''); const [deletingId, setDeletingId] = useState<number | null>(null); const [importing, setImporting] = useState(false)
   const filtered = useMemo(() => (source.data || []).filter((entry) => [entry.course_code, entry.course_name, entry.faculty, entry.room, entry.section].some((value) => value?.toLowerCase().includes(query.toLowerCase()))), [source.data, query])
@@ -42,8 +43,8 @@ export function TimetablePage() {
   return <div className="page"><PageHeader title={user?.role === 'student' ? 'My timetable' : user?.role === 'faculty' ? 'Teaching timetable' : 'Timetable management'} description={manager ? 'Manage the institutional timetable, imports and room assignments.' : 'Your schedule is derived from the assignments mapped to your account.'} actions={<div className="button-row"><button className={`btn btn--ghost ${view === 'week' ? 'is-active' : ''}`} onClick={() => setView('week')}>Week</button><button className={`btn btn--ghost ${view === 'list' ? 'is-active' : ''}`} onClick={() => setView('list')}>List</button>{canManageSelectedTerm && <button className="btn btn--primary" onClick={() => setCreateOpen(true)}><Plus size={16}/>New entry</button>}</div>}/>
     {message && <SuccessNote>{message}</SuccessNote>}
     {actionError && <ErrorNote>{actionError}</ErrorNote>}
-    {manager && <div className="toolbar"><Select aria-label="Academic term" value={effectiveTermId ? String(effectiveTermId) : ''} onChange={(e) => setSelectedTermId(Number(e.target.value))} disabled={terms.loading || !terms.data?.terms.length}><option value="" disabled>{terms.loading ? 'Loading terms…' : 'Select term'}</option>{terms.data?.terms.map((term) => <option key={term.id} value={term.id}>{term.name} - {term.status}</option>)}</Select>{selectedTerm && <span className="muted">{selectedTerm.code} - {selectedTerm.status}{selectedTerm.status === 'archived' ? ' - read-only' : ''}</span>}</div>}
-    {manager && terms.error && <ErrorNote>{terms.error}</ErrorNote>}
+    {termAware && <div className="toolbar"><Select aria-label="Academic term" value={effectiveTermId ? String(effectiveTermId) : ''} onChange={(e) => setSelectedTermId(Number(e.target.value))} disabled={terms.loading || !terms.data?.terms.length}><option value="" disabled>{terms.loading ? 'Loading terms…' : 'Select term'}</option>{terms.data?.terms.map((term) => <option key={term.id} value={term.id}>{term.name} - {term.status}</option>)}</Select>{selectedTerm && <span className="muted">{selectedTerm.code} - {selectedTerm.status}{selectedTerm.status === 'archived' ? ' - read-only' : ''}</span>}</div>}
+    {termAware && terms.error && <ErrorNote>{terms.error}</ErrorNote>}
     <div className="toolbar"><label className="search-box"><Search size={17}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search course, room, faculty or section"/></label>{canManageSelectedTerm && <label className={`btn btn--secondary file-button ${importing ? 'is-disabled' : ''}`} aria-disabled={importing}><FileUp size={16}/>{importing ? 'Importing…' : 'Import CSV/XLSX'}<input type="file" accept=".csv,.xlsx" disabled={importing} onChange={(e) => { void upload(e.target.files?.[0]); e.currentTarget.value = '' }}/></label>}</div>
     {source.loading ? <LoadingState label="Loading timetable"/> : source.error ? <ErrorState message={source.error} retry={source.reload}/> : filtered.length ? view === 'week' ? <TimetableView entries={filtered}/> : <Section><div className="table-wrap"><table className="data-table"><thead><tr><th>Course</th><th>Day / Time</th><th>Section</th><th>Faculty</th><th>Room</th><th>Type</th>{canManageSelectedTerm && <th>Actions</th>}</tr></thead><tbody>{filtered.map((entry) => <tr key={entry.id}><td><strong>{classLabel(entry)}</strong><small>{entry.course_code || 'Special event'}</small></td><td>{entry.day}<small>{formatClock(entry.start_time)} – {formatClock(entry.end_time)}</small></td><td>{entry.section || 'Shared'}</td><td>{entry.faculty || '—'}</td><td>{entry.room || 'TBA'}</td><td>{titleCase(entry.class_type)}</td>{canManageSelectedTerm && <td><div className="row-actions"><button className="icon-btn" disabled={deletingId !== null} onClick={() => setRoomEntry(entry)} aria-label="Change room"><PencilLine size={16}/></button><button className="icon-btn" disabled={deletingId !== null} onClick={() => setTimeEntry(entry)} aria-label="Change day and time"><Clock3 size={16}/></button><button className="icon-btn icon-btn--danger" disabled={deletingId !== null} onClick={() => void remove(entry.id)} aria-label="Delete entry"><Trash2 size={16}/></button></div></td>}</tr>)}</tbody></table></div></Section> : <EmptyState title="No timetable entries found" description={query ? 'Try a broader search.' : 'No schedule entries are available for this view.'}/>}
     {createOpen && <CreateTimetableModal termId={effectiveTermId} onClose={() => setCreateOpen(false)} onCreated={async () => { setCreateOpen(false); setActionError(''); setMessage('Timetable entry created.'); await source.reload() }}/>}

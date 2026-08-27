@@ -11,7 +11,7 @@ from backend.auth_dependencies import get_current_user
 from backend.auth_security import hash_password
 from backend.database import Base, get_db
 from backend.faculty_routes import directory_router, faculty_router, management_router
-from backend.models import TimetableEntry, User
+from backend.models import AcademicTerm, FacultyClassAssignment, TimetableEntry, User
 
 
 def create_context():
@@ -183,3 +183,75 @@ def test_student_cannot_create_faculty_assignment():
     )
 
     assert response.status_code == 403
+
+def test_faculty_can_read_selected_planning_term():
+    app, client, Session = create_context()
+    faculty = create_user(Session, "faculty.term@example.edu", "faculty")
+    coordinator = create_user(Session, "coordinator.term@example.edu", "coordinator")
+
+    app.dependency_overrides[get_current_user] = lambda: coordinator
+    active_created = client.post(
+        "/faculty-assignments",
+        json=assignment_payload(faculty.id),
+    )
+    assert active_created.status_code == 201
+    active_term_id = active_created.json()["term_id"]
+
+    with Session() as db:
+        planning = AcademicTerm(
+            code="SPRING-2027",
+            name="Spring 2027",
+            status="planning",
+        )
+        db.add(planning)
+        db.commit()
+        db.refresh(planning)
+        planning_term_id = planning.id
+
+        db.add(
+            FacultyClassAssignment(
+                term_id=planning_term_id,
+                faculty_user_id=faculty.id,
+                course_code="ML-401",
+                section="B",
+                semester="Spring 2027",
+                created_by_user_id=coordinator.id,
+            )
+        )
+        db.add(
+            TimetableEntry(
+                term_id=planning_term_id,
+                course_code="ML-401",
+                course_name="Machine Learning Systems",
+                section="B",
+                semester="Spring 2027",
+                day="Tuesday",
+                start_time="12:00",
+                end_time="13:00",
+            )
+        )
+        db.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: faculty
+
+    active_assignments = client.get("/faculty/assignments")
+    planning_assignments = client.get(
+        f"/faculty/assignments?term_id={planning_term_id}"
+    )
+    planning_timetable = client.get(
+        f"/faculty/timetable?term_id={planning_term_id}"
+    )
+
+    assert active_assignments.status_code == 200
+    assert [item["course_code"] for item in active_assignments.json()] == ["AI-301"]
+    assert active_assignments.json()[0]["term_id"] == active_term_id
+
+    assert planning_assignments.status_code == 200
+    assert [item["course_code"] for item in planning_assignments.json()] == ["ML-401"]
+    assert planning_assignments.json()[0]["term_id"] == planning_term_id
+
+    assert planning_timetable.status_code == 200
+    assert [item["course_code"] for item in planning_timetable.json()] == ["ML-401"]
+
+    assert client.get("/faculty/assignments?term_id=0").status_code == 422
+    assert client.get("/faculty/timetable?term_id=0").status_code == 422
