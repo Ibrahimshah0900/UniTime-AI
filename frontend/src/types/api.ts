@@ -66,6 +66,22 @@ export interface TimetableEntry {
 export type DayName = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday'
 export type ClassType = 'lecture' | 'lab' | 'tutorial' | 'online' | 'hybrid' | 'other'
 
+export interface FacultyFreeSlot {
+  day: DayName
+  start_time: string
+  end_time: string
+  duration_minutes: number
+}
+
+export interface FacultyFreeSlotsResponse {
+  term_id: number
+  opens_at: string
+  closes_at: string
+  minimum_minutes: number
+  slots: FacultyFreeSlot[]
+  note: string
+}
+
 export interface Enrollment {
   id: number
   term_id: number

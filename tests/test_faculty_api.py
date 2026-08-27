@@ -255,3 +255,54 @@ def test_faculty_can_read_selected_planning_term():
 
     assert client.get("/faculty/assignments?term_id=0").status_code == 422
     assert client.get("/faculty/timetable?term_id=0").status_code == 422
+
+def test_faculty_free_slots_reflect_teaching_timetable():
+    app, client, Session = create_context()
+    faculty = create_user(Session, "faculty.free@example.edu", "faculty")
+    coordinator = create_user(Session, "coordinator.free@example.edu", "coordinator")
+
+    with Session() as db:
+        db.add(
+            TimetableEntry(
+                course_code="AI-301",
+                section="A",
+                semester="Fall 2026",
+                day="Monday",
+                start_time="10:00",
+                end_time="11:00",
+            )
+        )
+        db.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: coordinator
+    created = client.post(
+        "/faculty-assignments",
+        json=assignment_payload(faculty.id),
+    )
+    assert created.status_code == 201
+    term_id = created.json()["term_id"]
+
+    app.dependency_overrides[get_current_user] = lambda: faculty
+    response = client.get("/faculty/free-slots?minimum_minutes=60")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["term_id"] == term_id
+    assert payload["opens_at"] == "08:00"
+    assert payload["closes_at"] == "20:00"
+    assert payload["minimum_minutes"] == 60
+    assert (
+        "do not confirm personal faculty availability"
+        in payload["note"]
+    )
+
+    slots = {
+        (slot["day"], slot["start_time"], slot["end_time"])
+        for slot in payload["slots"]
+    }
+    assert ("Monday", "08:00", "10:00") in slots
+    assert ("Monday", "11:00", "20:00") in slots
+    assert ("Tuesday", "08:00", "20:00") in slots
+    assert ("Monday", "10:00", "11:00") not in slots
+
+    assert client.get("/faculty/free-slots?minimum_minutes=29").status_code == 422

@@ -11,6 +11,7 @@ from backend.faculty_schemas import (
     FacultyAssignmentCreate,
     FacultyAssignmentResponse,
     FacultyDirectoryResponse,
+    FacultyFreeSlotsResponse,
     FacultyProvisionCreate,
     FacultyProvisionResponse,
 )
@@ -18,6 +19,7 @@ from backend.faculty_service import (
     create_faculty_assignment,
     delete_faculty_assignment,
     get_faculty_timetable,
+    get_faculty_free_slots,
     list_faculty_directory,
     list_faculty_assignments,
     provision_faculty_account,
@@ -82,6 +84,22 @@ def get_my_faculty_timetable(
     term_id: int | None = Query(default=None, gt=0),
 ):
     return get_faculty_timetable(db, current_user.id, term_id=term_id)
+
+
+
+@faculty_router.get("/free-slots", response_model=FacultyFreeSlotsResponse)
+def get_my_faculty_free_slots(
+    current_user: Annotated[User, Depends(require_faculty)],
+    db: Session = Depends(get_db),
+    term_id: int | None = Query(default=None, gt=0),
+    minimum_minutes: int = Query(default=30, ge=30, le=720),
+):
+    return get_faculty_free_slots(
+        db,
+        current_user.id,
+        term_id=term_id,
+        minimum_minutes=minimum_minutes,
+    )
 
 
 @management_router.get("", response_model=list[FacultyAssignmentResponse])

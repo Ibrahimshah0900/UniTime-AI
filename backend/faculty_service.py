@@ -13,6 +13,12 @@ from backend.schedule_matching import (
     semester_matches,
     timetable_sort_key,
 )
+from backend.scheduling_policy import (
+    DEFAULT_SCHEDULING_POLICY,
+    SchedulingPolicy,
+    minutes_to_time,
+    time_to_minutes,
+)
 from backend.term_service import get_active_term, resolve_term_for_write
 from backend.student_identity_service import generate_temporary_password
 
@@ -241,3 +247,86 @@ def get_faculty_timetable(
                 seen_ids.add(entry.id)
             break
     return sorted(matches, key=timetable_sort_key)
+
+def get_faculty_free_slots(
+    db: Session,
+    faculty_user_id: int,
+    *,
+    term_id: int | None = None,
+    minimum_minutes: int = 30,
+    policy: SchedulingPolicy = DEFAULT_SCHEDULING_POLICY,
+) -> dict:
+    selected_term_id = term_id or get_active_term(db).id
+    timetable = get_faculty_timetable(
+        db,
+        faculty_user_id,
+        term_id=selected_term_id,
+    )
+
+    opening = time_to_minutes(policy.opens_at)
+    closing = time_to_minutes(policy.closes_at)
+    busy_by_day: dict[str, list[tuple[int, int]]] = {
+        day: [] for day in policy.operating_days
+    }
+
+    for period in policy.blocked_periods:
+        busy_by_day[period.day].append(
+            (
+                max(opening, time_to_minutes(period.start_time)),
+                min(closing, time_to_minutes(period.end_time)),
+            )
+        )
+
+    for entry in timetable:
+        if entry.day not in busy_by_day:
+            continue
+        start = max(opening, time_to_minutes(entry.start_time))
+        end = min(closing, time_to_minutes(entry.end_time))
+        if start < end:
+            busy_by_day[entry.day].append((start, end))
+
+    slots: list[dict] = []
+    for day in policy.operating_days:
+        intervals = sorted(busy_by_day[day])
+        merged: list[list[int]] = []
+
+        for start, end in intervals:
+            if not merged or start > merged[-1][1]:
+                merged.append([start, end])
+            else:
+                merged[-1][1] = max(merged[-1][1], end)
+
+        cursor = opening
+        for start, end in merged:
+            if start - cursor >= minimum_minutes:
+                slots.append(
+                    {
+                        "day": day,
+                        "start_time": minutes_to_time(cursor),
+                        "end_time": minutes_to_time(start),
+                        "duration_minutes": start - cursor,
+                    }
+                )
+            cursor = max(cursor, end)
+
+        if closing - cursor >= minimum_minutes:
+            slots.append(
+                {
+                    "day": day,
+                    "start_time": minutes_to_time(cursor),
+                    "end_time": minutes_to_time(closing),
+                    "duration_minutes": closing - cursor,
+                }
+            )
+
+    return {
+        "term_id": selected_term_id,
+        "opens_at": policy.opens_at,
+        "closes_at": policy.closes_at,
+        "minimum_minutes": minimum_minutes,
+        "slots": slots,
+        "note": (
+            "These are gaps in your assigned timetable within institutional "
+            "operating hours; they do not confirm personal faculty availability."
+        ),
+    }

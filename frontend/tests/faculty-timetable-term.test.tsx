@@ -5,6 +5,7 @@ import { TimetablePage } from '../src/pages/TimetablePage'
 
 const mocks = vi.hoisted(() => ({
   timetable: vi.fn(),
+  freeSlots: vi.fn(),
   listTerms: vi.fn(),
 }))
 
@@ -13,7 +14,10 @@ vi.mock('../src/features/auth/AuthContext', () => ({
 }))
 
 vi.mock('../src/api/faculty', () => ({
-  facultyApi: { timetable: mocks.timetable },
+  facultyApi: {
+    timetable: mocks.timetable,
+    freeSlots: mocks.freeSlots,
+  },
 }))
 
 vi.mock('../src/api/terms', () => ({
@@ -33,6 +37,14 @@ describe('faculty timetable term selection', () => {
   beforeEach(() => {
     mocks.listTerms.mockReset().mockResolvedValue(terms)
     mocks.timetable.mockReset().mockResolvedValue([])
+    mocks.freeSlots.mockReset().mockImplementation((termId: number) => Promise.resolve({
+      term_id: termId,
+      opens_at: '08:00',
+      closes_at: '20:00',
+      minimum_minutes: 30,
+      slots: [{ day: 'Monday', start_time: '08:00', end_time: '10:00', duration_minutes: 120 }],
+      note: 'These are gaps in your assigned timetable within institutional operating hours; they do not confirm personal faculty availability.',
+    }))
   })
 
   it('loads the faculty timetable for the selected term', async () => {
@@ -40,9 +52,13 @@ describe('faculty timetable term selection', () => {
     render(<TimetablePage />)
 
     await waitFor(() => expect(mocks.timetable).toHaveBeenLastCalledWith(1))
+    await waitFor(() => expect(mocks.freeSlots).toHaveBeenLastCalledWith(1))
+    expect(screen.getByText('Open timetable windows')).toBeVisible()
+    expect(screen.getByText('120 min')).toBeVisible()
 
     await user.selectOptions(screen.getByLabelText('Academic term'), '2')
 
     await waitFor(() => expect(mocks.timetable).toHaveBeenLastCalledWith(2))
+    await waitFor(() => expect(mocks.freeSlots).toHaveBeenLastCalledWith(2))
   })
 })

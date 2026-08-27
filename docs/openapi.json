@@ -2894,6 +2894,77 @@
         "title": "FacultyDirectoryResponse",
         "type": "object"
       },
+      "FacultyFreeSlotResponse": {
+        "properties": {
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "duration_minutes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "day",
+          "start_time",
+          "end_time",
+          "duration_minutes"
+        ],
+        "title": "FacultyFreeSlotResponse",
+        "type": "object"
+      },
+      "FacultyFreeSlotsResponse": {
+        "properties": {
+          "closes_at": {
+            "title": "Closes At",
+            "type": "string"
+          },
+          "minimum_minutes": {
+            "exclusiveMinimum": 0.0,
+            "title": "Minimum Minutes",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "opens_at": {
+            "title": "Opens At",
+            "type": "string"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/FacultyFreeSlotResponse"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term_id",
+          "opens_at",
+          "closes_at",
+          "minimum_minutes",
+          "slots",
+          "note"
+        ],
+        "title": "FacultyFreeSlotsResponse",
+        "type": "object"
+      },
       "FacultyProvisionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -9353,6 +9424,73 @@
           }
         ],
         "summary": "Get My Faculty Assignments",
+        "tags": [
+          "Faculty"
+        ]
+      }
+    },
+    "/faculty/free-slots": {
+      "get": {
+        "operationId": "get_my_faculty_free_slots_faculty_free_slots_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "minimum_minutes",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 720,
+              "minimum": 30,
+              "title": "Minimum Minutes",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacultyFreeSlotsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get My Faculty Free Slots",
         "tags": [
           "Faculty"
         ]

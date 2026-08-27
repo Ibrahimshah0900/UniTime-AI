@@ -99,3 +99,18 @@ class FacultyProvisionCreate(BaseModel):
 class FacultyProvisionResponse(BaseModel):
     faculty: UserResponse
     temporary_password: str
+
+class FacultyFreeSlotResponse(BaseModel):
+    day: str
+    start_time: str
+    end_time: str
+    duration_minutes: int = Field(gt=0)
+
+
+class FacultyFreeSlotsResponse(BaseModel):
+    term_id: int
+    opens_at: str
+    closes_at: str
+    minimum_minutes: int = Field(gt=0)
+    slots: list[FacultyFreeSlotResponse]
+    note: str
