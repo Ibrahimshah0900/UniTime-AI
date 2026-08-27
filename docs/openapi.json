@@ -8583,6 +8583,25 @@
     "/clashes": {
       "get": {
         "operationId": "get_clashes_clashes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8593,6 +8612,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -8606,6 +8635,25 @@
     "/clashes/room-suggestions": {
       "get": {
         "operationId": "get_room_clash_suggestions_clashes_room_suggestions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8616,6 +8664,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -8682,6 +8740,25 @@
     "/clashes/student-groups": {
       "get": {
         "operationId": "get_student_conflict_groups_clashes_student_groups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8692,6 +8769,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -8749,6 +8836,25 @@
     "/clashes/student-resolutions": {
       "get": {
         "operationId": "get_student_conflict_resolutions_clashes_student_resolutions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8759,6 +8865,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -8772,6 +8888,25 @@
     "/clashes/student-risk": {
       "get": {
         "operationId": "get_student_conflict_risks_clashes_student_risk_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8782,6 +8917,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -9695,6 +9840,23 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
           }
         ],
         "responses": {
@@ -9762,6 +9924,23 @@
               "default": 5,
               "title": "Max Steps",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
             }
           }
         ],
