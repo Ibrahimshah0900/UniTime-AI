@@ -1,12 +1,18 @@
 import {
+  ArrowRight,
+  Clock3,
   History as HistoryIcon,
+  MapPin,
   Play,
   RotateCcw,
   RotateCw,
+  ShieldCheck,
   Sparkles,
   TriangleAlert,
+  UsersRound,
   Wrench,
 } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useState } from 'react'
 import { ApiError } from '../api/client'
 import { clashesApi, historyApi, optimizerApi } from '../api/operations'
@@ -82,15 +88,18 @@ export function ClashesPage() {
   const effectiveTermId = selectedTermId ?? terms.data?.active_term_id ?? terms.data?.terms[0]?.id ?? null
   const selectedTerm = terms.data?.terms.find((term) => term.id === effectiveTermId) ?? null
   const canApplySelectedTerm = selectedTerm?.status === 'active'
+
   const clashes = useAsync(() => clashesApi.all(effectiveTermId), [effectiveTermId])
   const rooms = useAsync(() => clashesApi.roomSuggestions(effectiveTermId), [effectiveTermId])
   const risk = useAsync(() => clashesApi.studentRisk(effectiveTermId), [effectiveTermId])
   const groups = useAsync(() => clashesApi.studentGroups(effectiveTermId), [effectiveTermId])
   const resolutions = useAsync(() => clashesApi.studentResolutions(effectiveTermId), [effectiveTermId])
+
   const [message, setMessage] = useState('')
   const [actionError, setActionError] = useState('')
   const [busyRoom, setBusyRoom] = useState<number | null>(null)
   const [busyGroup, setBusyGroup] = useState<number | null>(null)
+
   const roomClashes = clashes.data?.clashes.filter((clash) => clash.type === 'room') || []
 
   async function reloadAnalysis() {
@@ -106,11 +115,17 @@ export function ClashesPage() {
   async function applyRoom(index: number) {
     const clash = roomClashes[index]
     const fix = rooms.data?.resolutions[index]?.best_fix
+
     if (!canApplySelectedTerm || !clash || !fix || busyRoom !== null) return
-    if (!window.confirm(`Move ${fix.course_code || `entry #${fix.entry_id}`} from ${fix.from_room || 'unassigned'} to ${fix.to_room}?`)) return
+
+    if (!window.confirm(
+      `Move ${fix.course_code || `entry #${fix.entry_id}`} from ${fix.from_room || 'unassigned'} to ${fix.to_room}?`,
+    )) return
+
     setBusyRoom(index)
     setMessage('')
     setActionError('')
+
     try {
       await clashesApi.applyRoomFix(clash.entry_1.id, clash.entry_2.id)
       setMessage('The validated room fix was applied and the analysis was refreshed.')
@@ -123,15 +138,25 @@ export function ClashesPage() {
   }
 
   async function applyGroup(groupId: number) {
-    const resolution = resolutions.data?.resolutions.find((item) => item.group_id === groupId)
+    const resolution = resolutions.data?.resolutions.find(
+      (item) => item.group_id === groupId,
+    )
+
     if (!canApplySelectedTerm || !resolution?.best_fix || busyGroup !== null) return
-    if (!window.confirm(`Apply the best validated move for conflict group #${groupId}?`)) return
+
+    if (!window.confirm(
+      `Apply the best validated move for conflict group #${groupId}?`,
+    )) return
+
     setBusyGroup(groupId)
     setMessage('')
     setActionError('')
+
     try {
       await clashesApi.applyStudentGroupFix(groupId)
-      setMessage(`Conflict group #${groupId} was updated and the analysis was refreshed.`)
+      setMessage(
+        `Conflict group #${groupId} was updated and the analysis was refreshed.`,
+      )
       await reloadAnalysis()
     } catch (error) {
       setActionError(operationError(error, 'Unable to apply the student conflict fix.'))
@@ -141,95 +166,446 @@ export function ClashesPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page clash-page">
       <PageHeader
         title="Clash management"
-        description="Review structural conflicts and cohort-risk signals, then apply only backend-validated fixes."
+        description="Review timetable conflicts, inspect evidence, and apply only backend-validated scheduling fixes."
       />
+
       {message && <SuccessNote>{message}</SuccessNote>}
       {actionError && <ErrorNote>{actionError}</ErrorNote>}
       {terms.error && <ErrorNote>{terms.error}</ErrorNote>}
-      <div className="toolbar">
-        <Select aria-label="Academic term" value={effectiveTermId ? String(effectiveTermId) : ''} onChange={(event) => setSelectedTermId(Number(event.target.value))} disabled={terms.loading || !terms.data?.terms.length}>
-          <option value="" disabled>{terms.loading ? 'Loading terms…' : 'Select term'}</option>
-          {terms.data?.terms.map((term) => <option key={term.id} value={term.id}>{term.name} - {term.status}</option>)}
+
+      <div className="toolbar clash-toolbar">
+        <Select
+          aria-label="Academic term"
+          value={effectiveTermId ? String(effectiveTermId) : ''}
+          onChange={(event) => setSelectedTermId(Number(event.target.value))}
+          disabled={terms.loading || !terms.data?.terms.length}
+        >
+          <option value="" disabled>
+            {terms.loading ? 'Loading terms...' : 'Select term'}
+          </option>
+
+          {terms.data?.terms.map((term) => (
+            <option key={term.id} value={term.id}>
+              {term.name} - {term.status}
+            </option>
+          ))}
         </Select>
-        {selectedTerm && <span className="muted">{selectedTerm.code} - {selectedTerm.status}{canApplySelectedTerm ? '' : ' - analysis only'}</span>}
+
+        {selectedTerm && (
+          <span className="muted">
+            {selectedTerm.code} - {selectedTerm.status}
+            {canApplySelectedTerm ? '' : ' - analysis only'}
+          </span>
+        )}
       </div>
 
-      <div className="metric-grid">
-        <Metric label="Structural clashes" value={clashes.data?.total ?? '—'} tone={clashes.data?.total ? 'danger' : 'success'} />
-        <Metric label="Room clashes" value={rooms.data?.room_clashes ?? '—'} tone={rooms.data?.room_clashes ? 'warning' : 'success'} />
-        <Metric label="Confirmed cohort risks" value={risk.data?.summary.confirmed ?? '—'} tone={risk.data?.summary.confirmed ? 'danger' : 'success'} />
-        <Metric label="Conflict groups" value={groups.data?.summary.total_groups ?? '—'} tone={groups.data?.summary.total_groups ? 'warning' : 'success'} />
-      </div>
-
-      <Section title="Detected structural clashes" description="Each row identifies the conflicting timetable entries and the shared resource causing the conflict.">
-        {clashes.loading ? <LoadingState label="Detecting clashes" /> : clashes.error ? <ErrorState message={clashes.error} retry={clashes.reload} /> : clashes.data?.clashes.length ? (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead><tr><th>Type</th><th>Entries</th><th>When</th><th>Resource</th><th>Reason</th></tr></thead>
-              <tbody>{clashes.data.clashes.map((clash, index) => (
-                <tr key={`${clash.type}-${clash.entry_1.id}-${clash.entry_2.id}-${index}`}>
-                  <td><StatusBadge tone={tone(clash.severity)}>{titleCase(clash.type)}</StatusBadge><small>{titleCase(clash.severity)}</small></td>
-                  <td><strong>{entryLabel(clash.entry_1)} ↔ {entryLabel(clash.entry_2)}</strong><small>Entries #{clash.entry_1.id} and #{clash.entry_2.id}</small></td>
-                  <td>{clash.day}<small>{formatClock(clash.entry_1.start_time)}–{formatClock(clash.entry_1.end_time)} / {formatClock(clash.entry_2.start_time)}–{formatClock(clash.entry_2.end_time)}</small></td>
-                  <td>{clash.type === 'room' ? clash.entry_1.room : clash.entry_1.faculty}</td>
-                  <td>{clash.reason}</td>
-                </tr>
-              ))}</tbody>
-            </table>
+      {selectedTerm && (
+        <motion.section
+          className={`clash-mode-banner ${
+            canApplySelectedTerm
+              ? 'clash-mode-banner--active'
+              : 'clash-mode-banner--analysis'
+          }`}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: .25 }}
+        >
+          <div className="clash-mode-banner__icon">
+            {canApplySelectedTerm
+              ? <ShieldCheck size={20}/>
+              : <TriangleAlert size={20}/>}
           </div>
-        ) : <EmptyState title="No structural clashes" description="No overlapping room or faculty assignments were detected." />}
+
+          <div>
+            <span>{canApplySelectedTerm ? 'Live resolution mode' : 'Analysis-only mode'}</span>
+            <strong>{selectedTerm.name}</strong>
+            <p>
+              {canApplySelectedTerm
+                ? 'Validated scheduling fixes can be reviewed and applied to this active term.'
+                : 'Conflict analysis is available, but timetable-changing actions stay disabled until the term is active.'}
+            </p>
+          </div>
+
+          <StatusBadge tone={canApplySelectedTerm ? 'success' : 'warning'}>
+            {canApplySelectedTerm ? 'Actions enabled' : 'Read only'}
+          </StatusBadge>
+        </motion.section>
+      )}
+
+      <div className="metric-grid clash-metrics">
+        <Metric
+          label="Structural clashes"
+          value={clashes.data?.total ?? '\u2014'}
+          tone={clashes.data?.total ? 'danger' : 'success'}
+        />
+
+        <Metric
+          label="Room clashes"
+          value={rooms.data?.room_clashes ?? '\u2014'}
+          tone={rooms.data?.room_clashes ? 'warning' : 'success'}
+        />
+
+        <Metric
+          label="Confirmed cohort risks"
+          value={risk.data?.summary.confirmed ?? '\u2014'}
+          tone={risk.data?.summary.confirmed ? 'danger' : 'success'}
+        />
+
+        <Metric
+          label="Conflict groups"
+          value={groups.data?.summary.total_groups ?? '\u2014'}
+          tone={groups.data?.summary.total_groups ? 'warning' : 'success'}
+        />
+      </div>
+
+      <Section
+        title="Detected structural clashes"
+        description="Direct timetable conflicts involving rooms or faculty assignments."
+        className="clash-section"
+      >
+        {clashes.loading
+          ? <LoadingState label="Detecting clashes"/>
+          : clashes.error
+            ? <ErrorState message={clashes.error} retry={clashes.reload}/>
+            : clashes.data?.clashes.length
+              ? (
+                <div className="clash-card-grid">
+                  {clashes.data.clashes.map((clash, index) => {
+                    const resource = clash.type === 'room'
+                      ? clash.entry_1.room || 'Unassigned room'
+                      : clash.entry_1.faculty || 'Unassigned faculty'
+
+                    return (
+                      <motion.article
+                        className={`clash-card clash-card--${clash.severity.toLowerCase()}`}
+                        key={`${clash.type}-${clash.entry_1.id}-${clash.entry_2.id}-${index}`}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        whileHover={{ y: -2 }}
+                        transition={{
+                          duration: .22,
+                          delay: index * .025,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                      >
+                        <header className="clash-card__header">
+                          <div>
+                            <StatusBadge tone={tone(clash.severity)}>
+                              {titleCase(clash.severity)}
+                            </StatusBadge>
+
+                            <span>{titleCase(clash.type)} conflict</span>
+                          </div>
+
+                          <span className="clash-card__entries">
+                            #{clash.entry_1.id} / #{clash.entry_2.id}
+                          </span>
+                        </header>
+
+                        <div className="clash-card__courses">
+                          <strong>
+                            {entryLabel(clash.entry_1)}
+                            {' \u2194 '}
+                            {entryLabel(clash.entry_2)}
+                          </strong>
+                        </div>
+
+                        <div className="clash-card__facts">
+                          <span>
+                            <Clock3 size={14}/>
+                            <span>
+                              <strong>{clash.day}</strong>
+                              <small>
+                                {formatClock(clash.entry_1.start_time)}
+                                {' - '}
+                                {formatClock(clash.entry_1.end_time)}
+                                {' / '}
+                                {formatClock(clash.entry_2.start_time)}
+                                {' - '}
+                                {formatClock(clash.entry_2.end_time)}
+                              </small>
+                            </span>
+                          </span>
+
+                          <span>
+                            <MapPin size={14}/>
+                            <span>
+                              <strong>Shared resource</strong>
+                              <small>{resource}</small>
+                            </span>
+                          </span>
+                        </div>
+
+                        <p className="clash-card__reason">{clash.reason}</p>
+                      </motion.article>
+                    )
+                  })}
+                </div>
+              )
+              : <EmptyState
+                  title="No structural clashes"
+                  description="No overlapping room or faculty assignments were detected."
+                />}
       </Section>
 
-      <Section title="Validated room fixes" description="Apply a ranked alternative directly from its clash; no timetable IDs need to be copied manually.">
-        {rooms.loading ? <LoadingState label="Finding room alternatives" /> : rooms.error ? <ErrorState message={rooms.error} retry={rooms.reload} /> : rooms.data?.resolutions.length ? (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead><tr><th>Clash</th><th>Recommended move</th><th>Score</th><th>Why it is safe</th><th>Action</th></tr></thead>
-              <tbody>{rooms.data.resolutions.map((resolution, index) => {
-                const fix = resolution.best_fix
-                const clash = roomClashes[index]
-                return (
-                  <tr key={`${resolution.day}-${index}`}>
-                    <td><strong>{resolution.day}</strong><small>{resolution.reason}</small></td>
-                    <td>{fix ? <><strong>{fix.course_code || fix.course_name || `Entry #${fix.entry_id}`}</strong><small>{fix.from_room || 'Unassigned'} → {fix.to_room} · {formatClock(fix.start_time)}–{formatClock(fix.end_time)}</small></> : 'No safe move found'}</td>
-                    <td>{fix?.score ?? '—'}</td>
-                    <td>{fix?.reasons.slice(0, 2).join(' · ') || resolution.error || 'No candidate currently satisfies the safety rules.'}</td>
-                    <td><button className="btn btn--secondary" disabled={!canApplySelectedTerm || !fix || !clash || busyRoom !== null} onClick={() => void applyRoom(index)}><Wrench size={15}/>{busyRoom === index ? 'Applying…' : 'Apply fix'}</button></td>
-                  </tr>
+      <Section
+        title="Validated room fixes"
+        description="Backend-ranked room alternatives that can resolve detected room conflicts."
+        className="clash-section"
+      >
+        {rooms.loading
+          ? <LoadingState label="Finding room alternatives"/>
+          : rooms.error
+            ? <ErrorState message={rooms.error} retry={rooms.reload}/>
+            : rooms.data?.resolutions.length
+              ? (
+                <div className="resolution-grid">
+                  {rooms.data.resolutions.map((resolution, index) => {
+                    const fix = resolution.best_fix
+                    const clash = roomClashes[index]
+
+                    return (
+                      <article
+                        className={`resolution-card ${
+                          fix ? 'resolution-card--available' : 'resolution-card--empty'
+                        }`}
+                        key={`${resolution.day}-${index}`}
+                      >
+                        <header className="resolution-card__header">
+                          <div>
+                            <span>Room resolution</span>
+                            <strong>{resolution.day}</strong>
+                          </div>
+
+                          <StatusBadge tone={fix ? 'success' : 'neutral'}>
+                            {fix ? 'Validated' : 'Unavailable'}
+                          </StatusBadge>
+                        </header>
+
+                        <p className="resolution-card__reason">
+                          {resolution.reason}
+                        </p>
+
+                        {fix
+                          ? <>
+                              <div className="resolution-card__move">
+                                <div>
+                                  <span>Recommended move</span>
+                                  <strong>
+                                    {fix.course_code || fix.course_name || `Entry #${fix.entry_id}`}
+                                  </strong>
+                                </div>
+
+                                <div className="resolution-room-change">
+                                  <span>{fix.from_room || 'Unassigned'}</span>
+                                  <ArrowRight size={15}/>
+                                  <strong>{fix.to_room}</strong>
+                                </div>
+                              </div>
+
+                              <div className="resolution-card__meta">
+                                <span>
+                                  <Clock3 size={13}/>
+                                  {formatClock(fix.start_time)} - {formatClock(fix.end_time)}
+                                </span>
+
+                                <span className="resolution-score">
+                                  Score {fix.score}
+                                </span>
+                              </div>
+
+                              <div className="resolution-card__reasons">
+                                {fix.reasons.slice(0, 3).map((reason) => (
+                                  <span key={reason}>
+                                    <ShieldCheck size={12}/>
+                                    {reason}
+                                  </span>
+                                ))}
+                              </div>
+                            </>
+                          : <div className="resolution-card__unavailable">
+                              {resolution.error || 'No candidate currently satisfies the safety rules.'}
+                            </div>}
+
+                        <button
+                          className="btn btn--secondary resolution-card__action"
+                          disabled={
+                            !canApplySelectedTerm ||
+                            !fix ||
+                            !clash ||
+                            busyRoom !== null
+                          }
+                          onClick={() => void applyRoom(index)}
+                        >
+                          <Wrench size={15}/>
+                          {busyRoom === index ? 'Applying...' : 'Apply fix'}
+                        </button>
+                      </article>
+                    )
+                  })}
+                </div>
+              )
+              : <EmptyState
+                  title="No room fixes needed"
+                  description="There are no room clashes requiring resolution in this academic term."
+                />}
+      </Section>
+
+      <div className="two-column clash-analysis-columns">
+        <Section
+          title="Student/cohort risk signals"
+          description={risk.data?.summary.important_note}
+          className="clash-section"
+        >
+          {risk.loading
+            ? <LoadingState label="Analyzing cohort risk"/>
+            : risk.error
+              ? <ErrorState message={risk.error} retry={risk.reload}/>
+              : risk.data?.risks.length
+                ? (
+                  <div className="risk-card-list">
+                    {risk.data.risks.map((item, index) => (
+                      <motion.article
+                        className="risk-card"
+                        key={`${item.entry_1.id}-${item.entry_2.id}-${index}`}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: .2, delay: index * .02 }}
+                      >
+                        <header>
+                          <StatusBadge tone={tone(item.risk_level)}>
+                            {titleCase(item.risk_level)}
+                          </StatusBadge>
+
+                          <strong className="risk-card__score">
+                            {item.score}
+                          </strong>
+                        </header>
+
+                        <strong className="risk-card__courses">
+                          {entryLabel(item.entry_1)}
+                          {' \u2194 '}
+                          {entryLabel(item.entry_2)}
+                        </strong>
+
+                        <span className="risk-card__time">
+                          <Clock3 size={13}/>
+                          {item.day} / {item.overlap.entry_1_time} / {item.overlap.entry_2_time}
+                        </span>
+
+                        <div className="risk-card__impact">
+                          <UsersRound size={15}/>
+                          <div>
+                            <span>Affected students</span>
+                            <strong>{item.affected_student_count}</strong>
+                          </div>
+                        </div>
+
+                        <div className="risk-card__evidence">
+                          {item.evidence.slice(0, 3).map((evidence) => (
+                            <span key={evidence}>{evidence}</span>
+                          ))}
+                        </div>
+
+                        <small>
+                          Evidence: {titleCase(item.evidence_source)}
+                        </small>
+                      </motion.article>
+                    ))}
+                  </div>
                 )
-              })}</tbody>
-            </table>
-          </div>
-        ) : <EmptyState title="No room fixes needed" description="There are no room clashes requiring resolution in this academic term." />}
-      </Section>
-
-      <div className="two-column">
-        <Section title="Student/cohort risk signals" description={risk.data?.summary.important_note}>
-          {risk.loading ? <LoadingState label="Analyzing cohort risk" /> : risk.error ? <ErrorState message={risk.error} retry={risk.reload} /> : risk.data?.risks.length ? (
-            <div className="compact-list">{risk.data.risks.map((item, index) => (
-              <article key={`${item.entry_1.id}-${item.entry_2.id}-${index}`}>
-                <div><strong>{entryLabel(item.entry_1)} ↔ {entryLabel(item.entry_2)}</strong><span>{item.day} · {item.overlap.entry_1_time} / {item.overlap.entry_2_time}</span><small>{item.evidence.join(' · ')}</small></div>
-                <div><StatusBadge tone={tone(item.risk_level)}>{titleCase(item.risk_level)}</StatusBadge><strong>{item.score}</strong></div>
-              </article>
-            ))}</div>
-          ) : <EmptyState title="No cohort-risk signals" description="No inferred overlapping course risks were found." />}
+                : <EmptyState
+                    title="No cohort-risk signals"
+                    description="No inferred overlapping course risks were found."
+                  />}
         </Section>
 
-        <Section title="Student conflict groups" description={groups.data?.summary.important_note}>
-          {groups.loading || resolutions.loading ? <LoadingState label="Grouping conflicts" /> : groups.error ? <ErrorState message={groups.error} retry={groups.reload} /> : resolutions.error ? <ErrorState message={resolutions.error} retry={resolutions.reload} /> : groups.data?.groups.length ? (
-            <div className="compact-list">{groups.data.groups.map((group) => {
-              const resolution = resolutions.data?.resolutions.find((item) => item.group_id === group.group_id)
-              return (
-                <article key={group.group_id}>
-                  <div><strong>Group #{group.group_id} · {group.entries.map(entryLabel).join(' ↔ ')}</strong><span>{group.day} · {formatClock(group.time_window.start_time)}–{formatClock(group.time_window.end_time)}</span><small>{resolution?.best_fix ? slotLabel(resolution.best_fix.move_to) : 'No safe candidate currently available'}</small></div>
-                  <div className="compact-list__actions"><StatusBadge tone={tone(group.risk_level)}>{titleCase(group.risk_level)}</StatusBadge><button className="btn btn--secondary" disabled={!canApplySelectedTerm || !resolution?.best_fix || busyGroup !== null} onClick={() => void applyGroup(group.group_id)}><TriangleAlert size={15}/>{busyGroup === group.group_id ? 'Applying…' : 'Apply best'}</button></div>
-                </article>
-              )
-            })}</div>
-          ) : <EmptyState title="No conflict groups" description="No confirmed or probable cohort-risk groups require review." />}
+        <Section
+          title="Student conflict groups"
+          description={groups.data?.summary.important_note}
+          className="clash-section"
+        >
+          {groups.loading || resolutions.loading
+            ? <LoadingState label="Grouping conflicts"/>
+            : groups.error
+              ? <ErrorState message={groups.error} retry={groups.reload}/>
+              : resolutions.error
+                ? <ErrorState message={resolutions.error} retry={resolutions.reload}/>
+                : groups.data?.groups.length
+                  ? (
+                    <div className="conflict-group-list">
+                      {groups.data.groups.map((group) => {
+                        const resolution = resolutions.data?.resolutions.find(
+                          (item) => item.group_id === group.group_id,
+                        )
+
+                        return (
+                          <article
+                            className="conflict-group-card"
+                            key={group.group_id}
+                          >
+                            <header>
+                              <div>
+                                <span>Conflict group</span>
+                                <strong>#{group.group_id}</strong>
+                              </div>
+
+                              <StatusBadge tone={tone(group.risk_level)}>
+                                {titleCase(group.risk_level)}
+                              </StatusBadge>
+                            </header>
+
+                            <strong className="conflict-group-card__courses">
+                              {group.entries.map(entryLabel).join(' / ')}
+                            </strong>
+
+                            <div className="conflict-group-card__facts">
+                              <span>
+                                <Clock3 size={13}/>
+                                {group.day} / {formatClock(group.time_window.start_time)} - {formatClock(group.time_window.end_time)}
+                              </span>
+
+                              <span>
+                                <UsersRound size={13}/>
+                                {group.courses_involved} courses involved
+                              </span>
+                            </div>
+
+                            <div className="conflict-group-card__candidate">
+                              <span>Best validated candidate</span>
+                              <strong>
+                                {resolution?.best_fix
+                                  ? slotLabel(resolution.best_fix.move_to)
+                                  : 'No safe candidate currently available'}
+                              </strong>
+                            </div>
+
+                            <button
+                              className="btn btn--secondary"
+                              disabled={
+                                !canApplySelectedTerm ||
+                                !resolution?.best_fix ||
+                                busyGroup !== null
+                              }
+                              onClick={() => void applyGroup(group.group_id)}
+                            >
+                              <TriangleAlert size={15}/>
+                              {busyGroup === group.group_id
+                                ? 'Applying...'
+                                : 'Apply best'}
+                            </button>
+                          </article>
+                        )
+                      })}
+                    </div>
+                  )
+                  : <EmptyState
+                      title="No conflict groups"
+                      description="No confirmed or probable cohort-risk groups require review."
+                    />}
         </Section>
       </div>
     </div>
