@@ -120,7 +120,7 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     await expect(page.getByText('Confirmed conflicts', { exact: true })).toBeVisible()
 
     await page.getByRole('link', { name: 'Faculty Assignments' }).click()
-    await expect(page.getByRole('heading', { name: 'Faculty assignments' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Faculty assignments', exact: true })).toBeVisible()
     await page.getByLabel('Find faculty').fill('faculty.e2e')
     await expect(page.getByLabel('Faculty member')).toContainText('E2E Faculty')
 
@@ -218,12 +218,14 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     await expect(page.getByText('Machine Learning Systems')).toBeVisible()
 
     await page.getByRole('link', { name: 'Clash Management' }).click()
+    await expect(page.getByRole('heading', { name: 'Clash management' })).toBeVisible()
     await page.getByLabel('Academic term').selectOption({ label: 'Spring 2027 - planning' })
     await expect(page.getByText('SPRING-2027 - planning - analysis only')).toBeVisible()
     await expect(page.getByText(/NLP-401 ↔ ML-402|ML-402 ↔ NLP-401/).first()).toBeVisible()
     await expect(page.getByRole('button', { name: 'Apply fix' }).first()).toBeDisabled()
 
     await page.getByRole('link', { name: 'Optimizer' }).click()
+    await expect(page.getByRole('heading', { name: 'Optimizer', exact: true })).toBeVisible()
     await page.getByLabel('Academic term').selectOption({ label: 'Spring 2027 - planning' })
     await expect(page.getByText('SPRING-2027 - planning - analysis only')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Apply best move' })).toBeDisabled()
