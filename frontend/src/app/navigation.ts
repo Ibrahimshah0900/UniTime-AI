@@ -22,12 +22,14 @@ export function navForRole(role: UserRole): NavItem[] {
     common[0],
     { label: 'My Timetable', path: '/timetable', icon: CalendarDays },
     { label: 'Assignments', path: '/faculty-assignments', icon: ClipboardList },
+    { label: 'Availability', path: '/faculty-availability', icon: CalendarRange },
     common[1], common[2],
   ]
   const operational: NavItem[] = [
     common[0],
     { label: 'Timetable', path: '/timetable', icon: CalendarDays },
     { label: 'Academic Terms', path: '/academic-terms', icon: CalendarRange },
+    { label: 'Scheduling', path: '/scheduling', icon: ClipboardList },
     { label: 'Clash Management', path: '/clashes', icon: TriangleAlert },
     { label: 'Student Reports', path: '/clash-reports', icon: ClipboardList },
     { label: 'Faculty Assignments', path: '/faculty-assignments', icon: UsersRound },
@@ -36,7 +38,7 @@ export function navForRole(role: UserRole): NavItem[] {
     { label: 'Quality & Analytics', path: '/insights', icon: ShieldAlert },
     common[1],
   ]
-  if (role === 'admin') operational.splice(8, 0, { label: 'Users & Roles', path: '/admin/users', icon: UserRoundCog })
+  if (role === 'admin') operational.splice(9, 0, { label: 'Users & Roles', path: '/admin/users', icon: UserRoundCog })
   operational.push(common[2])
   return operational
 }

@@ -1,26 +1,336 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { facultyApi } from '../api/faculty'
+import { institutionalSchedulingApi } from '../api/institutionalScheduling'
 import { termsApi } from '../api/terms'
 import { ApiError } from '../api/client'
 import { Field, Input, Select } from '../components/Form'
-import { EmptyState, ErrorNote, ErrorState, LoadingState, PageHeader, Section, SuccessNote } from '../components/Ui'
+import {
+  EmptyState,
+  ErrorNote,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  Section,
+  SuccessNote,
+} from '../components/Ui'
 import { useAuth } from '../features/auth/AuthContext'
 import { useAsync } from '../hooks/useAsync'
 
 export function FacultyAssignmentsPage() {
-  const { user } = useAuth(); const manager = user && ['coordinator','admin'].includes(user.role)
-  const termAware = Boolean(user && ['faculty','coordinator','admin'].includes(user.role))
-  const terms = useAsync(() => termAware ? termsApi.list() : Promise.resolve({ terms: [], total: 0, active_term_id: null }), [termAware])
+  const { user } = useAuth()
+  const manager = Boolean(user && ['coordinator', 'admin'].includes(user.role))
+  const termAware = Boolean(
+    user && ['faculty', 'coordinator', 'admin'].includes(user.role),
+  )
+  const terms = useAsync(
+    () =>
+      termAware
+        ? termsApi.list()
+        : Promise.resolve({ terms: [], total: 0, active_term_id: null }),
+    [termAware],
+  )
   const [selectedTermId, setSelectedTermId] = useState<number | null>(null)
-  const effectiveTermId = selectedTermId ?? terms.data?.active_term_id ?? terms.data?.terms.find((term) => term.status === 'planning')?.id ?? terms.data?.terms[0]?.id ?? null
-  const selectedTerm = terms.data?.terms.find((term) => term.id === effectiveTermId) ?? null
-  const assignments = useAsync(() => termAware && terms.loading ? Promise.resolve([]) : manager ? facultyApi.managedAssignments(undefined, effectiveTermId) : facultyApi.assignments(effectiveTermId), [manager, termAware, terms.loading, effectiveTermId])
+  const effectiveTermId =
+    selectedTermId ??
+    terms.data?.active_term_id ??
+    terms.data?.terms.find((term) => term.status === 'planning')?.id ??
+    terms.data?.terms[0]?.id ??
+    null
+  const selectedTerm =
+    terms.data?.terms.find((term) => term.id === effectiveTermId) ?? null
+
+  const assignments = useAsync(
+    () =>
+      termAware && terms.loading
+        ? Promise.resolve([])
+        : manager
+          ? facultyApi.managedAssignments(undefined, effectiveTermId)
+          : facultyApi.assignments(effectiveTermId),
+    [manager, termAware, terms.loading, effectiveTermId],
+  )
+  const offerings = useAsync(
+    () =>
+      manager && effectiveTermId && selectedTerm?.status === 'planning'
+        ? institutionalSchedulingApi.courseOfferings(effectiveTermId)
+        : Promise.resolve([]),
+    [manager, effectiveTermId, selectedTerm?.status],
+  )
+
+  const byOfferingIdentity = new Map<
+    string,
+    NonNullable<typeof offerings.data>[number]
+  >()
+  for (const offering of offerings.data ?? []) {
+    const key = `${offering.course_code}|${offering.semester}|${offering.section}`
+    if (!byOfferingIdentity.has(key)) {
+      byOfferingIdentity.set(key, offering)
+    }
+  }
+  const offeredSubjects = Array.from(byOfferingIdentity.values())
+
   const [facultySearch, setFacultySearch] = useState('')
-  const facultyUsers = useAsync(async () => manager ? facultyApi.directory(facultySearch, 0, 100) : null, [manager, facultySearch])
-  const [facultyId, setFacultyId] = useState(''); const [code, setCode] = useState(''); const [section, setSection] = useState(''); const [semester, setSemester] = useState(''); const [message, setMessage] = useState(''); const [error, setError] = useState(''); const [adding, setAdding] = useState(false); const [removingId, setRemovingId] = useState<number | null>(null)
-  async function add(event: FormEvent) { event.preventDefault(); if (adding || !effectiveTermId) return; setAdding(true); setError(''); setMessage(''); try { await facultyApi.addAssignment({ faculty_user_id: Number(facultyId), term_id: effectiveTermId, course_code: code, section, semester }); setMessage('Faculty assignment created.'); setCode(''); setSection(''); setSemester(''); await assignments.reload() } catch (err) { setError(err instanceof ApiError ? err.message : 'Unable to create assignment.') } finally { setAdding(false) } }
-  async function remove(id: number) { if (!window.confirm('Remove this faculty assignment?')) return; setRemovingId(id); setError(''); setMessage(''); try { await facultyApi.removeAssignment(id); setMessage('Faculty assignment removed.'); await assignments.reload() } catch (err) { setError(err instanceof ApiError ? err.message : 'Unable to remove assignment.') } finally { setRemovingId(null) } }
-  return <div className="page"><PageHeader title={manager ? 'Faculty assignments' : 'My assignments'} description={manager ? 'Map faculty accounts to stable course, section and semester identities.' : 'The course mappings used to derive your teaching timetable.'}/>{message && <SuccessNote>{message}</SuccessNote>}{error && <ErrorNote>{error}</ErrorNote>}{termAware && terms.error && <ErrorNote>{terms.error}</ErrorNote>}{termAware && <div className="toolbar"><Select aria-label="Academic term" value={effectiveTermId ? String(effectiveTermId) : ''} onChange={(event) => setSelectedTermId(Number(event.target.value))} disabled={terms.loading || !terms.data?.terms.length}><option value="" disabled>{terms.loading ? 'Loading terms…' : 'Select term'}</option>{terms.data?.terms.map((term) => <option key={term.id} value={term.id}>{term.name} - {term.status}</option>)}</Select>{selectedTerm && <span className="muted">{selectedTerm.code} - {selectedTerm.status}</span>}</div>}{manager && <Section title="Add faculty assignment"><form className="form-grid" onSubmit={add}><Field label="Find faculty" hint="Search active faculty accounts by name or email."><Input value={facultySearch} onChange={(e) => { setFacultySearch(e.target.value); setFacultyId('') }} maxLength={200} placeholder="Name or university email"/></Field><Field label="Faculty member"><Select value={facultyId} onChange={(e) => setFacultyId(e.target.value)} disabled={facultyUsers.loading} required><option value="">{facultyUsers.loading ? 'Searching…' : facultyUsers.data?.faculty.length ? 'Select faculty' : 'No active faculty found'}</option>{facultyUsers.data?.faculty.map((member) => <option value={member.id} key={member.id}>{member.full_name} · {member.email}</option>)}</Select></Field><Field label="Course code"><Input value={code} onChange={(e) => setCode(e.target.value)} maxLength={50} required/></Field><Field label="Section"><Input value={section} onChange={(e) => setSection(e.target.value)} maxLength={50} required/></Field><Field label="Semester"><Input value={semester} onChange={(e) => setSemester(e.target.value)} maxLength={50} required/></Field><div className="form-grid__full"><button className="btn btn--primary" disabled={adding || removingId !== null || !Number(facultyId) || !effectiveTermId}><Plus size={16}/>{adding ? 'Adding…' : 'Add assignment'}</button></div></form></Section>}
-    <Section title={manager ? 'Managed assignments' : 'Assigned courses'}>{assignments.loading ? <LoadingState/> : assignments.error ? <ErrorState message={assignments.error} retry={assignments.reload}/> : assignments.data?.length ? <div className="table-wrap"><table className="data-table"><thead><tr><th>Faculty</th><th>Course</th><th>Section</th><th>Semester</th>{manager && <th>Action</th>}</tr></thead><tbody>{assignments.data.map((item) => <tr key={item.id}><td><strong>{item.faculty_name}</strong><small>{item.faculty_email}</small></td><td>{item.course_code}</td><td>{item.section}</td><td>{item.semester}</td>{manager && <td><button className="icon-btn icon-btn--danger" disabled={removingId !== null} onClick={() => void remove(item.id)} aria-label="Remove assignment"><Trash2 size={16}/></button></td>}</tr>)}</tbody></table></div> : <EmptyState title="No faculty assignments" description="No stable faculty course mappings are available for this view."/>}</Section></div>
+  const facultyUsers = useAsync(
+    async () =>
+      manager ? facultyApi.directory(facultySearch, 0, 100) : null,
+    [manager, facultySearch],
+  )
+
+  const [facultyId, setFacultyId] = useState('')
+  const [offeringId, setOfferingId] = useState('')
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [removingId, setRemovingId] = useState<number | null>(null)
+
+  const selectedOffering = offeredSubjects.find(
+    (offering) => offering.id === Number(offeringId),
+  )
+
+  async function add(event: FormEvent) {
+    event.preventDefault()
+    if (
+      adding ||
+      !effectiveTermId ||
+      !selectedOffering ||
+      selectedTerm?.status !== 'planning'
+    ) {
+      return
+    }
+    setAdding(true)
+    setError('')
+    setMessage('')
+    try {
+      await facultyApi.addAssignment({
+        faculty_user_id: Number(facultyId),
+        term_id: effectiveTermId,
+        course_code: selectedOffering.course_code,
+        section: selectedOffering.section,
+        semester: String(selectedOffering.semester),
+      })
+      setMessage('Faculty assignment created.')
+      setOfferingId('')
+      await assignments.reload()
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Unable to create assignment.',
+      )
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  async function remove(id: number) {
+    if (!window.confirm('Remove this faculty assignment?')) return
+    setRemovingId(id)
+    setError('')
+    setMessage('')
+    try {
+      await facultyApi.removeAssignment(id)
+      setMessage('Faculty assignment removed.')
+      await assignments.reload()
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : 'Unable to remove assignment.',
+      )
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
+  return (
+    <div className="page">
+      <PageHeader
+        title={manager ? 'Faculty assignments' : 'My assignments'}
+        description={
+          manager
+            ? 'Allocate planning-term offered subjects to one authoritative faculty owner.'
+            : 'The course mappings used to derive your teaching timetable.'
+        }
+      />
+      {message && <SuccessNote>{message}</SuccessNote>}
+      {error && <ErrorNote>{error}</ErrorNote>}
+      {termAware && terms.error && <ErrorNote>{terms.error}</ErrorNote>}
+
+      {termAware && (
+        <div className="toolbar">
+          <Select
+            aria-label="Academic term"
+            value={effectiveTermId ? String(effectiveTermId) : ''}
+            onChange={(event) => {
+              setSelectedTermId(Number(event.target.value))
+              setOfferingId('')
+            }}
+            disabled={terms.loading || !terms.data?.terms.length}
+          >
+            <option value="" disabled>
+              {terms.loading ? 'Loading terms…' : 'Select term'}
+            </option>
+            {terms.data?.terms.map((term) => (
+              <option key={term.id} value={term.id}>
+                {term.name} - {term.status}
+              </option>
+            ))}
+          </Select>
+          {selectedTerm && (
+            <span className="muted">
+              {selectedTerm.code} - {selectedTerm.status}
+            </span>
+          )}
+        </div>
+      )}
+
+      {manager && (
+        <Section
+          title="Add faculty assignment"
+          description="Faculty discovery stays available for every term; new structured allocations are created only in planning terms."
+        >
+          <form className="form-grid" onSubmit={add}>
+            <Field
+              label="Find faculty"
+              hint="Search active faculty accounts by name or email."
+            >
+              <Input
+                value={facultySearch}
+                onChange={(event) => {
+                  setFacultySearch(event.target.value)
+                  setFacultyId('')
+                }}
+                maxLength={200}
+                placeholder="Name or university email"
+              />
+            </Field>
+            <Field label="Faculty member">
+              <Select
+                value={facultyId}
+                onChange={(event) => setFacultyId(event.target.value)}
+                disabled={facultyUsers.loading}
+                required
+              >
+                <option value="">
+                  {facultyUsers.loading
+                    ? 'Searching…'
+                    : facultyUsers.data?.faculty.length
+                      ? 'Select faculty'
+                      : 'No active faculty found'}
+                </option>
+                {facultyUsers.data?.faculty.map((member) => (
+                  <option value={member.id} key={member.id}>
+                    {member.full_name} · {member.email}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            {selectedTerm?.status === 'planning' ? (
+              <>
+                <Field
+                  label="Course offering"
+                  hint="Lecture and lab components of the same course count as one faculty subject."
+                >
+                  <Select
+                    value={offeringId}
+                    onChange={(event) => setOfferingId(event.target.value)}
+                    disabled={offerings.loading}
+                    required
+                  >
+                    <option value="">
+                      {offerings.loading
+                        ? 'Loading offerings…'
+                        : offeredSubjects.length
+                          ? 'Select offered subject'
+                          : 'No offerings in this planning term'}
+                    </option>
+                    {offeredSubjects.map((offering) => (
+                      <option value={offering.id} key={offering.id}>
+                        {offering.course_code} · Semester {offering.semester} ·
+                        Section {offering.section}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <div className="form-grid__full">
+                  <button
+                    className="btn btn--primary"
+                    disabled={
+                      adding ||
+                      removingId !== null ||
+                      !Number(facultyId) ||
+                      !selectedOffering ||
+                      !effectiveTermId
+                    }
+                  >
+                    <Plus size={16} />
+                    {adding ? 'Adding…' : 'Add assignment'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="form-grid__full">
+                <ErrorNote>
+                  Select a planning academic term to create a structured faculty
+                  allocation. Existing assignments remain readable here.
+                </ErrorNote>
+              </div>
+            )}
+          </form>
+        </Section>
+      )}
+
+      <Section title={manager ? 'Managed assignments' : 'Assigned courses'}>
+        {assignments.loading ? (
+          <LoadingState />
+        ) : assignments.error ? (
+          <ErrorState
+            message={assignments.error}
+            retry={assignments.reload}
+          />
+        ) : assignments.data?.length ? (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Faculty</th>
+                  <th>Course</th>
+                  <th>Section</th>
+                  <th>Semester</th>
+                  {manager && <th>Action</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {assignments.data.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <strong>{item.faculty_name}</strong>
+                      <small>{item.faculty_email}</small>
+                    </td>
+                    <td>{item.course_code}</td>
+                    <td>{item.section}</td>
+                    <td>{item.semester}</td>
+                    {manager && (
+                      <td>
+                        <button
+                          className="icon-btn icon-btn--danger"
+                          disabled={removingId !== null}
+                          onClick={() => void remove(item.id)}
+                          aria-label="Remove assignment"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState
+            title="No faculty assignments"
+            description="No stable faculty course mappings are available for this view."
+          />
+        )}
+      </Section>
+    </div>
+  )
 }

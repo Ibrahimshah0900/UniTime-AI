@@ -60,7 +60,7 @@ export interface TimetableEntry {
   end_time: string
   class_type: ClassType
   raw_text: string | null
-  source: 'manual' | 'csv' | 'xlsx' | 'docx' | 'pdf' | 'image'
+  source: 'manual' | 'csv' | 'xlsx' | 'docx' | 'pdf' | 'image' | 'generated'
 }
 
 export type DayName = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday'
@@ -428,6 +428,94 @@ export interface FacultyDirectoryResponse {
   total: number
   offset: number
   limit: number
+}
+
+export type FacultyDesignation = 'lecturer' | 'assistant_professor'
+export type OfferingClassType = 'lecture' | 'lab'
+export type FacultyAvailabilityDay =
+  | 'Monday'
+  | 'Tuesday'
+  | 'Wednesday'
+  | 'Thursday'
+  | 'Friday'
+
+export interface CourseOffering {
+  id: number
+  term_id: number
+  course_code: string
+  course_name: string
+  semester: number
+  section: string
+  class_type: OfferingClassType
+  duration_minutes: number
+  room: string | null
+  created_by_user_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface FacultyWorkload {
+  faculty_user_id: number
+  faculty_name: string
+  faculty_email: string
+  designation: FacultyDesignation | null
+  profile_configured: boolean
+  term_id: number
+  distinct_subjects_assigned: number
+  maximum_subjects: number | null
+  remaining_capacity: number | null
+  subject_codes: string[]
+}
+
+export interface FacultyAvailability {
+  id: number
+  term_id: number
+  faculty_user_id: number
+  day: FacultyAvailabilityDay
+  start_time: string
+  end_time: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TimetableGenerationProposal {
+  offering_id: number
+  faculty_user_id: number
+  faculty_name: string
+  course_code: string
+  course_name: string
+  semester: number
+  section: string
+  class_type: OfferingClassType
+  room: string
+  day: string
+  start_time: string
+  end_time: string
+  duration_minutes: number
+}
+
+export interface TimetableGenerationPreview {
+  term_id: number
+  status: 'READY' | 'BLOCKED'
+  preview_id: string
+  complete: boolean
+  existing_satisfied_entry_ids: number[]
+  existing_satisfied_count: number
+  proposed_count: number
+  readiness_errors: string[]
+  unscheduled: string[]
+  proposals: TimetableGenerationProposal[]
+  policy_note: string
+}
+
+export interface TimetableGenerationApplyResponse {
+  success: true
+  term_id: number
+  preview_id: string
+  created_count: number
+  existing_satisfied_count: number
+  entries: TimetableEntry[]
+  message: string
 }
 
 export interface TimetableTimeChangeResponse {
