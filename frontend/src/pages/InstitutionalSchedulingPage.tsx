@@ -315,6 +315,19 @@ export function InstitutionalSchedulingPage() {
       <PageHeader
         title="Institutional scheduling"
         description="Prepare structured offerings, faculty workload and true availability, then preview and apply the deterministic timetable."
+        actions={
+          <div className="row-actions">
+            <a className="btn btn--secondary" href="/faculty-assignments">
+              Faculty allocations
+            </a>
+            <a className="btn btn--secondary" href="/timetable">
+              Timetable
+            </a>
+            <a className="btn btn--secondary" href="/insights">
+              Quality
+            </a>
+          </div>
+        }
       />
 
       {message && <SuccessNote>{message}</SuccessNote>}

@@ -72,6 +72,7 @@ export function TimetableView({ entries }: { entries: TimetableEntry[] }) {
                         {entry.entry_kind === 'special_event'
                           ? 'Event'
                           : classTypeLabel(entry.class_type)}
+                        {entry.source === 'generated' ? ' · Generated' : ''}
                       </span>
 
                       <span className="class-block__time">

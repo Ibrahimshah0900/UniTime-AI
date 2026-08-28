@@ -40,4 +40,18 @@ describe('TimetableView', () => {
     expect(screen.getByText('1 class')).toBeInTheDocument()
     expect(screen.getAllByText('No scheduled classes').length).toBeGreaterThan(0)
   })
+
+  it('marks deterministic generated sessions in the weekly view', () => {
+    const generated: TimetableEntry = {
+      ...entry,
+      id: 2,
+      day: 'Tuesday',
+      source: 'generated',
+    }
+
+    render(<TimetableView entries={[generated]}/>)
+
+    expect(screen.getByText('Lecture · Generated')).toBeInTheDocument()
+    expect(screen.getByText('Data Structures')).toBeInTheDocument()
+  })
 })

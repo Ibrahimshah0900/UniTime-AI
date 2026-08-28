@@ -189,6 +189,106 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     const springTerm = page.locator('.enrollment-list article').filter({ hasText: 'Spring 2027' })
     await expect(springTerm.getByText('SPRING-2027 - planning')).toBeVisible()
 
+    await page.getByRole('link', { name: 'Scheduling', exact: true }).click()
+    await expect(
+      page.getByRole('heading', { name: 'Institutional scheduling' }),
+    ).toBeVisible()
+    await page.getByLabel('Academic term').selectOption({
+      label: 'Spring 2027 - planning',
+    })
+
+    await page.getByLabel('Course code').fill('DS-220')
+    await page.getByLabel('Course name').fill('Data Structures II')
+    await page.getByLabel('Semester').selectOption('2')
+    await page.getByLabel('Section').fill('B')
+    await page.getByLabel('Class type').selectOption('lecture')
+    await page.getByLabel('Duration minutes').fill('60')
+    await page.getByLabel('Room/location').fill('R-401')
+    await page.getByRole('button', { name: 'Add offering' }).click()
+    await expect(page.getByText('Course offering created.')).toBeVisible()
+
+    await page.getByLabel('Faculty member').selectOption({
+      label: 'E2E Faculty · faculty.e2e@example.edu',
+    })
+    await page.getByLabel('Teaching designation').selectOption('lecturer')
+    await page.getByRole('button', { name: 'Save designation' }).click()
+    await expect(
+      page.getByText('Faculty teaching designation saved.'),
+    ).toBeVisible()
+
+    await page.getByLabel('Availability day').selectOption('Tuesday')
+    await page.getByLabel('Available from').fill('08:00')
+    await page.getByLabel('Available until').fill('12:00')
+    await page.getByRole('button', { name: 'Add availability' }).click()
+    await expect(page.getByText('Faculty availability added.')).toBeVisible()
+
+    await page.getByLabel('Availability day').selectOption('Thursday')
+    await page.getByRole('button', { name: 'Add availability' }).click()
+    await expect(page.getByText('Faculty availability added.')).toBeVisible()
+
+    await page.getByRole('link', { name: 'Faculty allocations' }).click()
+    await expect(
+      page.getByRole('heading', { name: 'Faculty assignments', exact: true }),
+    ).toBeVisible()
+    await page.getByLabel('Academic term').selectOption({
+      label: 'Spring 2027 - planning',
+    })
+    await page.getByLabel('Faculty member').selectOption({
+      label: 'E2E Faculty · faculty.e2e@example.edu',
+    })
+    await page.getByLabel('Course offering').selectOption({
+      label: 'DS-220 · Semester 2 · Section B',
+    })
+    await page.getByRole('button', { name: 'Add assignment' }).click()
+    await expect(page.getByText('Faculty assignment created.')).toBeVisible()
+
+    await page.getByRole('link', { name: 'Scheduling', exact: true }).click()
+    await page.getByLabel('Academic term').selectOption({
+      label: 'Spring 2027 - planning',
+    })
+    await page
+      .getByRole('button', { name: 'Preview timetable generation' })
+      .click()
+    await expect(
+      page.getByText('Timetable generation preview refreshed.'),
+    ).toBeVisible()
+    await expect(page.getByText('READY', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('DS-220', { exact: true }).first()).toBeVisible()
+
+    page.once('dialog', (dialog) => dialog.accept())
+    await page.getByRole('button', { name: 'Apply verified preview' }).click()
+    await expect(
+      page.getByText('Timetable generation applied successfully.'),
+    ).toBeVisible()
+
+    await page.getByRole('link', { name: 'Quality', exact: true }).click()
+    await expect(
+      page.getByRole('heading', { name: 'Resolver quality & analytics' }),
+    ).toBeVisible()
+    await page.getByLabel('Academic term').selectOption({
+      label: 'Spring 2027 - planning',
+    })
+    await expect(page.getByText('SPRING-2027 - planning')).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: 'Open scheduling' }),
+    ).toBeVisible()
+
+    await page.getByRole('link', { name: 'Timetable', exact: true }).click()
+    await page.getByLabel('Academic term').selectOption({
+      label: 'Spring 2027 - planning',
+    })
+    await page.getByRole('button', { name: 'List' }).click()
+    const generatedRows = page.getByRole('row').filter({ hasText: 'DS-220' })
+    await expect(generatedRows).toHaveCount(2)
+    await expect(
+      generatedRows.first().getByText('Generated', { exact: true }),
+    ).toBeVisible()
+    await expect(
+      generatedRows.first().getByText('Data Structures II'),
+    ).toBeVisible()
+
+    await page.getByRole('button', { name: 'Week' }).click()
+
     await page.getByRole('link', { name: 'Timetable', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Timetable management' })).toBeVisible()
     await page.getByLabel('Academic term').selectOption({ label: 'Spring 2027 - planning' })
