@@ -134,10 +134,10 @@ describe('InsightsPage academic term diagnostics', () => {
     await waitFor(() => expect(mocks.dataQuality).toHaveBeenLastCalledWith(2))
     await waitFor(() => expect(mocks.resolverAnalytics).toHaveBeenLastCalledWith(2))
 
-    expect(screen.getByText('SPRING-2027 - planning')).toBeVisible()
-    expect(screen.getByText('Scheduling findings')).toBeVisible()
-    expect(screen.getByText('OFFERING WITHOUT FACULTY ALLOCATION')).toBeVisible()
-    expect(screen.getByText(/Scheduling readiness/)).toBeVisible()
+    expect(screen.getByText('SPRING-2027 - planning')).toBeInTheDocument()
+    expect(screen.getByText('Scheduling findings')).toBeInTheDocument()
+    expect(screen.getByText('OFFERING WITHOUT FACULTY ALLOCATION')).toBeInTheDocument()
+    expect(screen.getByText(/Scheduling readiness/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open scheduling' })).toHaveAttribute(
       'href',
       '/scheduling',

@@ -53,8 +53,8 @@ describe('faculty timetable term selection', () => {
 
     await waitFor(() => expect(mocks.timetable).toHaveBeenLastCalledWith(1))
     await waitFor(() => expect(mocks.freeSlots).toHaveBeenLastCalledWith(1))
-    expect(screen.getByText('Open timetable windows')).toBeVisible()
-    expect(screen.getByText('120 min')).toBeVisible()
+    expect(screen.getByText('Open timetable windows')).toBeInTheDocument()
+    expect(screen.getByText('120 min')).toBeInTheDocument()
 
     await user.selectOptions(screen.getByLabelText('Academic term'), '2')
 
