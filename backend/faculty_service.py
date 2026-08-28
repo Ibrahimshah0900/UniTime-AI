@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from backend.auth_security import hash_password
 from backend.faculty_schemas import FacultyAssignmentCreate, FacultyProvisionCreate
 from backend.models import FacultyClassAssignment, TimetableEntry, User
+from backend.institutional_scheduling_service import validate_faculty_assignment_request
 from backend.schedule_matching import (
     section_matches,
     semester_matches,
@@ -150,6 +151,15 @@ def create_faculty_assignment(
             status_code=422,
             detail="faculty_user_id must reference an active faculty account.",
         )
+
+    validate_faculty_assignment_request(
+        db,
+        faculty=faculty,
+        term=term,
+        course_code=request.course_code,
+        section=request.section,
+        semester=request.semester,
+    )
 
     existing = db.scalar(
         select(FacultyClassAssignment.id).where(

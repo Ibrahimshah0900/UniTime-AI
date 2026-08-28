@@ -708,3 +708,132 @@ class LearningEvent(Base):
         nullable=False,
         default=_auth_utc_now,
     )
+
+class CourseOffering(Base):
+    __tablename__ = "course_offerings"
+    __table_args__ = (
+        CheckConstraint(
+            "semester >= 1 AND semester <= 8",
+            name="ck_course_offerings_semester",
+        ),
+        CheckConstraint(
+            "class_type IN ('lecture','lab')",
+            name="ck_course_offerings_class_type",
+        ),
+        CheckConstraint(
+            "duration_minutes >= 30 AND duration_minutes <= 240",
+            name="ck_course_offerings_duration",
+        ),
+        UniqueConstraint(
+            "term_id",
+            "course_code",
+            "semester",
+            "section",
+            "class_type",
+            name="uq_course_offering_identity",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    course_code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    course_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    semester: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    section: Mapped[str] = mapped_column(String(50), nullable=False)
+    class_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    room: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+        onupdate=_auth_utc_now,
+    )
+
+
+class FacultyTeachingProfile(Base):
+    __tablename__ = "faculty_teaching_profiles"
+    __table_args__ = (
+        CheckConstraint(
+            "designation IN ('lecturer','assistant_professor')",
+            name="ck_faculty_teaching_profiles_designation",
+        ),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    designation: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+        onupdate=_auth_utc_now,
+    )
+
+
+class FacultyAvailabilityWindow(Base):
+    __tablename__ = "faculty_availability_windows"
+    __table_args__ = (
+        CheckConstraint(
+            "day IN ('Monday','Tuesday','Wednesday','Thursday','Friday')",
+            name="ck_faculty_availability_windows_day",
+        ),
+        CheckConstraint(
+            "start_time < end_time",
+            name="ck_faculty_availability_windows_time_order",
+        ),
+        UniqueConstraint(
+            "term_id",
+            "faculty_user_id",
+            "day",
+            "start_time",
+            "end_time",
+            name="uq_faculty_availability_window_identity",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    term_id: Mapped[int] = mapped_column(
+        ForeignKey("academic_terms.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    faculty_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    day: Mapped[str] = mapped_column(String(20), nullable=False)
+    start_time: Mapped[str] = mapped_column(String(5), nullable=False)
+    end_time: Mapped[str] = mapped_column(String(5), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=_auth_utc_now,
+        onupdate=_auth_utc_now,
+    )

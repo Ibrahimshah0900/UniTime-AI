@@ -40,6 +40,12 @@ from backend.resolver_analytics_routes import router as resolver_analytics_route
 from backend.faculty_routes import faculty_router
 from backend.faculty_routes import directory_router as faculty_directory_router
 from backend.faculty_routes import management_router as faculty_management_router
+from backend.institutional_scheduling_routes import (
+    course_offering_router,
+    faculty_availability_management_router,
+    faculty_profile_router,
+    faculty_self_availability_router,
+)
 from backend.student_routes import router as student_router
 from backend.student_identity_routes import (
     account_router as student_identity_account_router,
@@ -150,7 +156,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.16.0",
+    version="0.17.0",
 )
 
 app.add_middleware(
@@ -176,6 +182,10 @@ app.include_router(clash_report_review_router)
 app.include_router(faculty_router)
 app.include_router(faculty_directory_router)
 app.include_router(faculty_management_router)
+app.include_router(course_offering_router)
+app.include_router(faculty_profile_router)
+app.include_router(faculty_availability_management_router)
+app.include_router(faculty_self_availability_router)
 app.include_router(notification_router)
 app.include_router(notification_job_router)
 app.include_router(account_router)
@@ -278,7 +288,7 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.16.0",
+        "version": "0.17.0",
         "phase": "future_ranker_preparation",
     }
 

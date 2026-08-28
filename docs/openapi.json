@@ -2208,6 +2208,264 @@
         "title": "ClashReportSummaryResponse",
         "type": "object"
       },
+      "CourseOfferingCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "class_type": {
+            "enum": [
+              "lecture",
+              "lab"
+            ],
+            "title": "Class Type",
+            "type": "string"
+          },
+          "course_code": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Course Code",
+            "type": "string"
+          },
+          "course_name": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Course Name",
+            "type": "string"
+          },
+          "duration_minutes": {
+            "maximum": 240.0,
+            "minimum": 30.0,
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "section": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Section",
+            "type": "string"
+          },
+          "semester": {
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Semester",
+            "type": "integer"
+          },
+          "term_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Term Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term_id",
+          "course_code",
+          "course_name",
+          "semester",
+          "section",
+          "class_type",
+          "duration_minutes"
+        ],
+        "title": "CourseOfferingCreate",
+        "type": "object"
+      },
+      "CourseOfferingResponse": {
+        "properties": {
+          "class_type": {
+            "enum": [
+              "lecture",
+              "lab"
+            ],
+            "title": "Class Type",
+            "type": "string"
+          },
+          "course_code": {
+            "title": "Course Code",
+            "type": "string"
+          },
+          "course_name": {
+            "title": "Course Name",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "duration_minutes": {
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "semester": {
+            "title": "Semester",
+            "type": "integer"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "term_id",
+          "course_code",
+          "course_name",
+          "semester",
+          "section",
+          "class_type",
+          "duration_minutes",
+          "room",
+          "created_by_user_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CourseOfferingResponse",
+        "type": "object"
+      },
+      "CourseOfferingUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "class_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "lecture",
+                  "lab"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Class Type"
+          },
+          "course_code": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Code"
+          },
+          "course_name": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Name"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "maximum": 240.0,
+                "minimum": 30.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "room": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Room"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "semester": {
+            "anyOf": [
+              {
+                "maximum": 8.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semester"
+          }
+        },
+        "title": "CourseOfferingUpdate",
+        "type": "object"
+      },
       "DashboardResponse": {
         "properties": {
           "data": {
@@ -2840,6 +3098,93 @@
         "title": "FacultyAssignmentResponse",
         "type": "object"
       },
+      "FacultyAvailabilityCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "enum": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday"
+            ],
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          },
+          "term_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Term Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term_id",
+          "day",
+          "start_time",
+          "end_time"
+        ],
+        "title": "FacultyAvailabilityCreate",
+        "type": "object"
+      },
+      "FacultyAvailabilityResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "faculty_user_id": {
+            "title": "Faculty User Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "term_id",
+          "faculty_user_id",
+          "day",
+          "start_time",
+          "end_time",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "FacultyAvailabilityResponse",
+        "type": "object"
+      },
       "FacultyDirectoryEntryResponse": {
         "properties": {
           "email": {
@@ -3023,6 +3368,111 @@
         "title": "FacultyProvisionResponse",
         "type": "object"
       },
+      "FacultyTeachingProfileUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "designation": {
+            "enum": [
+              "lecturer",
+              "assistant_professor"
+            ],
+            "title": "Designation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "designation"
+        ],
+        "title": "FacultyTeachingProfileUpdate",
+        "type": "object"
+      },
+      "FacultyWorkloadResponse": {
+        "properties": {
+          "designation": {
+            "anyOf": [
+              {
+                "enum": [
+                  "lecturer",
+                  "assistant_professor"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Designation"
+          },
+          "distinct_subjects_assigned": {
+            "minimum": 0.0,
+            "title": "Distinct Subjects Assigned",
+            "type": "integer"
+          },
+          "faculty_email": {
+            "title": "Faculty Email",
+            "type": "string"
+          },
+          "faculty_name": {
+            "title": "Faculty Name",
+            "type": "string"
+          },
+          "faculty_user_id": {
+            "title": "Faculty User Id",
+            "type": "integer"
+          },
+          "maximum_subjects": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Subjects"
+          },
+          "profile_configured": {
+            "title": "Profile Configured",
+            "type": "boolean"
+          },
+          "remaining_capacity": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Capacity"
+          },
+          "subject_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subject Codes",
+            "type": "array"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "faculty_user_id",
+          "faculty_name",
+          "faculty_email",
+          "designation",
+          "profile_configured",
+          "term_id",
+          "distinct_subjects_assigned",
+          "subject_codes"
+        ],
+        "title": "FacultyWorkloadResponse",
+        "type": "object"
+      },
       "FlexibleOperationResponse": {
         "additionalProperties": true,
         "description": "Compatibility contract for mutation responses with endpoint-specific details.",
@@ -3141,6 +3591,49 @@
           "password"
         ],
         "title": "LoginRequest",
+        "type": "object"
+      },
+      "ManagedFacultyAvailabilityCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "day": {
+            "enum": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday"
+            ],
+            "title": "Day",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "faculty_user_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Faculty User Id",
+            "type": "integer"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          },
+          "term_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Term Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term_id",
+          "day",
+          "start_time",
+          "end_time",
+          "faculty_user_id"
+        ],
+        "title": "ManagedFacultyAvailabilityCreate",
         "type": "object"
       },
       "MigrationReadinessResponse": {
@@ -7327,7 +7820,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.16.0"
+    "version": "0.17.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -9008,6 +9501,204 @@
         "summary": "Get Student Conflict Risks"
       }
     },
+    "/course-offerings": {
+      "get": {
+        "operationId": "get_course_offerings_course_offerings_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CourseOfferingResponse"
+                  },
+                  "title": "Response Get Course Offerings Course Offerings Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Course Offerings",
+        "tags": [
+          "Course Offerings"
+        ]
+      },
+      "post": {
+        "operationId": "add_course_offering_course_offerings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseOfferingCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Course Offering",
+        "tags": [
+          "Course Offerings"
+        ]
+      }
+    },
+    "/course-offerings/{offering_id}": {
+      "delete": {
+        "operationId": "remove_course_offering_course_offerings__offering_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "offering_id",
+            "required": true,
+            "schema": {
+              "title": "Offering Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Course Offering",
+        "tags": [
+          "Course Offerings"
+        ]
+      },
+      "patch": {
+        "operationId": "edit_course_offering_course_offerings__offering_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "offering_id",
+            "required": true,
+            "schema": {
+              "title": "Offering Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseOfferingUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseOfferingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Edit Course Offering",
+        "tags": [
+          "Course Offerings"
+        ]
+      }
+    },
     "/dashboard": {
       "get": {
         "operationId": "get_my_dashboard_dashboard_get",
@@ -9248,6 +9939,159 @@
         ]
       }
     },
+    "/faculty-availability": {
+      "get": {
+        "operationId": "get_managed_faculty_availability_faculty_availability_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "faculty_user_id",
+            "required": true,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "title": "Faculty User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FacultyAvailabilityResponse"
+                  },
+                  "title": "Response Get Managed Faculty Availability Faculty Availability Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Managed Faculty Availability",
+        "tags": [
+          "Faculty Availability"
+        ]
+      },
+      "post": {
+        "operationId": "add_managed_faculty_availability_faculty_availability_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedFacultyAvailabilityCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacultyAvailabilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Managed Faculty Availability",
+        "tags": [
+          "Faculty Availability"
+        ]
+      }
+    },
+    "/faculty-availability/{window_id}": {
+      "delete": {
+        "operationId": "remove_managed_faculty_availability_faculty_availability__window_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "title": "Window Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Managed Faculty Availability",
+        "tags": [
+          "Faculty Availability"
+        ]
+      }
+    },
     "/faculty-directory": {
       "get": {
         "operationId": "get_faculty_directory_faculty_directory_get",
@@ -9370,6 +10214,156 @@
         ]
       }
     },
+    "/faculty-teaching-profiles": {
+      "get": {
+        "operationId": "get_faculty_workloads_faculty_teaching_profiles_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "faculty_user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Faculty User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FacultyWorkloadResponse"
+                  },
+                  "title": "Response Get Faculty Workloads Faculty Teaching Profiles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Faculty Workloads",
+        "tags": [
+          "Faculty Teaching Profiles"
+        ]
+      }
+    },
+    "/faculty-teaching-profiles/{faculty_user_id}": {
+      "put": {
+        "operationId": "put_faculty_teaching_profile_faculty_teaching_profiles__faculty_user_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "faculty_user_id",
+            "required": true,
+            "schema": {
+              "title": "Faculty User Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FacultyTeachingProfileUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacultyWorkloadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Faculty Teaching Profile",
+        "tags": [
+          "Faculty Teaching Profiles"
+        ]
+      }
+    },
     "/faculty/assignments": {
       "get": {
         "operationId": "get_my_faculty_assignments_faculty_assignments_get",
@@ -9424,6 +10418,149 @@
           }
         ],
         "summary": "Get My Faculty Assignments",
+        "tags": [
+          "Faculty"
+        ]
+      }
+    },
+    "/faculty/availability": {
+      "get": {
+        "operationId": "get_my_true_availability_faculty_availability_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "term_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FacultyAvailabilityResponse"
+                  },
+                  "title": "Response Get My True Availability Faculty Availability Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get My True Availability",
+        "tags": [
+          "Faculty"
+        ]
+      },
+      "post": {
+        "operationId": "add_my_true_availability_faculty_availability_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FacultyAvailabilityCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FacultyAvailabilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add My True Availability",
+        "tags": [
+          "Faculty"
+        ]
+      }
+    },
+    "/faculty/availability/{window_id}": {
+      "delete": {
+        "operationId": "remove_my_true_availability_faculty_availability__window_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "window_id",
+            "required": true,
+            "schema": {
+              "title": "Window Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove My True Availability",
         "tags": [
           "Faculty"
         ]
