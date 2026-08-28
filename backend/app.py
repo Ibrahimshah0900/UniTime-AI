@@ -46,6 +46,7 @@ from backend.institutional_scheduling_routes import (
     faculty_profile_router,
     faculty_self_availability_router,
 )
+from backend.timetable_generation_routes import router as timetable_generation_router
 from backend.student_routes import router as student_router
 from backend.student_identity_routes import (
     account_router as student_identity_account_router,
@@ -156,7 +157,7 @@ app = FastAPI(
     **documentation_settings,
 
     title="UniTime AI API",
-    version="0.17.0",
+    version="0.18.0",
 )
 
 app.add_middleware(
@@ -186,6 +187,7 @@ app.include_router(course_offering_router)
 app.include_router(faculty_profile_router)
 app.include_router(faculty_availability_management_router)
 app.include_router(faculty_self_availability_router)
+app.include_router(timetable_generation_router)
 app.include_router(notification_router)
 app.include_router(notification_job_router)
 app.include_router(account_router)
@@ -288,7 +290,7 @@ def root():
     return {
         "app": "UniTime AI",
         "status": "running",
-        "version": "0.17.0",
+        "version": "0.18.0",
         "phase": "future_ranker_preparation",
     }
 
@@ -2234,4 +2236,3 @@ def readiness_endpoint():
             status_code=503,
             detail=str(exc),
         ) from exc
-

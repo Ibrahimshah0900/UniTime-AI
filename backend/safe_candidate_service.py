@@ -25,6 +25,10 @@ from backend.enrollment_conflict_graph import (
     build_enrollment_conflict_evidence,
 )
 from backend.global_optimizer import clone_entries
+from backend.institutional_constraints import (
+    build_institutional_constraint_context,
+    validate_institutional_destination,
+)
 from backend.models import TimetableEntry
 from backend.scheduling_policy import (
     DEFAULT_RANKING_WEIGHTS,
@@ -130,6 +134,7 @@ def _candidate_id(
     *,
     analysis: dict,
     policy: SchedulingPolicy,
+    institutional_fingerprint: str,
 ) -> str:
     state = {
         "entry_id": target.id,
@@ -154,6 +159,7 @@ def _candidate_id(
         ],
         "enrollment_analysis": _analysis_fingerprint(analysis),
         "policy": _policy_fingerprint(policy),
+        "institutional_state": institutional_fingerprint,
     }
     return hashlib.sha256(
         json.dumps(state, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -229,6 +235,10 @@ def generate_safe_candidates(
     baseline_confirmed = _confirmed_pairs(baseline_risks)
     baseline_risk_cost = calculate_weighted_risk_cost(baseline_risks)
     entry_counts = baseline_analysis["coverage"].get("entry_enrollment_counts", {})
+    institutional_context = build_institutional_constraint_context(
+        db,
+        term_id=targets[0].term_id,
+    )
     required_report_ids = set(report_entry_ids or [])
     missing_report_ids = required_report_ids - entry_lookup.keys()
     if missing_report_ids:
@@ -265,8 +275,18 @@ def generate_safe_candidates(
                 entries,
                 analysis=baseline_analysis,
                 policy=policy,
+                institutional_fingerprint=institutional_context.fingerprint,
             )
             checks: list[dict] = []
+            institutional = validate_institutional_destination(
+                institutional_context,
+                target,
+                day=slot["day"],
+                start_time=slot["start_time"],
+                end_time=slot["end_time"],
+                entries=entries,
+                strict_managed=False,
+            )
             failures = policy.validate_slot(**slot)
             if failures:
                 rejected.append(
@@ -296,7 +316,21 @@ def generate_safe_candidates(
                 required_report_ids
                 and _overlap_remains(simulated, required_report_ids)
             )
-            hard_failures: list[str] = []
+            hard_failures: list[str] = list(
+                institutional["hard_failures"]
+            )
+            checks.append(
+                _check(
+                    "institutional_schedule_rules",
+                    "PASS" if not institutional["hard_failures"] else "FAIL",
+                    (
+                        "Destination passes configured semester, faculty availability, "
+                        "faculty, room, and institutional slot constraints."
+                        if not institutional["hard_failures"]
+                        else " ".join(institutional["hard_failures"])
+                    ),
+                )
+            )
             if target_clashes:
                 clash_types = sorted({clash["type"] for clash in target_clashes})
                 hard_failures.append(
@@ -367,11 +401,34 @@ def generate_safe_candidates(
                 insufficient_data = True
             elif room_value != "online":
                 missing_data.append("Room capacity/type/equipment metadata is not modeled.")
-            if not faculty_value or faculty_value == "tba":
-                missing_data.append("Faculty identity and hard availability metadata are unavailable.")
+
+            if institutional["structured"]:
+                for item in institutional["missing_data"]:
+                    if item not in missing_data:
+                        missing_data.append(item)
+                if institutional["missing_data"]:
+                    insufficient_data = True
+                if (
+                    institutional["faculty_user_id"] is not None
+                    and institutional["availability_configured"]
+                ):
+                    checks.append(
+                        _check(
+                            "faculty_hard_availability",
+                            "PASS",
+                            "Destination is inside the assigned faculty member's declared availability.",
+                        )
+                    )
+            elif not faculty_value or faculty_value == "tba":
+                missing_data.append(
+                    "Faculty identity and hard availability metadata are unavailable."
+                )
                 insufficient_data = True
             else:
-                missing_data.append("Faculty hard-unavailability calendar is not modeled.")
+                missing_data.append(
+                    "Structured faculty hard-availability metadata is unavailable "
+                    "for this legacy/unstructured timetable entry."
+                )
             if int(entry_counts.get(target.id, 0)) == 0:
                 missing_data.append(
                     "No verified active enrollment coverage is available for the target offering."

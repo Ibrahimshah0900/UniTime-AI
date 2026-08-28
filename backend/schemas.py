@@ -42,6 +42,7 @@ AllowedSource = Literal[
     "docx",
     "pdf",
     "image",
+    "generated",
 ]
 
 AllowedEntryKind = Literal[

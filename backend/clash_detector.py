@@ -1,4 +1,5 @@
 from backend.models import TimetableEntry
+from backend.scheduling_policy import parse_semester_number
 
 
 def normalize(value: str | None) -> str | None:
@@ -181,32 +182,56 @@ def detect_clashes(
             # semesters from course codes.
             # -------------------------------------------------
 
-            first_semester = normalize(first.semester)
-            second_semester = normalize(second.semester)
+            first_semester_number = parse_semester_number(
+                first.semester
+            )
+            second_semester_number = parse_semester_number(
+                second.semester
+            )
+            first_sections = parse_sections(first.section)
+            second_sections = parse_sections(second.section)
+            shared_sections = first_sections & second_sections
 
             if (
-                first_semester
-                and second_semester
-                and first_semester == second_semester
+                first_semester_number is not None
+                and first_semester_number == second_semester_number
             ):
-                first_sections = parse_sections(
-                    first.section
-                )
-
-                second_sections = parse_sections(
-                    second.section
-                )
-
-                shared_sections = (
-                    first_sections
-                    & second_sections
-                )
-
                 if shared_sections:
-                    section_text = ", ".join(
-                        sorted(shared_sections)
+                    section_text = ", ".join(sorted(shared_sections))
+                    clashes.append(
+                        create_clash(
+                            clash_type="section",
+                            first=first,
+                            second=second,
+                            reason=(
+                                f"Semester {first.semester}, "
+                                f"section(s) {section_text} "
+                                "have overlapping classes."
+                            ),
+                        )
                     )
-
+                else:
+                    clashes.append(
+                        create_clash(
+                            clash_type="semester",
+                            first=first,
+                            second=second,
+                            reason=(
+                                f"Semester {first_semester_number} has "
+                                "two subjects in the same timetable slot."
+                            ),
+                        )
+                    )
+            else:
+                first_semester = normalize(first.semester)
+                second_semester = normalize(second.semester)
+                if (
+                    first_semester
+                    and second_semester
+                    and first_semester == second_semester
+                    and shared_sections
+                ):
+                    section_text = ", ".join(sorted(shared_sections))
                     clashes.append(
                         create_clash(
                             clash_type="section",

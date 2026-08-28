@@ -15,9 +15,11 @@ def test_committed_openapi_contract_matches_application():
 
 
 def test_api_contract_version_is_stable_for_frontend_handoff():
-    assert app.version == "0.17.0"
-    assert len(app.openapi()["paths"]) == 79
+    assert app.version == "0.18.0"
+    assert len(app.openapi()["paths"]) == 81
     assert "/faculty/free-slots" in app.openapi()["paths"]
+    assert "/timetable-generation/preview" in app.openapi()["paths"]
+    assert "/timetable-generation/apply" in app.openapi()["paths"]
     assert "/clash-reports/clusters" in app.openapi()["paths"]
     assert "/student/enrollments/validate" in app.openapi()["paths"]
     assert "/data-quality" in app.openapi()["paths"]

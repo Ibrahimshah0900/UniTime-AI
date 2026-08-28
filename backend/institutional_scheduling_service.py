@@ -397,6 +397,28 @@ def validate_faculty_assignment_request(
                 detail="Create the matching planning-term course offering before allocating faculty.",
             )
 
+        existing_owner_ids = set(
+            db.scalars(
+                select(FacultyClassAssignment.faculty_user_id).where(
+                    FacultyClassAssignment.term_id == term.id,
+                    func.upper(FacultyClassAssignment.course_code)
+                    == normalized_course.upper(),
+                    func.upper(FacultyClassAssignment.section)
+                    == normalized_section.upper(),
+                    func.upper(FacultyClassAssignment.semester)
+                    == str(semester_number).upper(),
+                )
+            ).all()
+        )
+        if existing_owner_ids and existing_owner_ids != {faculty.id}:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This planning-term offered subject is already allocated "
+                    "to another faculty member."
+                ),
+            )
+
     designation = profile.designation if profile is not None else "lecturer"
     maximum = DESIGNATION_SUBJECT_LIMITS[designation]
     existing_subjects = _distinct_subject_codes(

@@ -19,10 +19,15 @@ from sqlalchemy.orm import (
     Mapped,
     Session,
     mapped_column,
+    object_session,
 )
 
 from backend.clash_detector import detect_clashes
 from backend.database import Base
+from backend.institutional_constraints import (
+    build_institutional_constraint_context,
+    validate_institutional_destination,
+)
 from backend.models import (
     StudentClashReport,
     StudentClashReportEvent,
@@ -433,74 +438,29 @@ def validate_entry_state(
 # ---------------------------------------------------------------------------
 
 
+def _live_session(entry) -> Session | None:
+    try:
+        return object_session(entry)
+    except Exception:
+        return None
+
+
 def validate_destination(
     entry: TimetableEntry,
     best_fix: dict,
     entries: list[TimetableEntry],
+    *,
+    db: Session | None = None,
 ) -> dict:
-    move_to = best_fix[
-        "move_to"
-    ]
-
-    faculty_available = (
-        faculty_is_available(
-            entry,
-            day=move_to["day"],
-            start_time=move_to[
-                "start_time"
-            ],
-            end_time=move_to[
-                "end_time"
-            ],
-            entries=entries,
-        )
+    move_to = best_fix["move_to"]
+    return validate_specific_destination(
+        entry,
+        day=move_to["day"],
+        start_time=move_to["start_time"],
+        end_time=move_to["end_time"],
+        entries=entries,
+        db=db,
     )
-
-    if not faculty_available:
-        raise ValueError(
-            "The faculty member is no longer "
-            "available at the proposed timetable slot."
-        )
-
-    room_info = (
-        get_room_status_for_candidate(
-            entry,
-            day=move_to["day"],
-            start_time=move_to[
-                "start_time"
-            ],
-            end_time=move_to[
-                "end_time"
-            ],
-            entries=entries,
-        )
-    )
-
-    if (
-        room_info["room_status"]
-        not in {
-            "available",
-            "online",
-        }
-    ):
-        raise ValueError(
-            "The room is no longer available "
-            "at the proposed timetable slot."
-        )
-
-    return {
-        "faculty_available": True,
-        "room_status": (
-            room_info[
-                "room_status"
-            ]
-        ),
-        "room_available": (
-            room_info[
-                "room_available"
-            ]
-        ),
-    }
 
 
 def validate_specific_destination(
@@ -510,59 +470,57 @@ def validate_specific_destination(
     start_time: str,
     end_time: str,
     entries: list[TimetableEntry],
+    db: Session | None = None,
 ) -> dict:
-    faculty_available = (
-        faculty_is_available(
-            entry,
-            day=day,
-            start_time=start_time,
-            end_time=end_time,
-            entries=entries,
-        )
+    faculty_available = faculty_is_available(
+        entry,
+        day=day,
+        start_time=start_time,
+        end_time=end_time,
+        entries=entries,
     )
-
     if not faculty_available:
         raise ValueError(
-            "The faculty member is not available "
-            "at the requested timetable slot."
+            "The faculty member is not available at the requested timetable slot."
         )
 
-    room_info = (
-        get_room_status_for_candidate(
+    room_info = get_room_status_for_candidate(
+        entry,
+        day=day,
+        start_time=start_time,
+        end_time=end_time,
+        entries=entries,
+    )
+    if room_info["room_status"] not in {"available", "online"}:
+        raise ValueError(
+            "The room is not available at the requested timetable slot."
+        )
+
+    institutional = None
+    live_db = db or _live_session(entry)
+    if live_db is not None and getattr(entry, "term_id", None) is not None:
+        context = build_institutional_constraint_context(
+            live_db,
+            term_id=entry.term_id,
+        )
+        institutional = validate_institutional_destination(
+            context,
             entry,
             day=day,
             start_time=start_time,
             end_time=end_time,
             entries=entries,
+            strict_managed=True,
         )
-    )
-
-    if (
-        room_info["room_status"]
-        not in {
-            "available",
-            "online",
-        }
-    ):
-        raise ValueError(
-            "The room is not available "
-            "at the requested timetable slot."
-        )
+        if institutional["hard_failures"]:
+            raise ValueError("; ".join(institutional["hard_failures"]))
 
     return {
         "faculty_available": True,
-        "room_status": (
-            room_info[
-                "room_status"
-            ]
-        ),
-        "room_available": (
-            room_info[
-                "room_available"
-            ]
-        ),
+        "room_status": room_info["room_status"],
+        "room_available": room_info["room_available"],
+        "institutional_constraints": institutional,
     }
-
 
 # ---------------------------------------------------------------------------
 # SAFETY COMPARISON

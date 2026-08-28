@@ -7329,7 +7329,8 @@
               "xlsx",
               "docx",
               "pdf",
-              "image"
+              "image",
+              "generated"
             ],
             "title": "Source",
             "type": "string"
@@ -7485,7 +7486,8 @@
               "xlsx",
               "docx",
               "pdf",
-              "image"
+              "image",
+              "generated"
             ],
             "title": "Source",
             "type": "string"
@@ -7507,6 +7509,246 @@
           "term_id"
         ],
         "title": "TimetableEntryResponse",
+        "type": "object"
+      },
+      "TimetableGenerationApplyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "preview_id": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "term_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Term Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term_id",
+          "preview_id"
+        ],
+        "title": "TimetableGenerationApplyRequest",
+        "type": "object"
+      },
+      "TimetableGenerationApplyResponse": {
+        "properties": {
+          "created_count": {
+            "title": "Created Count",
+            "type": "integer"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TimetableEntryResponse"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "existing_satisfied_count": {
+            "title": "Existing Satisfied Count",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "preview_id": {
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "success": {
+            "const": true,
+            "title": "Success",
+            "type": "boolean"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "success",
+          "term_id",
+          "preview_id",
+          "created_count",
+          "existing_satisfied_count",
+          "entries",
+          "message"
+        ],
+        "title": "TimetableGenerationApplyResponse",
+        "type": "object"
+      },
+      "TimetableGenerationPreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "term_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Term Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "term_id"
+        ],
+        "title": "TimetableGenerationPreviewRequest",
+        "type": "object"
+      },
+      "TimetableGenerationPreviewResponse": {
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "existing_satisfied_count": {
+            "title": "Existing Satisfied Count",
+            "type": "integer"
+          },
+          "existing_satisfied_entry_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Existing Satisfied Entry Ids",
+            "type": "array"
+          },
+          "policy_note": {
+            "title": "Policy Note",
+            "type": "string"
+          },
+          "preview_id": {
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/TimetableGenerationProposal"
+            },
+            "title": "Proposals",
+            "type": "array"
+          },
+          "proposed_count": {
+            "title": "Proposed Count",
+            "type": "integer"
+          },
+          "readiness_errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Readiness Errors",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "READY",
+              "BLOCKED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "term_id": {
+            "title": "Term Id",
+            "type": "integer"
+          },
+          "unscheduled": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unscheduled",
+            "type": "array"
+          }
+        },
+        "required": [
+          "term_id",
+          "status",
+          "preview_id",
+          "complete",
+          "existing_satisfied_entry_ids",
+          "existing_satisfied_count",
+          "proposed_count",
+          "readiness_errors",
+          "unscheduled",
+          "proposals",
+          "policy_note"
+        ],
+        "title": "TimetableGenerationPreviewResponse",
+        "type": "object"
+      },
+      "TimetableGenerationProposal": {
+        "properties": {
+          "class_type": {
+            "enum": [
+              "lecture",
+              "lab"
+            ],
+            "title": "Class Type",
+            "type": "string"
+          },
+          "course_code": {
+            "title": "Course Code",
+            "type": "string"
+          },
+          "course_name": {
+            "title": "Course Name",
+            "type": "string"
+          },
+          "day": {
+            "title": "Day",
+            "type": "string"
+          },
+          "duration_minutes": {
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "faculty_name": {
+            "title": "Faculty Name",
+            "type": "string"
+          },
+          "faculty_user_id": {
+            "title": "Faculty User Id",
+            "type": "integer"
+          },
+          "offering_id": {
+            "title": "Offering Id",
+            "type": "integer"
+          },
+          "room": {
+            "title": "Room",
+            "type": "string"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "semester": {
+            "title": "Semester",
+            "type": "integer"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "offering_id",
+          "faculty_user_id",
+          "faculty_name",
+          "course_code",
+          "course_name",
+          "semester",
+          "section",
+          "class_type",
+          "room",
+          "day",
+          "start_time",
+          "end_time",
+          "duration_minutes"
+        ],
+        "title": "TimetableGenerationProposal",
         "type": "object"
       },
       "TimetableImportError": {
@@ -7820,7 +8062,7 @@
   },
   "info": {
     "title": "UniTime AI API",
-    "version": "0.17.0"
+    "version": "0.18.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -12409,6 +12651,98 @@
           }
         ],
         "summary": "Create Timetable Entry"
+      }
+    },
+    "/timetable-generation/apply": {
+      "post": {
+        "operationId": "apply_generation_timetable_generation_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimetableGenerationApplyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableGenerationApplyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Apply Generation",
+        "tags": [
+          "Timetable Generation"
+        ]
+      }
+    },
+    "/timetable-generation/preview": {
+      "post": {
+        "operationId": "preview_generation_timetable_generation_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimetableGenerationPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimetableGenerationPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Preview Generation",
+        "tags": [
+          "Timetable Generation"
+        ]
       }
     },
     "/timetable/import": {

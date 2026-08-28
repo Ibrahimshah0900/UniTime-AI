@@ -33,6 +33,46 @@ def minutes_to_time(value: int) -> str:
     return f"{value // 60:02d}:{value % 60:02d}"
 
 
+INSTITUTIONAL_POLICY_VERSION = "semester-parity-v1"
+
+
+def parse_semester_number(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        number = value
+    else:
+        text = str(value or "").strip()
+        if not text.isdigit():
+            return None
+        number = int(text)
+    return number if 1 <= number <= 8 else None
+
+
+def allowed_days_for(
+    semester: object,
+    class_type: str,
+) -> tuple[str, ...]:
+    semester_number = parse_semester_number(semester)
+    if semester_number is None:
+        raise ValueError("Semester must be an integer from 1 through 8.")
+    kind = str(class_type or "").strip().lower()
+    if kind not in {"lecture", "lab"}:
+        raise ValueError("class_type must be lecture or lab.")
+
+    if semester_number % 2:
+        return (
+            ("Monday", "Wednesday")
+            if kind == "lecture"
+            else ("Thursday",)
+        )
+    return (
+        ("Tuesday", "Thursday")
+        if kind == "lecture"
+        else ("Friday",)
+    )
+
+
 @dataclass(frozen=True)
 class BlockedPeriod:
     day: str
