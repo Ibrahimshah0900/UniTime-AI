@@ -9,7 +9,10 @@ from sqlalchemy.orm import Session
 
 from backend.models import (
     AcademicTerm,
+    CourseOffering,
+    FacultyAvailabilityWindow,
     FacultyClassAssignment,
+    FacultyTeachingProfile,
     StudentClashReport,
     StudentClashReportItem,
     StudentEnrollment,
@@ -20,13 +23,19 @@ from backend.models import (
 from backend.schedule_matching import (
     DAY_ORDER,
     normalize_course_code,
+    normalize_section,
     section_matches,
     semester_matches,
 )
+from backend.scheduling_policy import allowed_days_for, parse_semester_number
 from backend.term_service import get_active_term, get_term
 
 
 _EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+_DESIGNATION_SUBJECT_LIMITS = {
+    "lecturer": 4,
+    "assistant_professor": 2,
+}
 
 
 def _utc_now() -> datetime:
@@ -381,6 +390,369 @@ def _faculty_assignment_issues(
     return issues
 
 
+def _subject_key(
+    course_code: str | None,
+    semester: object,
+    section: str | None,
+) -> tuple[str, int, str] | None:
+    code = normalize_course_code(course_code)
+    semester_number = parse_semester_number(semester)
+    normalized_section = normalize_section(section)
+    if not code or semester_number is None or not normalized_section:
+        return None
+    return (
+        code.upper(),
+        semester_number,
+        normalized_section.upper(),
+    )
+
+
+def _institutional_scheduling_issues(
+    db: Session,
+    *,
+    term_id: int,
+    entries: list[TimetableEntry],
+) -> list[dict]:
+    issues: list[dict] = []
+    offerings = list(
+        db.scalars(
+            select(CourseOffering)
+            .where(CourseOffering.term_id == term_id)
+            .order_by(CourseOffering.id)
+        ).all()
+    )
+    assignments = list(
+        db.scalars(
+            select(FacultyClassAssignment)
+            .where(FacultyClassAssignment.term_id == term_id)
+            .order_by(FacultyClassAssignment.id)
+        ).all()
+    )
+    profiles = {
+        profile.user_id: profile
+        for profile in db.scalars(
+            select(FacultyTeachingProfile)
+        ).all()
+    }
+    users = {
+        user.id: user
+        for user in db.scalars(select(User)).all()
+    }
+    availability = list(
+        db.scalars(
+            select(FacultyAvailabilityWindow)
+            .where(FacultyAvailabilityWindow.term_id == term_id)
+            .order_by(
+                FacultyAvailabilityWindow.faculty_user_id,
+                FacultyAvailabilityWindow.day,
+                FacultyAvailabilityWindow.start_time,
+                FacultyAvailabilityWindow.id,
+            )
+        ).all()
+    )
+    windows_by_faculty: dict[int, list[FacultyAvailabilityWindow]] = defaultdict(list)
+    for window in availability:
+        windows_by_faculty[window.faculty_user_id].append(window)
+
+    assignments_by_subject: dict[
+        tuple[str, int, str],
+        list[FacultyClassAssignment],
+    ] = defaultdict(list)
+    for assignment in assignments:
+        key = _subject_key(
+            assignment.course_code,
+            assignment.semester,
+            assignment.section,
+        )
+        if key is not None:
+            assignments_by_subject[key].append(assignment)
+
+    offerings_by_component: dict[
+        tuple[str, int, str, str],
+        CourseOffering,
+    ] = {}
+    for offering in offerings:
+        subject = _subject_key(
+            offering.course_code,
+            offering.semester,
+            offering.section,
+        )
+        if subject is None:
+            continue
+        offerings_by_component[
+            (*subject, offering.class_type)
+        ] = offering
+
+        subject_assignments = assignments_by_subject.get(subject, [])
+        faculty_ids = sorted(
+            {
+                assignment.faculty_user_id
+                for assignment in subject_assignments
+            }
+        )
+        if not subject_assignments:
+            issues.append(
+                _issue(
+                    code="OFFERING_WITHOUT_FACULTY_ALLOCATION",
+                    severity="error",
+                    scope="term",
+                    entity_type="course_offering",
+                    entity_id=offering.id,
+                    message=(
+                        "A planning course offering has no faculty allocation."
+                    ),
+                    suggestion=(
+                        "Allocate the offered subject to one active faculty member "
+                        "before timetable generation."
+                    ),
+                )
+            )
+        elif len(faculty_ids) > 1:
+            issues.append(
+                _issue(
+                    code="AMBIGUOUS_OFFERING_FACULTY_ALLOCATION",
+                    severity="error",
+                    scope="term",
+                    entity_type="course_offering",
+                    entity_id=offering.id,
+                    message=(
+                        "A planning offered subject is allocated to multiple faculty accounts."
+                    ),
+                    suggestion=(
+                        "Keep exactly one authoritative faculty allocation for "
+                        "the offered subject."
+                    ),
+                    related=faculty_ids,
+                )
+            )
+
+        if not (offering.room or "").strip():
+            issues.append(
+                _issue(
+                    code="OFFERING_MISSING_ROOM",
+                    severity="warning",
+                    scope="term",
+                    entity_type="course_offering",
+                    entity_id=offering.id,
+                    message=(
+                        "A course offering has no physical room or Online location."
+                    ),
+                    suggestion=(
+                        "Assign a room or Online location before deterministic "
+                        "timetable generation."
+                    ),
+                )
+            )
+
+        if len(faculty_ids) == 1:
+            faculty_id = faculty_ids[0]
+            user = users.get(faculty_id)
+            if (
+                user is None
+                or user.role != "faculty"
+                or not user.is_active
+            ):
+                continue
+
+            profile = profiles.get(faculty_id)
+            if profile is None:
+                issues.append(
+                    _issue(
+                        code="MISSING_FACULTY_TEACHING_PROFILE",
+                        severity="error",
+                        scope="term",
+                        entity_type="user",
+                        entity_id=faculty_id,
+                        message=(
+                            "An allocated faculty member has no teaching designation."
+                        ),
+                        suggestion=(
+                            "Set Lecturer or Assistant Professor designation before "
+                            "using workload and generation rules."
+                        ),
+                    )
+                )
+
+            windows = windows_by_faculty.get(faculty_id, [])
+            if not windows:
+                issues.append(
+                    _issue(
+                        code="FACULTY_MISSING_AVAILABILITY",
+                        severity="error",
+                        scope="term",
+                        entity_type="user",
+                        entity_id=faculty_id,
+                        message=(
+                            "An allocated faculty member has no true availability "
+                            "configured for this term."
+                        ),
+                        suggestion=(
+                            "Add term-scoped availability windows before timetable generation."
+                        ),
+                    )
+                )
+            else:
+                required_days = allowed_days_for(
+                    offering.semester,
+                    offering.class_type,
+                )
+                available_days = {
+                    window.day
+                    for window in windows
+                }
+                missing_days = [
+                    day
+                    for day in required_days
+                    if day not in available_days
+                ]
+                if missing_days:
+                    issues.append(
+                        _issue(
+                            code="FACULTY_REQUIRED_DAY_AVAILABILITY_MISSING",
+                            severity="error",
+                            scope="term",
+                            entity_type="course_offering",
+                            entity_id=offering.id,
+                            message=(
+                                "Allocated faculty availability does not cover every "
+                                "required institutional scheduling day."
+                            ),
+                            suggestion=(
+                                "Add availability on required day(s): "
+                                + ", ".join(missing_days)
+                                + "."
+                            ),
+                            related=[faculty_id],
+                        )
+                    )
+
+    assignments_by_faculty: dict[int, list[FacultyClassAssignment]] = defaultdict(list)
+    for assignment in assignments:
+        assignments_by_faculty[assignment.faculty_user_id].append(assignment)
+    for faculty_id, faculty_assignments in assignments_by_faculty.items():
+        profile = profiles.get(faculty_id)
+        if profile is None:
+            continue
+        limit = _DESIGNATION_SUBJECT_LIMITS.get(profile.designation)
+        if limit is None:
+            continue
+        subjects = {
+            normalize_course_code(assignment.course_code)
+            for assignment in faculty_assignments
+            if normalize_course_code(assignment.course_code)
+        }
+        if len(subjects) > limit:
+            issues.append(
+                _issue(
+                    code="FACULTY_LOAD_EXCEEDS_DESIGNATION_LIMIT",
+                    severity="error",
+                    scope="term",
+                    entity_type="user",
+                    entity_id=faculty_id,
+                    message=(
+                        "Existing faculty allocations exceed the configured "
+                        "designation workload limit."
+                    ),
+                    suggestion=(
+                        f"Reduce this term's distinct subject allocation to at most {limit}."
+                    ),
+                )
+            )
+
+    for entry in entries:
+        if getattr(entry, "source", None) != "generated":
+            continue
+        semester_number = parse_semester_number(entry.semester)
+        class_type = (entry.class_type or "").strip().lower()
+        if (
+            semester_number is not None
+            and class_type in {"lecture", "lab"}
+            and entry.day not in allowed_days_for(
+                semester_number,
+                class_type,
+            )
+        ):
+            issues.append(
+                _issue(
+                    code="GENERATED_ENTRY_POLICY_MISMATCH",
+                    severity="critical",
+                    scope="term",
+                    entity_type="timetable_entry",
+                    entity_id=entry.id,
+                    message=(
+                        "A generated timetable entry violates the institutional "
+                        "semester/day policy."
+                    ),
+                    suggestion=(
+                        "Regenerate or correct the entry using the current "
+                        "institutional scheduling policy."
+                    ),
+                )
+            )
+
+        subject = _subject_key(
+            entry.course_code,
+            entry.semester,
+            entry.section,
+        )
+        component = (
+            (*subject, class_type)
+            if subject is not None and class_type in {"lecture", "lab"}
+            else None
+        )
+        offering = (
+            offerings_by_component.get(component)
+            if component is not None
+            else None
+        )
+        if offering is None:
+            issues.append(
+                _issue(
+                    code="GENERATED_ENTRY_WITHOUT_COURSE_OFFERING",
+                    severity="critical",
+                    scope="term",
+                    entity_type="timetable_entry",
+                    entity_id=entry.id,
+                    message=(
+                        "A generated timetable entry no longer maps to a "
+                        "structured course offering."
+                    ),
+                    suggestion=(
+                        "Restore the matching offering metadata or remove/regenerate "
+                        "the orphan generated entry after coordinator review."
+                    ),
+                )
+            )
+            continue
+
+        if (
+            (entry.room or "").strip().casefold()
+            != (offering.room or "").strip().casefold()
+        ) or (
+            entry.course_name or ""
+        ).strip() != offering.course_name.strip():
+            issues.append(
+                _issue(
+                    code="GENERATED_ENTRY_OFFERING_METADATA_MISMATCH",
+                    severity="error",
+                    scope="term",
+                    entity_type="timetable_entry",
+                    entity_id=entry.id,
+                    message=(
+                        "A generated timetable entry no longer matches its "
+                        "course offering metadata."
+                    ),
+                    suggestion=(
+                        "Review offering changes and regenerate the planning timetable "
+                        "from current structured metadata."
+                    ),
+                    related=[offering.id],
+                )
+            )
+
+    return issues
+
+
 def _report_integrity_issues(db: Session, *, term_id: int) -> list[dict]:
     issues: list[dict] = []
     open_reports = list(
@@ -437,6 +809,13 @@ def run_data_quality_report(db: Session, *, term_id: int | None = None) -> dict:
     issues.extend(_timetable_issues(entries))
     issues.extend(_enrollment_issues(db, term_id=term.id, entries=entries))
     issues.extend(_faculty_assignment_issues(db, term_id=term.id, entries=entries))
+    issues.extend(
+        _institutional_scheduling_issues(
+            db,
+            term_id=term.id,
+            entries=entries,
+        )
+    )
     issues.extend(_report_integrity_issues(db, term_id=term.id))
 
     severity_order = {"critical": 0, "error": 1, "warning": 2, "info": 3}
