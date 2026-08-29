@@ -2,12 +2,17 @@ import { expect, type Page, test } from '@playwright/test'
 
 const password = 'Password123!'
 
-async function login(page: Page, email: string) {
+async function login(
+  page: Page,
+  identifier: string,
+  passwordValue = password,
+  expectedPath = '/dashboard',
+) {
   await page.goto('/login')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(password)
+  await page.getByLabel('Email or registration number').fill(identifier)
+  await page.getByLabel('Password').fill(passwordValue)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(/\/dashboard$/)
+  await expect(page).toHaveURL(new RegExp(`${expectedPath}$`))
 }
 
 async function logout(page: Page) {
@@ -173,6 +178,74 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     await expect(page.getByRole('heading', { name: 'Clash management' })).toBeVisible()
     await logout(page)
   })
+test('coordinator provisions a registration-login student through first-login onboarding', async ({ page }) => {
+  const registrationNumber = 'E2E-NEW-001'
+  const permanentPassword = 'Provisioned123!'
+
+  await login(page, 'coordinator.e2e@example.edu')
+  await page.getByRole('link', { name: 'Students' }).click()
+  await expect(page.getByRole('heading', { name: 'Students' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Provision student' }).click()
+  const provisionDialog = page.getByRole('dialog', {
+    name: 'Provision institutional student',
+  })
+  await provisionDialog.getByLabel('Registration number').fill(registrationNumber)
+  await provisionDialog.getByLabel('Full name').fill('Registration Login Student')
+  await provisionDialog.getByLabel('Department').fill('Computing')
+  await provisionDialog.getByLabel('Program').fill('BS Artificial Intelligence')
+  await provisionDialog.getByLabel('Batch').fill('2026')
+  await provisionDialog.getByLabel('Current semester').fill('1')
+  await provisionDialog.getByLabel('Section').fill('B')
+  await provisionDialog.getByRole('button', { name: 'Provision student' }).click()
+
+  const credentialDialog = page.getByRole('dialog', {
+    name: 'Temporary student credential',
+  })
+  const temporaryPassword = (
+    await credentialDialog.getByTestId('temporary-password').textContent()
+  )?.trim()
+  if (!temporaryPassword) {
+    throw new Error('Provisioned student temporary password was not shown.')
+  }
+  await credentialDialog.getByRole('button', { name: 'Done' }).click()
+  await logout(page)
+
+  await login(page, registrationNumber, temporaryPassword, '/account')
+  await expect(page).toHaveURL(/\/account$/)
+  await expect(
+    page.getByText('First sign-in: change your temporary password'),
+  ).toBeVisible()
+
+  await page.getByLabel('Current password').fill(temporaryPassword)
+  await page.getByLabel('New password').fill(permanentPassword)
+  await page.getByRole('button', { name: 'Change password' }).click()
+  await expect(page).toHaveURL(/\/login$/, { timeout: 5_000 })
+
+  await login(page, registrationNumber, permanentPassword, '/account')
+  await expect(page).toHaveURL(/\/account$/)
+  await expect(
+    page.getByRole('heading', { name: 'Finish student onboarding' }),
+  ).toBeVisible()
+  await page.getByLabel('Preferred name').fill('E2E New Student')
+  await page.getByRole('button', { name: 'Complete onboarding' }).click()
+  await expect(page.getByText('Student onboarding completed.')).toBeVisible()
+
+  await page.getByRole('link', { name: 'Dashboard' }).click()
+  await expect(page).toHaveURL(/\/dashboard$/)
+  await logout(page)
+})
+
+test('coordinator mobile navigation exposes operational workspaces', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await login(page, 'coordinator.e2e@example.edu')
+  await expect(page.getByRole('button', { name: 'Open navigation' })).toBeVisible()
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await expect(page.getByRole('link', { name: 'Students' })).toBeVisible()
+  await page.getByRole('link', { name: 'Students' }).click()
+  await expect(page.getByRole('heading', { name: 'Students' })).toBeVisible()
+})
+
   test('coordinator switches academic terms without leaking archived student data', async ({ page }) => {
     await login(page, 'coordinator.e2e@example.edu')
 

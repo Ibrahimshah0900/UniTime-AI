@@ -16,6 +16,10 @@ describe('role-aware navigation', () => {
     expect(paths).not.toContain('/optimizer')
   })
   it('exposes institutional scheduling to coordinator/admin and true availability to faculty', () => {
+    expect(navForRole('coordinator').some((item) => item.path === '/students')).toBe(true)
+    expect(navForRole('admin').some((item) => item.path === '/students')).toBe(true)
+    expect(navForRole('faculty').some((item) => item.path === '/students')).toBe(false)
+    expect(navForRole('student').some((item) => item.path === '/students')).toBe(false)
     expect(navForRole('coordinator').some((item) => item.path === '/scheduling')).toBe(true)
     expect(navForRole('admin').some((item) => item.path === '/scheduling')).toBe(true)
     expect(navForRole('faculty').some((item) => item.path === '/scheduling')).toBe(false)

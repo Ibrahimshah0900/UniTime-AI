@@ -1,5 +1,20 @@
 export type UserRole = 'student' | 'faculty' | 'coordinator' | 'admin'
 
+export type StudentAcademicStatus = 'active' | 'on_leave' | 'graduated' | 'suspended'
+
+export interface AuthStudentProfile {
+  registration_number: string
+  department: string
+  program: string
+  batch: string
+  current_semester: number
+  section: string
+  academic_status: StudentAcademicStatus
+  is_verified: boolean
+  preferred_name: string | null
+  onboarding_completed: boolean
+}
+
 export type AcademicTermStatus = 'planning' | 'active' | 'archived'
 
 export interface AcademicTerm {
@@ -24,10 +39,12 @@ export interface AcademicTermListResponse {
 
 export interface User {
   id: number
-  email: string
+  email: string | null
   full_name: string
   role: UserRole
   is_active: boolean
+  must_change_password?: boolean
+  student_profile?: AuthStudentProfile | null
   created_at: string
   updated_at: string
 }
@@ -37,6 +54,70 @@ export interface TokenResponse {
   token_type: string
   expires_in_seconds: number
   user: User
+}
+
+export interface StudentIdentity {
+  user_id: number
+  registration_number: string
+  full_name: string
+  institutional_email: string | null
+  department: string
+  program: string
+  batch: string
+  current_semester: number
+  section: string
+  academic_status: StudentAcademicStatus
+  is_verified: boolean
+  is_active: boolean
+  must_change_password: boolean
+  preferred_name: string | null
+  onboarding_completed: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface StudentIdentityListResponse {
+  students: StudentIdentity[]
+  total: number
+  offset: number
+  limit: number
+}
+
+export interface StudentProvisionResponse {
+  student: StudentIdentity
+  temporary_password: string
+}
+
+export interface TemporaryCredentialResponse {
+  registration_number: string
+  temporary_password: string
+  must_change_password: true
+}
+
+export interface RosterImportError {
+  row: number | null
+  field: string | null
+  type: string
+  message: string
+}
+
+export interface RosterImportCredential {
+  registration_number: string
+  temporary_password: string
+}
+
+export interface RosterImportResponse {
+  filename: string
+  rows_read: number
+  would_create: number
+  would_update: number
+  duplicates: number
+  invalid: number
+  can_apply: boolean
+  applied: boolean
+  dry_run: boolean
+  errors: RosterImportError[]
+  credentials: RosterImportCredential[]
 }
 
 export interface DashboardResponse {

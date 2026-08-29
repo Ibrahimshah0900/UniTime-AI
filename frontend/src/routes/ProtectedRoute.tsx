@@ -10,6 +10,14 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
   if (loading) return <LoadingState label="Restoring your session"/>
   if (!user && token && restoreError) return <div className="center-page"><ErrorState message={restoreError} retry={() => { void refreshUser() }}/></div>
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }}/>
+  const studentOnboardingRequired = Boolean(
+    user.role === 'student' &&
+    user.student_profile &&
+    !user.student_profile.onboarding_completed,
+  )
+  if ((user.must_change_password || studentOnboardingRequired) && location.pathname !== '/account') {
+    return <Navigate to="/account" replace/>
+  }
   if (roles && !roles.includes(user.role)) return <Navigate to="/forbidden" replace/>
   return <>{children}</>
 }

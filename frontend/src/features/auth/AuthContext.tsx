@@ -8,7 +8,7 @@ interface AuthContextValue {
   token: string | null
   loading: boolean
   restoreError: string | null
-  login: (email: string, password: string) => Promise<User>
+  login: (identifier: string, password: string) => Promise<User>
   logout: () => void
   refreshUser: () => Promise<User | null>
   setUser: (user: User | null) => void
@@ -63,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('unitime:unauthorized', handleUnauthorized)
   }, [logout])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const response = await authApi.login(email, password)
+  const login = useCallback(async (identifier: string, password: string) => {
+    const response = await authApi.login(identifier, password)
     storeToken(response.access_token)
     setToken(response.access_token)
     setUser(response.user)

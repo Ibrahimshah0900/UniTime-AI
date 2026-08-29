@@ -2,8 +2,8 @@ import { apiRequest } from './client'
 import type { TokenResponse, User } from '../types/api'
 
 export const authApi = {
-  login: (email: string, password: string) => apiRequest<TokenResponse>('/auth/login', {
-    method: 'POST', body: { email, password }, token: null,
+  login: (identifier: string, password: string) => apiRequest<TokenResponse>('/auth/login', {
+    method: 'POST', body: { identifier, password }, token: null,
   }),
   register: (full_name: string, email: string, password: string) => apiRequest<User>('/auth/register', {
     method: 'POST', body: { full_name, email, password }, token: null,
