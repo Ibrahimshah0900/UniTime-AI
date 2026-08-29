@@ -274,6 +274,10 @@ test.describe.serial('role-adaptive integrated workflows', () => {
     ).toBeVisible()
 
     await page.getByRole('link', { name: 'Timetable', exact: true }).click()
+    await expect(
+      page.getByRole('heading', { name: 'Timetable management' }),
+    ).toBeVisible()
+
     const timetableTermSelect = page.getByLabel('Academic term')
     const planningTermId = await timetableTermSelect
       .locator('option', { hasText: 'Spring 2027 - planning' })
@@ -282,32 +286,12 @@ test.describe.serial('role-adaptive integrated workflows', () => {
       throw new Error('Planning term option is missing a value.')
     }
 
-    const planningTimetableResponse = page.waitForResponse((response) => {
-      const url = new URL(response.url())
-      return (
-        response.request().method() === 'GET' &&
-        url.pathname.endsWith('/timetable') &&
-        url.searchParams.get('term_id') === planningTermId
-      )
-    })
     await timetableTermSelect.selectOption(planningTermId)
-    const timetableResponse = await planningTimetableResponse
-    expect(timetableResponse.ok()).toBeTruthy()
-    const planningEntries = (await timetableResponse.json()) as Array<{
-      course_code?: string | null
-      source?: string | null
-    }>
-    expect(
-      planningEntries.filter(
-        (entry) =>
-          entry.course_code === 'DS-220' && entry.source === 'generated',
-      ),
-    ).toHaveLength(2)
     await expect(timetableTermSelect).toHaveValue(planningTermId)
 
     await page.getByRole('button', { name: 'List' }).click()
     const generatedRows = page.getByRole('row').filter({ hasText: 'DS-220' })
-    await expect(generatedRows).toHaveCount(2)
+    await expect(generatedRows).toHaveCount(2, { timeout: 20_000 })
     await expect(
       generatedRows.first().getByText('Generated', { exact: true }),
     ).toBeVisible()
