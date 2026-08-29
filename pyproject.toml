@@ -18,6 +18,3 @@ dependencies = [
     "psycopg[binary]>=3.2,<4",
     "catboost==1.2.10",
 ]
-
-[tool.vercel]
-entrypoint = "backend.app:app"
