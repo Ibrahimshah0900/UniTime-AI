@@ -98,6 +98,41 @@ function requestTimeoutMs() {
   return Number.isFinite(configured) && configured >= 1_000 ? configured : 15_000
 }
 
+interface RequestAbortState {
+  signal: AbortSignal
+  didTimeout: () => boolean
+  cleanup: () => void
+}
+
+function createRequestAbortState(externalSignal?: AbortSignal | null): RequestAbortState {
+  const controller = new AbortController()
+  let timedOut = false
+
+  const timeoutId = window.setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, requestTimeoutMs())
+
+  const forwardAbort = () => controller.abort()
+
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      forwardAbort()
+    } else {
+      externalSignal.addEventListener('abort', forwardAbort, { once: true })
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      window.clearTimeout(timeoutId)
+      externalSignal?.removeEventListener('abort', forwardAbort)
+    },
+  }
+}
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = options.token === undefined ? getStoredToken() : options.token
   const headers = new Headers(options.headers)
@@ -113,24 +148,25 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (token) headers.set('Authorization', `Bearer ${token}`)
   if (!headers.has('Accept')) headers.set('Accept', 'application/json')
 
-  const timeoutSignal = AbortSignal.timeout(requestTimeoutMs())
-  const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal
+  const abortState = createRequestAbortState(options.signal)
   let response: Response
   try {
     response = await fetch(`${getApiBaseUrl()}${path}`, {
       ...options,
       headers,
       body,
-      signal,
+      signal: abortState.signal,
     })
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'TimeoutError') {
+    if (abortState.didTimeout()) {
       throw new ApiError('The request timed out. Check the backend connection and try again.', 0)
     }
     if (error instanceof DOMException && error.name === 'AbortError' && options.signal?.aborted) {
       throw error
     }
     throw new ApiError('Unable to reach the UniTime-AI backend. Check the connection and try again.', 0)
+  } finally {
+    abortState.cleanup()
   }
 
   if (response.status === 204) return undefined as T

@@ -53,7 +53,7 @@ LOG_LEVEL = os.getenv(
 ).strip().upper()
 
 DEFAULT_ALLOWED_HOSTS = (
-    "localhost,127.0.0.1,testserver"
+    "localhost,127.0.0.1,10.0.2.2,testserver"
 )
 
 ALLOWED_HOSTS = _parse_origins(
@@ -126,4 +126,3 @@ if CANDIDATE_RANKER_MODE not in {"deterministic", "experimental_catboost"}:
     raise RuntimeError(
         "CANDIDATE_RANKER_MODE must be deterministic or experimental_catboost."
     )
-

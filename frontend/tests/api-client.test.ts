@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, apiRequest, clearStoredToken, storeToken } from '../src/api/client'
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   clearStoredToken()
 })
@@ -54,4 +55,35 @@ describe('API client', () => {
     expect(handler).not.toHaveBeenCalled()
     window.removeEventListener('unitime:unauthorized', handler)
   })
+
+  it('times out requests using AbortController-compatible cancellation', async () => {
+    vi.useFakeTimers()
+
+    const fetchMock = vi.fn(
+      (_url: string, options?: RequestInit) => (
+        new Promise<Response>((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true },
+          )
+        })
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const expectation = expect(
+      apiRequest('/auth/me'),
+    ).rejects.toMatchObject({
+      status: 0,
+      message: 'The request timed out. Check the backend connection and try again.',
+    })
+
+    await vi.advanceTimersByTimeAsync(15_000)
+    await expectation
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
 })

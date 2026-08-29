@@ -114,8 +114,11 @@ jobs:
         run: npm run build
         working-directory: frontend
         env:
-          VITE_API_BASE_URL: http://127.0.0.1:8000
+          VITE_API_BASE_URL: http://10.0.2.2:8000
           CAPACITOR_DEV_CLEARTEXT: "1"
+      - name: Verify Android emulator API target
+        run: grep -R --fixed-strings --quiet "http://10.0.2.2:8000" dist
+        working-directory: frontend
       - name: Sync Capacitor Android
         run: npx cap sync android
         working-directory: frontend
@@ -123,6 +126,9 @@ jobs:
           CAPACITOR_DEV_CLEARTEXT: "1"
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
+        working-directory: frontend/android
+      - name: Compile Android tests
+        run: ./gradlew testDebugUnitTest assembleDebugAndroidTest
         working-directory: frontend/android
       - name: Build Android debug APK
         run: ./gradlew assembleDebug
@@ -133,4 +139,3 @@ jobs:
           name: UniTime-AI-Android-Debug
           path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
