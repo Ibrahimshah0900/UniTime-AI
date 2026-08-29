@@ -7,6 +7,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from backend.clash_detector import detect_clashes
+from backend.concurrency import acquire_timetable_write_lock
 from backend.global_optimizer import (
     build_timetable_snapshot,
     calculate_student_risk_cost,
@@ -796,6 +797,7 @@ def apply_multi_step_optimization_plan(
     # Commit the plan-level record first so it survives
     # even when a later optimizer step fails safely.
     db.commit()
+    acquire_timetable_write_lock(db)
 
     initial_entries = get_all_entries(
         db
@@ -881,6 +883,8 @@ def apply_multi_step_optimization_plan(
                 )
             )
 
+            acquire_timetable_write_lock(db)
+
             applied_steps.append(
                 step_result
             )
@@ -893,6 +897,7 @@ def apply_multi_step_optimization_plan(
 
         except Exception as exc:
             db.rollback()
+            acquire_timetable_write_lock(db)
 
             failed_step = {
                 "requested_step": (

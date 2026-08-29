@@ -92,7 +92,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: alembic upgrade head
       - run: alembic check
-      - run: python -m pytest tests/test_live_database_smoke.py -q
+      - run: python -m pytest tests/test_live_database_smoke.py tests/test_live_postgres_concurrency.py -q
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
