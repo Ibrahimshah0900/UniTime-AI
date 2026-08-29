@@ -40,9 +40,13 @@ Copy `.env.example` to `.env.local` if needed:
 
 ```bash
 VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_ALLOW_PUBLIC_STUDENT_REGISTRATION=1
 ```
 
-For production, set `VITE_API_BASE_URL` to the deployed FastAPI origin.
+For production, set `VITE_API_BASE_URL` to the deployed FastAPI origin and leave
+`VITE_ALLOW_PUBLIC_STUDENT_REGISTRATION` unset (or set it to `0`). Institutional
+students are provisioned by a coordinator or administrator and sign in with their
+university-issued email or registration number.
 
 ## Development
 
@@ -66,7 +70,9 @@ The E2E command starts a freshly migrated isolated SQLite API and Vite server, t
 
 ### Student
 
-- Registration/login/logout/session restoration
+- University-issued email or registration-number login
+- Public self-registration only when explicitly enabled for development
+- First-login temporary-password change and institutional onboarding
 - Role-aware dashboard
 - Personal timetable
 - Enrollment management
@@ -89,6 +95,7 @@ The E2E command starts a freshly migrated isolated SQLite API and Vite server, t
 ### Coordinator
 
 - Operational dashboard
+- Verified student provisioning, roster import, identity management, and temporary-password reset
 - Institutional timetable CRUD/import/room changes
 - Clash analytics and validated fix actions
 - Student clash-report review and legal status transitions
@@ -102,7 +109,7 @@ The E2E command starts a freshly migrated isolated SQLite API and Vite server, t
 
 - Coordinator capabilities
 - Admin user list/search/filter
-- Create users with explicit roles
+- Create faculty/coordinator/admin staff accounts with explicit roles
 - Update role, name and activation state
 
 ## Contract-aware limitations

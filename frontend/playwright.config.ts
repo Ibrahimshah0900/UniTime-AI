@@ -34,6 +34,7 @@ export default defineConfig({
       env: {
         VITE_API_BASE_URL: 'http://127.0.0.1:8001',
         VITE_API_TIMEOUT_MS: '15000',
+        VITE_ALLOW_PUBLIC_STUDENT_REGISTRATION: '1',
       },
     },
   ],

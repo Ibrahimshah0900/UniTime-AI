@@ -51,7 +51,7 @@ export function AppShell() {
   }
 
   return <div className={shellClass}>
-    <aside className={`sidebar ${mobileOpen ? 'sidebar--mobile-open' : ''}`}>
+    <aside id="primary-navigation" className={`sidebar ${mobileOpen ? 'sidebar--mobile-open' : ''}`}>
       <div className="sidebar__top">
         <Logo compact={collapsed}/>
         <button
@@ -94,6 +94,8 @@ export function AppShell() {
         className="icon-btn topbar__menu"
         onClick={() => setMobileOpen(true)}
         aria-label="Open navigation"
+        aria-controls="primary-navigation"
+        aria-expanded={mobileOpen}
       >
         <Menu/>
       </button>
@@ -174,7 +176,7 @@ export function AppShell() {
     </main>
 
     {user.role === 'student' && (
-      <nav className="mobile-bottom-nav">
+      <nav className="mobile-bottom-nav" aria-label="Student navigation">
         {mobileStudentNav.map(({ label, path, icon: Icon }) => (
           <NavLink
             key={path}

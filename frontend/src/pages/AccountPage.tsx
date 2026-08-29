@@ -1,4 +1,4 @@
-import { KeyRound, UserRound } from 'lucide-react'
+import { KeyRound, LogOut, UserRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { authApi } from '../api/auth'
 import { ApiError } from '../api/client'
@@ -243,6 +243,15 @@ export function AccountPage() {
           )}
         </Section>
       )}
+      <Section
+        title="Session"
+        description="Sign out of UniTime-AI on this device."
+      >
+        <button type="button" className="btn btn--secondary" onClick={logout}>
+          <LogOut size={16} />
+          Sign out
+        </button>
+      </Section>
     </div>
   )
 }

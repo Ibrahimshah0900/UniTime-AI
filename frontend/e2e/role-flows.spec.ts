@@ -246,6 +246,47 @@ test('coordinator mobile navigation exposes operational workspaces', async ({ pa
   await expect(page.getByRole('heading', { name: 'Students' })).toBeVisible()
 })
 
+  test('student mobile navigation exposes account sign-out without page overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await login(page, 'student.e2e@example.edu')
+
+    const mobileNav = page.getByRole('navigation', { name: 'Student navigation' })
+    await expect(mobileNav).toBeVisible()
+    await expect(mobileNav.getByRole('link')).toHaveCount(6)
+
+    await mobileNav.getByRole('link', { name: 'Timetable' }).click()
+    await expect(page.getByRole('heading', { name: 'My timetable' })).toBeVisible()
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
+    ).toBe(true)
+
+    await mobileNav.getByRole('link', { name: 'More' }).click()
+    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page).toHaveURL(/\/login$/)
+  })
+
+  test('faculty mobile drawer reaches availability without page overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await login(page, 'faculty.e2e@example.edu')
+
+    const menu = page.getByRole('button', { name: 'Open navigation' })
+    await expect(menu).toBeVisible()
+    await expect(menu).toHaveAttribute('aria-expanded', 'false')
+    await menu.click()
+    await expect(menu).toHaveAttribute('aria-expanded', 'true')
+
+    await page.getByRole('link', { name: 'Availability' }).click()
+    await expect(page.getByRole('heading', { name: 'My availability' })).toBeVisible()
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
+    ).toBe(true)
+  })
+
   test('coordinator switches academic terms without leaking archived student data', async ({ page }) => {
     await login(page, 'coordinator.e2e@example.edu')
 
