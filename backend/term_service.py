@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.concurrency import acquire_timetable_write_lock
 from backend.models import AcademicTerm
 from backend.learning_event_service import record_learning_event, stable_learning_key
 from backend.term_schemas import AcademicTermCreate
@@ -142,6 +143,7 @@ def create_academic_term(
 
 
 def activate_academic_term(db: Session, *, term_id: int) -> AcademicTerm:
+    acquire_timetable_write_lock(db)
     try:
         term = get_term(db, term_id, lock=True)
         if term.status != "planning":
@@ -185,6 +187,7 @@ def archive_academic_term(
     term_id: int,
     actor_role: str = "system",
 ) -> AcademicTerm:
+    acquire_timetable_write_lock(db)
     try:
         term = get_term(db, term_id, lock=True)
         if term.status != "active":

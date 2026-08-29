@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.concurrency import acquire_timetable_write_lock
 from backend.institutional_scheduling_schemas import (
     CourseOfferingCreate,
     CourseOfferingUpdate,
@@ -107,6 +108,7 @@ def create_course_offering(
     actor_user_id: int,
     request: CourseOfferingCreate,
 ) -> CourseOffering:
+    acquire_timetable_write_lock(db)
     _planning_term(db, request.term_id)
     if _duplicate_offering(
         db,
@@ -141,6 +143,7 @@ def update_course_offering(
     offering_id: int,
     request: CourseOfferingUpdate,
 ) -> CourseOffering:
+    acquire_timetable_write_lock(db)
     offering = db.get(CourseOffering, offering_id)
     if offering is None:
         raise HTTPException(status_code=404, detail="Course offering not found.")
@@ -201,6 +204,7 @@ def update_course_offering(
 
 
 def delete_course_offering(db: Session, *, offering_id: int) -> None:
+    acquire_timetable_write_lock(db)
     offering = db.get(CourseOffering, offering_id)
     if offering is None:
         raise HTTPException(status_code=404, detail="Course offering not found.")
@@ -228,6 +232,7 @@ def set_faculty_designation(
     faculty_user_id: int,
     designation: str,
 ) -> dict:
+    acquire_timetable_write_lock(db)
     faculty = _active_faculty(db, faculty_user_id)
     maximum = DESIGNATION_SUBJECT_LIMITS[designation]
     assignments = list(
@@ -480,6 +485,7 @@ def create_faculty_availability(
     faculty_user_id: int,
     request: FacultyAvailabilityCreate,
 ) -> FacultyAvailabilityWindow:
+    acquire_timetable_write_lock(db)
     _active_faculty(db, faculty_user_id)
     _planning_term(db, request.term_id)
     _validate_availability_times(request.day, request.start_time, request.end_time)
@@ -525,6 +531,7 @@ def delete_faculty_availability(
     window_id: int,
     faculty_user_id: int | None = None,
 ) -> None:
+    acquire_timetable_write_lock(db)
     window = db.get(FacultyAvailabilityWindow, window_id)
     if window is None or (
         faculty_user_id is not None and window.faculty_user_id != faculty_user_id

@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.concurrency import acquire_timetable_write_lock
 from backend.enrollment_schemas import EnrollmentCreate
 from backend.models import StudentEnrollment, TimetableEntry
 from backend.learning_event_service import record_learning_event, stable_learning_key
@@ -218,6 +219,7 @@ def create_student_enrollment(
     user_id: int,
     request: EnrollmentCreate,
 ) -> StudentEnrollment:
+    acquire_timetable_write_lock(db)
     active_term = get_active_term(db)
     existing = _find_existing_enrollment(
         db,
@@ -296,6 +298,7 @@ def delete_student_enrollment(
     user_id: int,
     enrollment_id: int,
 ) -> None:
+    acquire_timetable_write_lock(db)
     enrollment = db.get(StudentEnrollment, enrollment_id)
     if enrollment is None or enrollment.user_id != user_id:
         raise HTTPException(status_code=404, detail="Enrollment not found.")

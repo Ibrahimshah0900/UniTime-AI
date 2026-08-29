@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.concurrency import acquire_timetable_write_lock
 from backend.auth_security import hash_password
 from backend.faculty_schemas import FacultyAssignmentCreate, FacultyProvisionCreate
 from backend.models import FacultyClassAssignment, TimetableEntry, User
@@ -144,6 +145,7 @@ def create_faculty_assignment(
     created_by_user_id: int,
     request: FacultyAssignmentCreate,
 ) -> dict:
+    acquire_timetable_write_lock(db)
     term = resolve_term_for_write(db, request.term_id, allow_planning=True)
     faculty = db.get(User, request.faculty_user_id)
     if faculty is None or faculty.role != "faculty" or not faculty.is_active:
@@ -201,6 +203,7 @@ def create_faculty_assignment(
 
 
 def delete_faculty_assignment(db: Session, assignment_id: int) -> None:
+    acquire_timetable_write_lock(db)
     assignment = db.get(FacultyClassAssignment, assignment_id)
     if assignment is None:
         raise HTTPException(status_code=404, detail="Faculty assignment not found.")

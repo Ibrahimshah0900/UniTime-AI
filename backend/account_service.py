@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from backend.concurrency import acquire_timetable_write_lock
 from backend.account_schemas import (
     AdminUserCreate,
     AdminUserUpdate,
@@ -16,6 +17,7 @@ from backend.models import User
 
 
 def update_profile(db: Session, *, user: User, request: ProfileUpdate) -> User:
+    acquire_timetable_write_lock(db)
     managed_user = db.get(User, user.id)
     if managed_user is None:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -102,6 +104,7 @@ def update_admin_managed_user(
     target_user_id: int,
     request: AdminUserUpdate,
 ) -> User:
+    acquire_timetable_write_lock(db)
     target = db.scalar(
         select(User)
         .where(User.id == target_user_id)
