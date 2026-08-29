@@ -1,43 +1,143 @@
 # UniTime-AI
 
-UniTime-AI is a full-stack university timetable and clash-resolution application for students, faculty, coordinators, and administrators.
+[![UniTime-AI CI](https://github.com/Ibrahimshah0900/UniTime-AI/actions/workflows/backend-ci.yml/badge.svg?branch=main)](https://github.com/Ibrahimshah0900/UniTime-AI/actions/workflows/backend-ci.yml)
 
-The backend uses FastAPI and SQLAlchemy. The frontend uses React/Vite and is also packaged for Android with Capacitor. The system supports timetable import and editing, role-based access, personal schedules, enrollments, clash reporting, coordinator review, deterministic safety checks, ranked resolution candidates, apply/undo history, notifications, diagnostics, and administrative workflows.
+**AI-assisted university timetable management and clash resolution for students, faculty, coordinators, and administrators.**
 
-> **Two separate ways to run**
->
-> - **Demo mode** â€” clearly labeled synthetic data. Recommended for teacher demonstrations, screenshots, videos, and evaluation.
-> - **Real-data mode** â€” fresh database plus an actual institutional timetable. Synthetic data is **not required**.
+UniTime-AI combines a FastAPI backend, React/TypeScript web frontend, Capacitor Android client, deterministic timetable-safety rules, and an experimental CatBoost learning-to-rank model. The key design choice is that **AI helps rank good scheduling options, but deterministic rules remain authoritative for safety**.
 
-## Technology
+- Latest release: https://github.com/Ibrahimshah0900/UniTime-AI/releases/latest
+- Full project guide: [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md)
+- Teacher/reviewer run guide: [`docs/TEACHER_RUN_GUIDE.md`](docs/TEACHER_RUN_GUIDE.md)
+- AI evaluation: [`docs/AI_EVALUATION.md`](docs/AI_EVALUATION.md)
+- API contract: [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md)
+- Deployment notes: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+
+## What the application does
+
+UniTime-AI provides role-aware workflows for university scheduling:
+
+- personal student timetables and enrollments;
+- faculty assignments and availability;
+- academic-term management;
+- timetable CSV/XLSX import and safe editing;
+- clash detection and student clash reporting;
+- coordinator report queues and review workflows;
+- deterministic candidate-safety checks;
+- AI-ranked resolution candidates;
+- controlled apply, audit history, and rollback/undo;
+- notifications and reminders;
+- institutional scheduling and timetable generation;
+- data-quality and resolver analytics;
+- account and role administration.
+
+## AI is an important part of the system
+
+UniTime-AI uses a frozen **CatBoost `research-v1` learning-to-rank model** to improve the ordering of timetable-resolution candidates.
+
+The model does **not** decide whether a change is safe. The scheduling pipeline first runs deterministic hard checks for room, faculty, section, enrollment-backed student conflicts, institutional rules, and other structural constraints. Only candidates already classified as `SAFE` or `CONDITIONALLY_SAFE` can be ranked by CatBoost. Rejected candidates cannot be made safe by an ML score.
+
+The current model artifact is included in the repository under `backend/ai_ranker/research_v1/`. It was trained and evaluated on **synthetic labels only**, so its published metrics demonstrate the ranking pipeline rather than real-university production accuracy. If the model cannot load or predict, the application falls back to deterministic weighted ranking without weakening timetable safety.
+
+See [`docs/AI_EVALUATION.md`](docs/AI_EVALUATION.md) and [`docs/RANKER_CONTRACT.md`](docs/RANKER_CONTRACT.md).
+
+## Technology stack
+
+### Backend
 
 - Python 3.13
 - FastAPI
-- SQLAlchemy + Alembic
+- SQLAlchemy 2
+- Alembic migrations
+- Pydantic
+- PyJWT authentication
+- pwdlib / Argon2 password hashing
+- pandas + openpyxl + python-docx for timetable/data processing
 - SQLite for simple local use
-- PostgreSQL supported through `psycopg`
-- React 19 + TypeScript + Vite
-- Capacitor Android
-- CatBoost research-v1 ranking layer
-- GitHub Actions CI
+- PostgreSQL through psycopg for production-style use
+- CatBoost for the experimental ranking model
+
+### Frontend
+
+- React 19
+- TypeScript
+- Vite
+- React Router
+- date-fns
+- Motion
+- Lucide React
+- Vitest
+- Playwright
+
+### Android
+
+- Capacitor 8
+- Android/Gradle project generated from the same React frontend
+- Application ID: `com.unitimeai.mobile`
+
+### Quality / operations
+
+- Pytest
+- GitHub Actions
+- PostgreSQL smoke testing
+- frontend lint/typecheck/unit/E2E testing
+- Android compile/build CI
+- Docker and Docker Compose support
+
+## Demo mode vs real-data mode
+
+UniTime-AI deliberately keeps demonstration data separate from real institutional data.
+
+### Demo mode
+
+Use the synthetic generator for:
+
+- teacher/reviewer demonstrations;
+- screenshots and videos;
+- safe experimentation;
+- clash-resolution evaluation;
+- portfolio demonstrations.
+
+### Real-data mode
+
+Synthetic data is **not required**.
+
+For real use:
+
+1. start with a fresh database;
+2. apply Alembic migrations;
+3. create the first privileged account;
+4. import the institution's real timetable from CSV/XLSX;
+5. create/provision the required users and enrollments;
+6. run the application normally.
+
+Do not mix a real institutional database with the generated demo database.
 
 ## Quick web demo
 
-This is the easiest way to evaluate UniTime-AI and the recommended setup for recording a demonstration video.
+### Prerequisites
 
-### 1. Clone and install
+- Git
+- Python 3.13
+- Node.js 22 / npm
+
+### 1. Clone
 
 ```powershell
-git clone --branch mobile/android-test-v0.1.0 https://github.com/Ibrahimshah0900/UniTime-AI.git
+git clone https://github.com/Ibrahimshah0900/UniTime-AI.git
 Set-Location UniTime-AI
+```
 
+### 2. Python environment
+
+```powershell
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements-dev.txt
 ```
 
-### 2. Create an isolated synthetic demo database
+### 3. Generate an isolated synthetic demo database
 
 ```powershell
 python scripts/generate_synthetic_demo.py `
@@ -48,40 +148,44 @@ python scripts/generate_synthetic_demo.py `
   --confirm-synthetic
 ```
 
-The generator refuses the normal development database and refuses a non-empty target.
-
-Tell the backend to use the demo database in the current PowerShell session:
+Set it for the current PowerShell session:
 
 ```powershell
 $env:DATABASE_URL='sqlite:///./data/unitime-demo.db'
+$env:APP_ENV='development'
+$env:AUTH_SECRET_KEY='local-demo-secret-change-me-123456789'
 ```
 
-### 3. Start the API
+### 4. Start the API
 
 ```powershell
 python -m uvicorn backend.app:app --reload
 ```
 
+Useful URLs:
+
 - API: `http://127.0.0.1:8000`
 - Health: `http://127.0.0.1:8000/health`
 - Readiness: `http://127.0.0.1:8000/ready`
-- Development docs: `http://127.0.0.1:8000/docs`
+- Development API docs: `http://127.0.0.1:8000/docs`
 
-### 4. Start the web frontend
+### 5. Start the frontend
 
-Open a second PowerShell window:
+Open a second terminal:
 
 ```powershell
-Set-Location UniTime-AI\frontend
-npm ci
-npm run dev
+Set-Location frontend
+npm.cmd ci
+npm.cmd run dev
 ```
 
-Open `http://127.0.0.1:5173`.
+Open:
 
-### Demo accounts
+`http://127.0.0.1:5173`
 
-These accounts exist **only in generated synthetic demo data**.
+### Demo credentials
+
+These credentials exist only in generated synthetic demo data:
 
 | Role | Login | Password |
 |---|---|---|
@@ -89,61 +193,35 @@ These accounts exist **only in generated synthetic demo data**.
 | Student | `demo.student00001@synthetic.invalid` | `SyntheticDemoOnly!2026` |
 | Faculty | `demo.faculty001@synthetic.invalid` | `SyntheticDemoOnly!2026` |
 
-Do not reuse these credentials for real deployments.
+Never reuse these credentials for a real deployment.
 
-## Using a real timetable
+## Running with a real timetable
 
-Synthetic data is not needed for real use. Use a **fresh database** for actual timetable data and never mix real institutional data with the generated demo database.
-
-### 1. Return to the normal local database
-
-Open a new PowerShell session, or remove the temporary demo override:
+Remove any demo database override:
 
 ```powershell
 Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
 ```
 
-Local development then uses `data/unitime_ai.db` unless another `DATABASE_URL` is configured.
-
-### 2. Apply migrations
+Apply migrations:
 
 ```powershell
 python -m alembic upgrade head
 ```
 
-Alembic owns the schema.
-
-### 3. Create the first privileged account
+Create the first privileged account:
 
 ```powershell
 python -m backend.create_user --email admin@example.edu --name "Admin User" --role admin
 ```
 
-The command prompts for a password. Privileged users can then manage accounts through the application.
+Then start backend/frontend and import the real timetable through the application.
 
-### 4. Run backend and frontend
+A starter file is included at:
 
-Backend:
+`docs/timetable_import_template.csv`
 
-```powershell
-python -m uvicorn backend.app:app --reload
-```
-
-Frontend:
-
-```powershell
-Set-Location frontend
-npm ci
-npm run dev
-```
-
-### 5. Import the real timetable
-
-Coordinator/admin timetable import supports **CSV and XLSX**.
-
-A starter template is included at `docs/timetable_import_template.csv`.
-
-Required fields:
+Required timetable fields:
 
 - `course_code`
 - `course_name`
@@ -159,47 +237,26 @@ Optional:
 
 - `class_type` (defaults to `lecture`)
 
-Example:
+CSV and XLSX are supported, and common alternative column names are normalized by the importer.
 
-```csv
-course_code,course_name,semester,section,faculty,room,day,start_time,end_time,class_type
-CS101,Introduction to Computing,Semester 1,A,Dr Example,R101,Monday,08:30,10:00,lecture
-```
+## Android local testing
 
-Replace the sample row with the institution's real timetable before importing.
+The Android client uses the same frontend through Capacitor.
 
-## Android
+The historical `android-test-v0.1.0` prerelease contains network-specific test APKs used during development. They should not be treated as universal production APKs.
 
-The Android client is built from the same React frontend with Capacitor.
+For a physical phone on a new network, build the Android client against the laptop's current LAN address.
 
-### Existing downloadable test APK
+Example laptop IP: `192.168.1.20`
 
-The current `android-test-v0.1.0` prerelease contains APKs created for local-network testing. A LAN test APK can contain the laptop IP used when that APK was built.
-
-Therefore an arbitrary user should **not assume the existing LAN APK will automatically discover their laptop**.
-
-For a different laptop/network, build an APK using that laptop's current LAN IP.
-
-### Build an APK for your own local backend
-
-Put the Android phone and laptop on the same Wi-Fi/hotspot.
-
-Find the laptop IPv4 address:
-
-```powershell
-ipconfig
-```
-
-Assume the laptop is `192.168.1.20`.
-
-Start the backend so the phone can reach it:
+Backend:
 
 ```powershell
 $env:ALLOWED_HOSTS='localhost,127.0.0.1,192.168.1.20'
 python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000
 ```
 
-Build the Android frontend:
+Android build:
 
 ```powershell
 Set-Location frontend
@@ -207,9 +264,9 @@ Set-Location frontend
 $env:VITE_API_BASE_URL='http://192.168.1.20:8000'
 $env:CAPACITOR_DEV_CLEARTEXT='1'
 
-npm ci
-npm run build
-npx cap sync android
+npm.cmd ci
+npm.cmd run build
+npx.cmd cap sync android
 
 Set-Location android
 .\gradlew.bat :app:assembleDebug
@@ -219,15 +276,15 @@ APK output:
 
 `frontend/android/app/build/outputs/apk/debug/app-debug.apk`
 
-Install it on the phone. The phone and laptop must remain on the same network while the local backend is running.
+The phone and laptop must be on the same network while using a local backend.
 
-`CAPACITOR_DEV_CLEARTEXT=1` is for local HTTP testing only. A hosted backend should use HTTPS.
+`CAPACITOR_DEV_CLEARTEXT=1` is a local-development option. A hosted backend should use HTTPS.
 
 ## Configuration
 
 Copy `.env.example` to `.env` only when persistent local configuration is needed.
 
-Portable SQLite:
+Local SQLite:
 
 ```text
 DATABASE_URL=sqlite:///./data/unitime_ai.db
@@ -239,60 +296,9 @@ PostgreSQL:
 DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/DATABASE
 ```
 
-Never commit real database passwords, authentication secrets, tokens, or production credentials.
+Never commit real passwords, tokens, database credentials, authentication secrets, or private institutional data.
 
-## AI and safety boundary
-
-The repository includes a frozen CatBoost `research-v1` ranker trained and evaluated on **synthetic labels only**.
-
-The ML model does **not** decide whether a timetable change is safe.
-
-1. Deterministic hard constraints evaluate candidate safety.
-2. Only eligible `SAFE` / `CONDITIONALLY_SAFE` candidates may reach the research ranker.
-3. CatBoost ranks those eligible candidates.
-4. Model/schema/runtime failure falls back to deterministic ranking.
-5. Rejected or insufficient-data candidates never become safe because of an ML score.
-
-The model score is not a probability of safety and is not evidence of real-university accuracy.
-
-See:
-
-- `docs/RANKER_CONTRACT.md`
-- `docs/AI_EVALUATION.md`
-- `docs/LEARNING_EVENTS.md`
-- `docs/SYNTHETIC_DATA.md`
-
-## Suggested demonstration video
-
-Use the **web application** with synthetic data for teacher/portfolio recording.
-
-Recommended 3â€“5 minute flow:
-
-1. Introduce UniTime-AI and the timetable-clash problem.
-2. Student login: personal timetable and enrollments.
-3. Show a clash/report.
-4. Coordinator login.
-5. Open report queue/detail.
-6. Show resolution candidates.
-7. Explain deterministic safety gating and AI ranking.
-8. Apply a conditionally safe resolution.
-9. Show the timetable change.
-10. Show history and undo/redo.
-11. End with GitHub and Android support.
-
-For LinkedIn, cut the strongest 60â€“90 seconds from the longer recording.
-
-Recording tips:
-
-- 1080p
-- maximize the browser
-- hide bookmarks/personal tabs
-- turn notifications off
-- use synthetic data so no real student/faculty information appears
-- keep terminal windows out of the final recording after startup
-- do one dry run before recording
-
-## Tests
+## Testing
 
 Backend:
 
@@ -304,48 +310,58 @@ Frontend:
 
 ```powershell
 Set-Location frontend
-npm ci
-npm run lint
-npm run typecheck
-npm test
-npm run build
-npm run test:e2e
+npm.cmd ci
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd test
+npm.cmd run build
+npm.cmd run test:e2e
 ```
 
-GitHub Actions also runs backend tests, PostgreSQL smoke tests, frontend checks, and Android compilation/build.
+GitHub Actions qualifies:
+
+- backend tests;
+- Alembic migration consistency;
+- PostgreSQL smoke/concurrency behavior;
+- frontend lint/typecheck/unit/E2E/build;
+- backend/frontend Docker builds;
+- Android compilation and debug APK build.
 
 ## Documentation
 
-- `docs/API_CONTRACT.md`
-- `docs/openapi.json`
-- `docs/DEPLOYMENT.md`
-- `docs/RANKER_CONTRACT.md`
-- `docs/AI_EVALUATION.md`
-- `docs/LEARNING_EVENTS.md`
-- `docs/SYNTHETIC_DATA.md`
+- [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md) - architecture, technology, features, AI, data flow, testing, and maintenance
+- [`docs/TEACHER_RUN_GUIDE.md`](docs/TEACHER_RUN_GUIDE.md) - quickest evaluation and real-timetable workflow
+- [`docs/AI_EVALUATION.md`](docs/AI_EVALUATION.md) - synthetic ranking evaluation and safety boundaries
+- [`docs/RANKER_CONTRACT.md`](docs/RANKER_CONTRACT.md) - ML feature/ranker contract and fallback policy
+- [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) - API and authorization contract
+- [`docs/openapi.json`](docs/openapi.json) - machine-readable OpenAPI contract
+- [`docs/SYNTHETIC_DATA.md`](docs/SYNTHETIC_DATA.md) - synthetic dataset rules
+- [`docs/LEARNING_EVENTS.md`](docs/LEARNING_EVENTS.md) - learning-event privacy/data contract
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) - deployment configuration
+- [`CHANGELOG.md`](CHANGELOG.md) - release history
 
-## Privacy and data
+## Privacy and responsible use
 
-Use synthetic data for public demos, screenshots, portfolio posts, and videos.
+Use synthetic data for public demos, screenshots, recordings, and portfolio posts.
 
-When testing with real institutional data:
+For real institutional data:
 
-- obtain the necessary permission;
-- do not commit real timetable/student/faculty data to GitHub;
-- do not put secrets in `.env.example`;
+- obtain permission before using student/faculty information;
 - keep real databases outside version control;
-- avoid exposing personal student information in public recordings.
+- do not commit `.env` or secrets;
+- avoid exposing personal data in public recordings;
+- follow the institution's data-handling requirements.
 
-## Release model
+## Distribution model
 
-GitHub is the source and distribution point for this project.
+The GitHub repository is the source and distribution point for the project.
 
 A reviewer can:
 
-- run the web application locally;
-- generate the synthetic demo dataset;
-- start from a clean database and import a real CSV/XLSX timetable;
-- build an Android APK against their own local backend;
-- inspect the API, AI-evaluation, safety, and deployment documentation.
+- run the full web application locally;
+- generate synthetic demo data;
+- import a real CSV/XLSX timetable into a fresh database;
+- build the Android client for their own local backend;
+- inspect the AI model artifact, evaluation, API contract, tests, and safety architecture.
 
-A continuously hosted cloud backend is **not required** for local evaluation.
+A continuously hosted cloud backend is not required for local evaluation.

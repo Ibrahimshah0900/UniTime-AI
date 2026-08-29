@@ -98,8 +98,8 @@ Backend pytest:
 375 passed, 4 skipped
 ```
 
-## FYP conclusion
+## Project conclusion
 
 UniTime-AI combines deterministic timetable-safety validation with an experimental CatBoost learning-to-rank layer. On a locked synthetic test set, CatBoost produced better ranking metrics than the deterministic weighted baseline while remaining unable to bypass deterministic safety rules.
 
-The model remains **`EXPERIMENTAL_SYNTHETIC`**. These results are suitable for FYP demonstration and architecture validation, but they are not real-university production accuracy claims.
+The model remains **`EXPERIMENTAL_SYNTHETIC`**. These results are suitable for project demonstration and architecture validation, but they are not real-university production accuracy claims.
