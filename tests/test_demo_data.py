@@ -94,6 +94,8 @@ def test_demo_generator_is_deterministic_and_clearly_synthetic():
             assert emails
             assert all(email.endswith("@synthetic.invalid") for email in emails)
             assert db.scalar(select(func.count(StudentProfile.user_id))) == 16
+            sources = set(db.scalars(select(TimetableEntry.source)).all())
+            assert sources == {"generated"}
     finally:
         engine1.dispose()
         engine2.dispose()

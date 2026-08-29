@@ -256,7 +256,7 @@ def generate_demo_data(
                     end_time=end_time,
                     class_type="lecture",
                     raw_text="DEMO SYNTHETIC DATA",
-                    source="demo_synthetic",
+                    source="generated",
                 )
                 db.add(entry)
                 timetable_entries.append(entry)

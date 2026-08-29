@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    target: 'chrome83',
+  },
   test: {
     environment: 'jsdom',
     setupFiles: './tests/setup.ts',
