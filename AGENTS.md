@@ -1,238 +1,235 @@
-# UniTime-AI — Repository Instructions
+# UniTime-AI Repository Maintenance Guide
 
-## Project purpose
-UniTime-AI is a full-stack university timetable and clash-resolution system. It supports students, faculty, coordinators, and admins with institution-controlled identity, academic terms, enrollment-backed personal timetables, verified clash reports, deterministic safe resolution candidates, transactional apply/undo/redo, notifications, learning-event preparation, and a React/Vite frontend.
+## Source of truth
 
-## Working directory
-Primary Windows repository path: `D:\UniTime-AI`.
+The current `main` branch, Git history, Alembic migrations, tests, and committed API contract are authoritative.
 
-Work in the existing repository. Extend the proven architecture; do not create a parallel rewrite.
+Do not rely on old handoff notes or historical branch checkpoints when current repository state says otherwise.
 
-## Current architectural baseline
-The repository has progressed beyond the historical Phase-5 handoff. The authoritative state is the actual Git history, migrations, tests, and API contract.
+## Project
 
-Known checkpoint before the current continuation:
-- branch: `phase-6-faculty-access`
-- commit: `8b2c437 Collect pii guarded domain learning events`
-- Alembic head: `738057d5ac81`
-- API contract before the quality/analytics continuation: `0.15.0`
-- known green baseline: 257 backend tests passed, 1 skipped; 21 frontend tests passed; lint, typecheck, and production build passed
+UniTime-AI is a full-stack university timetable and clash-resolution platform for students, faculty, coordinators, and administrators.
 
-The current working branch may contain later commits. Always inspect Git and Alembic rather than resetting to the checkpoint above.
+Current architecture:
 
-Never rewrite, squash, or reset existing project history without explicit approval.
+- Python 3.13 / FastAPI backend
+- SQLAlchemy 2 + Alembic
+- SQLite for local/demo use and PostgreSQL support
+- React 19 + TypeScript + Vite frontend
+- Capacitor Android client
+- deterministic timetable/clash safety engine
+- CatBoost `research-v1` experimental learning-to-rank layer
+- GitHub Actions qualification
 
-## Mandatory workflow
-Reliability matters more than shaving off one command.
+The current backend API contract is `0.18.0`.
 
-1. Inspect the current Git state and relevant code before editing.
-2. Make small, architecture-compatible changes.
-3. Prefer readable edits; no opaque Base64 blobs or giant blind shell one-liners.
-4. Compile changed Python code.
-5. Run targeted tests for the changed subsystem.
-6. Stop on the first real failure and fix the root cause before stacking more changes.
-7. Run the full regression suite before a checkpoint.
-8. Run `alembic check` whenever models/schema are involved.
-9. Run `git diff --check` before committing.
-10. Create focused local commits only after the milestone is green.
+## Engineering workflow
 
-Do not claim success for tests or deployment steps that were not actually run.
+For every meaningful change:
 
-## Windows / shell
-The user works on Windows CMD/VS Code terminals.
+1. inspect the current branch, status, recent history, relevant code, tests, and contracts;
+2. understand the existing implementation before editing;
+3. prefer the smallest correct change;
+4. reuse existing services, utilities, platform features, and dependencies;
+5. add or update focused tests;
+6. run targeted verification immediately;
+7. run full qualification before a release checkpoint;
+8. run `alembic check` for schema/model changes;
+9. run `git diff --check`;
+10. stage only the exact intended paths.
 
-- Prefer Windows-compatible commands.
-- Use the project interpreter: `.venv\Scripts\python.exe`.
-- Avoid fragile quoting-heavy commands and Bash-only constructs in user-facing instructions.
-- Do not ask the user to manually edit code when the coding agent can make the edit safely.
+Prefer root-cause fixes over patches around symptoms.
 
-A machine-specific pytest temp-directory permission issue may exist under `%TEMP%`. When present, use the already verified project-local workaround `--basetemp=data\pytest-opencode` rather than changing application logic.
+Avoid speculative abstractions, parallel implementations, unnecessary dependencies, and unrelated refactors.
 
-## Git and safety
-Allowed: inspect Git, selectively stage project files, create focused local commits after green verification.
+## Git safety
 
-Never perform without explicit approval:
-- `git push`
-- `git reset --hard`
-- `git clean`
-- force-push/rebase/history rewrite
-- destructive deletion of project/user data
+Do not:
 
-Never commit secrets, `.env`, local databases, generated demo databases, `node_modules`, build output, or agent-operation files.
+- use `git clean`;
+- broadly stage with `git add .` or `git add -A`;
+- rewrite, squash, force-push, or hard-reset published history without explicit approval;
+- commit `.env`, secrets, databases, generated demo databases, `node_modules`, build outputs, IDE-local state, or private institutional data.
 
-## Database / migrations
-Alembic is the sole schema owner. Application startup must not use `create_all()` as schema management.
+Use a focused branch for new feature work and merge only after CI passes.
 
-Local development defaults to SQLite; production is PostgreSQL-ready via `DATABASE_URL`.
+## Database
 
-Before a schema checkpoint:
-- inspect current migration head
-- generate one focused migration only when required
-- inspect the migration manually
-- run upgrade/check in an isolated or appropriate environment
-- preserve existing data semantics
+Alembic is the sole schema owner.
 
-Do not reset the development database merely to make migration problems disappear.
+Application startup must not use `create_all()` as production schema management.
 
-## Authentication, identity, and RBAC
+For schema changes:
+
+- inspect the current Alembic head;
+- create one focused migration when required;
+- inspect the migration;
+- test upgrade/check;
+- preserve existing data semantics.
+
+Do not reset a real database to hide migration problems.
+
+## Authentication and authorization
+
 Roles:
+
 - `student`
 - `faculty`
 - `coordinator`
 - `admin`
 
 Preserve:
-- JWT auth with token-version invalidation
-- Argon2 password hashing
-- student login by registration number or email
-- faculty/coordinator/admin email login
-- institution-controlled student provisioning/import
-- temporary-password and first-login workflow
-- verified student profile/onboarding
-- faculty provisioning and assignments
-- ownership protection
-- production public-registration restrictions
 
-Do not reintroduce unrestricted public institutional registration.
+- JWT authentication and token-version invalidation;
+- Argon2 password hashing;
+- role and ownership authorization;
+- institution-controlled student/staff provisioning;
+- temporary-password / first-login behavior;
+- verified student onboarding;
+- production restriction of public registration.
+
+Do not weaken authorization to make a feature easier to implement.
 
 ## Academic terms
-The authoritative lifecycle is:
+
+Lifecycle:
 
 `planning -> active -> archived`
 
-Planning is a draft workspace, active is current operational truth, archived terms are historical/read-only. Current APIs default to the active term where appropriate.
+Planning is a draft workspace, active is operational truth, and archived terms are historical/read-only.
 
-Do not destructively replace this lifecycle. A deeper same-term publication/version model is optional future work only if it can be integrated safely.
+## Timetable and enrollment evidence
 
-## Enrollment-backed schedules and conflict graph
-Student enrollments use stable course/section/semester identities rather than direct timetable-entry foreign keys.
+Student personal schedules are enrollment-backed.
 
-Personal timetable matching supports exact sections, combined sections, common/shared entries, missing timetable semester metadata, and normalized identities.
+Confirmed student conflicts must come from active verified enrollment mappings. Heuristic/inferred risk must remain explicitly distinguished from confirmed evidence.
 
-Confirmed student conflicts must come from actual active verified enrollment mappings. Heuristic timetable-only risks must remain explicitly labeled inferred/probable and must never be presented as confirmed enrollment evidence.
+Timetable import supports CSV/XLSX and must validate data transactionally.
 
-## Verified clash reporting
-Students submit reports only for classes in their current personal timetable and for real current overlaps. Reports preserve immutable server-attached identity, term, class, and conflict snapshots.
+## Clash reporting and resolution
 
-Students may access only their own reports. Coordinator/admin review is audited.
+Students may report only real current overlaps from their own current personal timetable.
 
-A report must not become `resolved` merely because a reviewer selected a status and wrote a note. Verified resolution reasons are:
-- `timetable_changed`
-- `enrollment_corrected`
-- `course_dropped`
-- `other_verified_correction`
+Resolution candidates use these states:
 
-The backend must verify the reported live conflict is actually gone; otherwise resolution returns a conflict response.
-
-## Duplicate clustering
-Reports for the same underlying term/conflict may be clustered while preserving each report and owner. Cluster-level responses must not expose student names, emails, registration numbers, or user IDs.
-
-## Deterministic safe resolution candidates
-The application already has report-scoped candidate generation and ranking.
-
-Candidate states:
 - `SAFE`
 - `CONDITIONALLY_SAFE`
 - `INSUFFICIENT_DATA`
 - `REJECTED`
 
-Hard constraints are authoritative. Reject violations before ranking. `INSUFFICIENT_DATA` and `REJECTED` are never applicable. Conditional candidates require explicit coordinator confirmation.
+Hard constraints are authoritative.
 
-Candidate IDs include relevant live timetable/policy/enrollment evidence so stale candidates are rejected at execution.
+`REJECTED` and `INSUFFICIENT_DATA` candidates are never applicable. Conditional candidates require explicit coordinator confirmation.
 
-## Transactional apply / undo / redo
-Resolution application must:
-- regenerate/revalidate under the timetable write lock
-- reject stale/unsafe candidates
-- update only the intended timetable entry
-- recheck the live result
-- resolve matching reports only when the real overlap disappeared
-- record report events, timetable history, actor/candidate/safety metadata, notifications, and learning signals
-- commit atomically
+Applying a resolution must revalidate live state under the timetable write lock and must keep change/report/history/notification effects atomic.
 
-Failure rolls everything back.
+Undo/redo must preserve the same safety and audit guarantees.
 
-Undo must reopen any related report whose real conflict returns. Redo must regenerate/revalidate the candidate before reapplying.
+## AI boundary
 
-## Enrollment add/drop validation
-`POST /student/enrollments/validate` previews actual timetable overlaps and timetable-only alternate sections. It must not claim capacity, eligibility, seat availability, or institutional approval unless those facts are modeled and verified. Never auto-switch a student between sections.
+The included CatBoost model is:
 
-## Learning / AI boundary
-A frozen CatBoost `research-v1` ranking artifact is integrated as `EXPERIMENTAL_SYNTHETIC`. It was trained and selected outside the application code on synthetic labels only. It is not a production-accuracy claim and cannot bypass hard safety rules.
+- model: `research-v1`
+- status: `EXPERIMENTAL_SYNTHETIC`
+- training/evaluation origin: synthetic labels only
 
-The runtime order is mandatory:
-- deterministic candidate generation and hard safety checks
-- exclude `REJECTED` and `INSUFFICIENT_DATA` from ML inference
-- CatBoost may rank only `SAFE` and `CONDITIONALLY_SAFE` candidates
-- any model/dependency/artifact/schema/feature/prediction failure falls back to `DeterministicWeightedRanker`
-- transactional apply regenerates/revalidates under lock regardless of ranker score
+Mandatory runtime order:
 
-Allowed engineering work:
-- deterministic safety and fallback ranking
-- frozen-model inference adapter and artifact integrity checks
-- feature extraction
-- PII-guarded event collection
-- dataset export
-- synthetic benchmarks
-- ranker safety/fallback tests
+1. deterministic candidate generation;
+2. deterministic hard safety checks;
+3. exclude `REJECTED` and `INSUFFICIENT_DATA`;
+4. CatBoost may rank only `SAFE` and `CONDITIONALLY_SAFE`;
+5. model/artifact/schema/feature/prediction failure falls back to `DeterministicWeightedRanker`;
+6. selected actions are revalidated under the write lock before mutation.
 
-Do not:
-- use an LLM as the timetable resolver
-- let ML override constraints or make a candidate applicable
-- claim synthetic metrics as real-university accuracy
-- retrain/tune the frozen artifact from application runtime
-- silently replace `research-v1` without a separately evaluated promotion decision
+Never let ML override hard constraints or make a candidate applicable.
 
-## Synthetic/demo data
-Synthetic generation is an isolated development/testing tool, never application-startup behavior and never production data.
+Do not present synthetic evaluation metrics as real-university production accuracy.
 
-Synthetic records must be unmistakably labeled DEMO/SYNTHETIC, use reserved/test identities, avoid real PII, refuse the normal development/production database, refuse populated targets, and remain deterministic for a given seed/configuration.
+Keep the model feature contract PII-free.
 
-Generated databases and benchmark artifacts must not be committed.
+## Synthetic data
 
-## Data quality and resolver analytics
-Coordinator/admin diagnostics must be read-only and privacy-conscious. Report only facts supported by the actual schema. Do not fabricate capacity/equipment issues or unavailable analytics.
+Synthetic generation is for development, demonstrations, and evaluation only.
 
-Metrics without trustworthy denominators must be marked unavailable rather than estimated.
+It must remain:
+
+- clearly labeled synthetic;
+- isolated from real data;
+- deterministic for a fixed seed/config;
+- unable to overwrite the normal development/production database;
+- excluded from version control as generated database files.
 
 ## Frontend
-The React/Vite frontend is already integrated. Preserve the approved role-adaptive design; do not rebuild it from scratch or start an unrelated redesign.
 
-Coordinator workflows should expose report clusters, ranked candidates, impact/safety explanations, confirmation, apply results, history, undo/reopen, safe redo, quality diagnostics, and resolver analytics without dumping raw JSON as the normal UX.
+Preserve the existing role-adaptive React/Vite interface and API-client architecture.
 
-Maintain loading/error/empty/disabled/stale/success states and existing accessibility patterns.
+Maintain:
 
-## Testing expectations
-Backend checkpoint:
-- compile changed Python files or `compileall`
-- targeted tests
-- full `pytest` regression
-- `alembic check`
-- `git diff --check`
+- loading/error/empty/success states;
+- accessibility patterns;
+- role-appropriate navigation;
+- clear distinction between 401 and 403 behavior;
+- no direct database access from the frontend.
 
-Frontend checkpoint:
-- `npm run lint`
-- `npm run typecheck`
-- `npm test -- --run` or repository-established equivalent
-- `npm run build`
+## Android
 
-Run Playwright E2E for full-stack role/resolution workflows when the environment supports it. Never claim it passed unless it actually ran.
+The Android client is generated from the same React frontend through Capacitor.
 
-Important end-to-end resolver invariant:
-student provisioning/onboarding -> authentic enrollments -> conflict warning -> verified report -> coordinator cluster/candidates -> safe apply -> timetable changes -> related reports resolve because clash is gone -> student history/notification -> undo -> conflict/report reopen -> safe redo -> verified resolution again.
+Local physical-device HTTP testing may explicitly enable cleartext development behavior. A production-hosted backend should use HTTPS.
 
-## Deployment boundary
-The repository is deployment-ready in architecture but must not be called production-deployed until PostgreSQL migrations, role smoke tests, production-style E2E, notification worker, real secrets, HTTPS/domain/CORS/hosts, backups, and live smoke tests are verified.
+The backend URL is build-time configuration through `VITE_API_BASE_URL`.
 
-Mobile/Capacitor packaging, GitHub release, and production hosting are intentionally after the web resolver is logically complete and fully verified.
+## Verification
 
-## Startup inspection
-At the beginning of any significant work, inspect at minimum:
-1. `git branch --show-current`
-2. `git status --short`
-3. `git log --oneline -10`
-4. `.venv\Scripts\python.exe -m alembic current`
-5. `.venv\Scripts\python.exe -m alembic check`
-6. relevant API contract, models, routes/services, tests, and frontend files
+Backend:
 
-The repository itself is authoritative. Do not follow historical pause-point text when Git, migrations, and current code show later completed work.
+```powershell
+python -m pytest tests -q
+python -m alembic check
+git diff --check
+```
+
+Frontend:
+
+```powershell
+Set-Location frontend
+npm.cmd ci
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd test
+npm.cmd run build
+npm.cmd run test:e2e
+```
+
+Android changes must also satisfy the existing Android GitHub Actions job.
+
+API changes must update tests/contracts and regenerate `docs/openapi.json` when required.
+
+## Documentation
+
+Keep these synchronized with behavior:
+
+- `README.md`
+- `frontend/README.md`
+- `docs/API_CONTRACT.md`
+- `docs/openapi.json`
+- `docs/PROJECT_GUIDE.md`
+- `docs/TEACHER_RUN_GUIDE.md`
+- `docs/DEPLOYMENT.md`
+- `docs/AI_EVALUATION.md`
+- `docs/RANKER_CONTRACT.md`
+- `CHANGELOG.md`
+
+## Privacy
+
+Never commit:
+
+- real student/faculty records;
+- real institutional timetable files unless explicitly approved for public release;
+- passwords or tokens;
+- database exports;
+- private handoff prompts;
+- local machine configuration.
+
+Public demos should use the synthetic dataset.

@@ -171,7 +171,7 @@ Useful URLs:
 
 ### 5. Start the frontend
 
-Open a second terminal:
+Open a second terminal, change to the cloned repository root, then:
 
 ```powershell
 Set-Location frontend

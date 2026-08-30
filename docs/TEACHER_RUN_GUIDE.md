@@ -59,7 +59,7 @@ python -m uvicorn backend.app:app --reload
 In another PowerShell window:
 
 ```powershell
-Set-Location UniTime-AI\frontend
+Set-Location 'C:\path\to\UniTime-AI\frontend'
 npm.cmd ci
 npm.cmd run dev
 ```

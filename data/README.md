@@ -8,7 +8,7 @@ Do **not** commit real institutional timetable files, student records, faculty r
 
 Use:
 
-- `data/test_timetable.csv` for generic importer testing;
+- `data/test_timetable.csv` for generic importer/validation testing (it intentionally contains an invalid time range);
 - `data/messy_timetable.csv` for alias/normalization testing;
 - `docs/timetable_import_template.csv` as the starter template for a real timetable.
 

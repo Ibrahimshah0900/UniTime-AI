@@ -23,7 +23,7 @@ The repository also includes `frontend/Dockerfile`, an unprivileged Nginx SPA co
 
 Use one migration-running instance during deployments if the hosting platform starts multiple replicas simultaneously. After migrations complete, scale application replicas normally.
 
-The current migration head is `738057d5ac81`. It adds the append-only, constrained domain learning-event store. Existing timetable, report, ranking-event, and history rows are unchanged; no model is trained or deployed by this migration.
+The current migration head is `f3c1b6a9d742`. The migration chain includes the institutional scheduling foundation and the PostgreSQL academic-term sequence repair. Always run `alembic upgrade head` rather than hard-coding a historical revision.
 
 ## Release checks
 

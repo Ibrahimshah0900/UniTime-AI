@@ -9,3 +9,11 @@ dist/
 build/
 *.db
 .DS_Store
+.idea/
+.vscode/
+coverage/
+playwright-report/
+test-results/
+*.log
+.env.*
+!.env.example

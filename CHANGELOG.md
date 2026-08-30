@@ -2,6 +2,18 @@
 
 All notable project-level changes are summarized here.
 
+## v0.1.1 - 2026-08-30
+
+### Repository audit
+
+- Corrected stale API-contract and Alembic-head documentation.
+- Replaced historical machine-specific agent instructions with current repository guidance.
+- Removed tracked Android Studio project-state files and expanded local-state ignores.
+- Refreshed GitHub Actions to supported Node-24-generation action majors.
+- Aligned project/frontend/Android patch-version metadata.
+- Clarified validation-fixture intent.
+- Requalified backend, PostgreSQL, frontend, and Android jobs before release.
+
 ## v0.1.0 - 2026-08-30
 
 ### Application
